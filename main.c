@@ -30,6 +30,8 @@
 #include <kmalloc.h>
 #include <syscall.h>
 
+#include <string.h>
+
 extern void switch_user_mode();
 
 // Defined in linker script

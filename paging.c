@@ -127,11 +127,11 @@ void init_paging(u32int mem_end) {
 	mem_end &= 0xFFFFF000;		// Make sure it's page aligned. Shouldn't be a problem, but doesn't hurt
 	nframes = mem_end / 0x1000;
 	frames = (u32int *)kmalloc(INDEX_FROM_BIT(nframes));
-	memset((u8int *)frames, 0, INDEX_FROM_BIT(nframes));
+	memset(frames, 0, INDEX_FROM_BIT(nframes));
 
 	u32int i;																			
 	kernel_dir = (page_directory_t *)kmalloc_ap(sizeof(page_directory_t), &i);
-	memset((u8int *)kernel_dir, 0, sizeof(page_directory_t));
+	memset(kernel_dir, 0, sizeof(page_directory_t));
 	kernel_dir->physical_address = i;
 
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INIT_SIZE; i += 0x1000)
@@ -169,7 +169,7 @@ page_t *get_page(u32int address, int make, page_directory_t *dir) {
 	else if (make) {
 		u32int tmp;
 		dir->tables[i] = (page_table_t*)kmalloc_ap(sizeof(page_table_t), &tmp);
-		memset((u8int *)dir->tables[i], 0, 0x1000);
+		memset(dir->tables[i], 0, 0x1000);
 		dir->tables_phys[i].present = 1;
 		dir->tables_phys[i].rw = 1;
 		dir->tables_phys[i].user = 1;
@@ -181,7 +181,7 @@ page_t *get_page(u32int address, int make, page_directory_t *dir) {
 
 static page_table_t *clone_table(page_table_t *src, u32int *physAddr) {
 	page_table_t *table = (page_table_t *)kmalloc_ap(sizeof(page_table_t), physAddr);
-	memset((u8int *)table, 0, sizeof(page_table_t));
+	memset(table, 0, sizeof(page_table_t));
 	int i;
 	for (i = 0; i < 1024; i++) {
 		if (src->pages[i].frame) {
@@ -205,7 +205,7 @@ static page_table_t *clone_table(page_table_t *src, u32int *physAddr) {
 page_directory_t *clone_directory(page_directory_t *src) {
 	u32int phys;
 	page_directory_t *dir = (page_directory_t *)kmalloc_ap(sizeof(page_directory_t), &phys);
-	memset((u8int *)dir, 0, sizeof(page_directory_t));
+	memset(dir, 0, sizeof(page_directory_t));
 	dir->physical_address = phys;
 	int i;
 	for (i = 0; i < 1024; i++) {

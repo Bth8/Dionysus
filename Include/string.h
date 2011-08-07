@@ -22,7 +22,7 @@
 #include <common.h>
 
 u32int strlen(char *buf);
-void memset(u8int *buf, u8int value, u32int num);
-void memcpy(u8int *dest, u8int *src, u32int size);
+void memset(void *buf, u8int value, u32int num);
+void memcpy(void *dest, void *src, u32int size);
 
 #endif

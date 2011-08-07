@@ -29,7 +29,7 @@ u32int std_lessthan(type_t a, type_t b) {
 ordered_array_t create_ordered_array(u32int max_size, lessthan_predicate_t less) {
 	ordered_array_t ret;
 	ret.array = (void *)kmalloc(max_size * sizeof(type_t));
-	memset((u8int *)ret.array, 0, max_size * sizeof(type_t));
+	memset(ret.array, 0, max_size * sizeof(type_t));
 	ret.size = 0;
 	ret.max_size = max_size;
 	ret.less_than = less;
@@ -39,7 +39,7 @@ ordered_array_t create_ordered_array(u32int max_size, lessthan_predicate_t less)
 ordered_array_t place_ordered_array(void *addr, u32int max_size, lessthan_predicate_t less) {
 	ordered_array_t ret;
 	ret.array = (type_t *)addr;
-	memset((u8int *)ret.array, 0, max_size * sizeof(type_t));
+	memset(ret.array, 0, max_size * sizeof(type_t));
 	ret.size = 0;
 	ret.max_size = max_size;
 	ret.less_than = less;

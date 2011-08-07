@@ -58,7 +58,7 @@ void move_stack(void *new_stack_start, u32int size) {
 	u32int new_ebp = old_ebp + offset;
 
 	// Copy old stack contents into new one
-	memcpy((u8int *)new_esp, (u8int *)old_esp, initial_esp - old_esp);
+	memcpy((void *)new_esp, (void *)old_esp, initial_esp - old_esp);
 
 	// Fix ebps (and hopefully not much else)
 	for (i = (u32int)new_stack_start; i > (u32int)new_stack_start - size; i -= 4) {

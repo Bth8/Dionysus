@@ -60,7 +60,7 @@ void kfree(void *addr) {
 	free(addr, kheap);
 }
 
-extern inline void *kmalloc(u32int sz) { return (void *)kmalloc_internal(sz, 0, NULL); }
-extern inline void *kmalloc_a(u32int sz) { return (void *)kmalloc_internal(sz, 1, NULL); }
-extern inline void *kmalloc_p(u32int sz, u32int *phys) { return (void *)kmalloc_internal(sz, 0, phys); }
-extern inline void *kmalloc_ap(u32int sz, u32int *phys) { return (void *)kmalloc_internal(sz, 1, phys); }
+void *kmalloc(u32int sz) { return (void *)kmalloc_internal(sz, 0, NULL); }
+void *kmalloc_a(u32int sz) { return (void *)kmalloc_internal(sz, 1, NULL); }
+void *kmalloc_p(u32int sz, u32int *phys) { return (void *)kmalloc_internal(sz, 0, phys); }
+void *kmalloc_ap(u32int sz, u32int *phys) { return (void *)kmalloc_internal(sz, 1, phys); }

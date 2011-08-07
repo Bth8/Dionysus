@@ -23,5 +23,8 @@
 
 void kfree(void *addr);
 void *kmalloc(u32int sz);
+void *kmalloc_a(u32int sz);
+void *kmalloc_p(u32int sz, u32int *phys);
+void *kmalloc_ap(u32int sz, u32int *phys);
 
 #endif
