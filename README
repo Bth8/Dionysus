@@ -1,0 +1,11 @@
+Dionysus is a very, very basic x86 kernel, and that is all it
+aims to be. A simple yet functional (still working on that part)
+kernel licensed under the GNU GPL. It is based rather heavily 
+(for the time being) on theJames Molloy tutorial kernel available 
+at <http://www.jamesmolloy.co.uk/tutorial_html/index.html>, but it's
+already been significantly modified, and it is planned to be further
+expanded in the future.
+
+Dionysus is licensed under the GNU GPL. See COPYING for details.
+
+All code written (if not borrowed) by Bth8 <bth8fwd@gmail.com>
