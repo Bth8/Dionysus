@@ -69,18 +69,3 @@ global read_eip
 read_eip:
 	pop eax
 	jmp eax
-
-; This is needed to reenable interrupts, as the PIT disables them when it fires, and the real iret is never reached if we're jumping to a new child
-global fake_iret
-fake_iret:
-	cli
-	xchg bx, bx
-	pushfd
-	mov eax, cs
-	push eax
-	lea eax, [.finish]
-	push eax
-	iret
-.finish:
-	sti
-	ret

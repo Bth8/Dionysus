@@ -33,6 +33,7 @@ u16int inw(u16int port) {
 }
 
 void panic(u32int line, char *file, char *msg) {
+	asm volatile("cli");
 	monitor_write("KERNEL PANIC AT LINE ");
 	monitor_write_udec(line);
 	monitor_write(" IN FILE ");

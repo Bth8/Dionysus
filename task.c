@@ -29,7 +29,6 @@ extern u32int initial_esp;
 
 // Defined in process.s
 extern u32int read_eip();
-extern void fake_iret();
 
 // Defined in paging.c
 extern page_directory_t *current_dir;
@@ -125,7 +124,8 @@ int fork() {
 		asm volatile("sti");
 		return new_task->id;
 	} else {
-		fake_iret();
+		// Send EOI to PIC. Otherwise, PIT won't fire again.
+		outb(0x20, 0x20);
 		return 0;
 	}
 }

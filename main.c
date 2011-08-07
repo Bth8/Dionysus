@@ -30,8 +30,6 @@
 #include <kmalloc.h>
 #include <syscall.h>
 
-#include <string.h>
-
 extern void switch_user_mode();
 
 // Defined in linker script
@@ -81,16 +79,16 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	init_paging(mem_end);
 	init_timer(50);
 	init_tasking();
-	fork();
-/*	if (ret == 0)
+	int ret = fork();
+	if (ret == 0)
 		monitor_write("Child\n");
 	else {
 		monitor_write("Parent\n");
 	}
 
 	while (1) {
-		monitor_write_udec(getpid());
+		monitor_write_udec(ret);
 		monitor_put('\n');
-	} */
+	}
 	halt();
 }

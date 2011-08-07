@@ -1,9 +1,14 @@
 Practically everything. Very little's actually been implemented.
-Immediate concerns include fixing the multitasking system. As it
-stands, processes are switched every 4 PIT fires, but forking
-seems to disable the PIT (and interrupts of all kinds). Then, work
-needs to be done to implement reading/writing from/to the hard disk.
+
+Immediate concerns:
+Further work on process switching and management.
+
+Work needs to be done to implement reading/writing from/to the hard disk.
+
 Logically following would be some kind of filesystem support, such as
-ext2 and 3, and loading ELFs and perhaps other executable formats.
+ext2 and 3.
+
+Loading ELFs and perhaps other executable formats.
+
 Later, other features such as USB support and the like may be 
 implemented, but we'll cross those bridges when we get to them.
