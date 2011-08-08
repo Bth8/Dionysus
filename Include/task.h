@@ -30,13 +30,16 @@ typedef struct task {
 	u32int eip;					// Instruction pointer
 	page_directory_t *page_dir;
 	u32int kernel_stack;
+	s8int nice;
+	u8int su;
 	struct task *next;			// Next task in linked list
 } task_t;
 
 void init_tasking();
-void switch_task();
+int switch_task();
 void exit_task();
 int fork();
+int nice(int inc);
 void move_stack(void *new_stack_start, u32int size);
 int getpid();
 void switch_user_mode();

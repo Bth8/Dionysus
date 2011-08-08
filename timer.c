@@ -21,14 +21,13 @@
 #include <timer.h>
 #include <idt.h>
 #include <task.h>
+#include <monitor.h>
 
-u32int tick = 0;
+s32int tick = 3;
 
 static void timer_callback(registers_t regs) {
-	tick++;
-	if (tick > 3) {
-		tick = 0;
-		switch_task();
+	if (--tick <= 0) {
+		tick = (20 - switch_task()) / 20 * 3;
 	}
 	// Compiler complains otherwise
 	regs.eax = regs.eax;

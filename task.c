@@ -85,8 +85,10 @@ void init_tasking() {
 	current_task->esp = current_task->ebp = 0;
 	current_task->eip = 0;
 	current_task->page_dir = current_dir;
-	current_task->next = NULL;
 	current_task->kernel_stack = (u32int)kmalloc_a(KERNEL_STACK_SIZE);
+	current_task->nice = 0;
+	current_task->su = 1;
+	current_task->next = NULL;
 
 	asm volatile("sti");
 }
@@ -101,7 +103,10 @@ int fork() {
 	new_task->esp = new_task->ebp = 0;
 	new_task->eip = 0;
 	new_task->page_dir = directory;
-	current_task->kernel_stack = (u32int)kmalloc_a(KERNEL_STACK_SIZE);
+	new_task->kernel_stack = (u32int)kmalloc_a(KERNEL_STACK_SIZE);
+	// Inherit niceness and superuser abilities of parent
+	new_task->nice = current_task->nice;
+	new_task->su = current_task->su;
 	new_task->next = NULL;
 
 	// Add to end of ready queue
@@ -134,7 +139,7 @@ int getpid() {
 	return current_task->id;
 }
 
-void switch_task() {
+int switch_task() {
 	if (current_task) {
 		asm volatile("cli");
 		u32int esp, ebp, eip;
@@ -147,7 +152,7 @@ void switch_task() {
 		// If it's the latter, we need to return. To detect it, the former will return 0x12345
 		eip = read_eip();
 		if (eip == 0x12345)
-			return;
+			return current_task->nice;
 
 		current_task->eip = eip;
 		current_task->esp = esp;
@@ -175,6 +180,7 @@ void switch_task() {
 					sti;\
 					jmp *%%ecx" : : "r"(eip), "r"(esp), "r"(ebp), "r"(current_dir->physical_address) : "ecx", "esp", "ebp", "eax");
 	}
+	return 0;
 }
 
 void exit_task() {
@@ -200,6 +206,7 @@ void exit_task() {
 }	
 
 void switch_user_mode() {
+	current_task->su = 0;
 	set_kernel_stack(current_task->kernel_stack + KERNEL_STACK_SIZE);
 
 	asm volatile("cli;\
@@ -219,4 +226,16 @@ void switch_user_mode() {
 				push $1f;\
 				iret;\
 			1:"::);
+}
+
+int nice(int inc) {
+	if (inc < 0 && !current_task->su)
+		return -1;
+	if (current_task->nice + inc > 19)
+		current_task->nice = 19;
+	else if (current_task->nice + inc < -20)
+		current_task->nice = -20;
+	else
+		current_task->nice += inc;
+	return current_task->nice;
 }

@@ -86,9 +86,5 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 		monitor_write("Parent\n");
 	}
 
-	while (1) {
-		monitor_write_udec(ret);
-		monitor_put('\n');
-	}
 	halt();
 }
