@@ -115,7 +115,7 @@ void init_idt() {
 
 void isr_handler(registers_t regs) {
 	isr_t handler;
-	if ((handler = isr_handlers[regs.int_no]) != 0)
+	if ((handler = isr_handlers[regs.int_no]) != NULL)
 		handler(regs);
 	else {
 		monitor_write("Unhandled interrupt: ");

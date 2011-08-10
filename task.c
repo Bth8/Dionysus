@@ -186,27 +186,44 @@ int switch_task() {
 void exit_task() {
 	asm volatile("cli");
 	task_t *task_i = (task_t *)ready_queue, *current_cache = (task_t *)current_task;
+
+	// Make sure we're not the only task
 	ASSERT(task_i->next != NULL);
+
+	// Not the first task in the run queue
 	if (task_i != current_task) {
+		// Find the previous task
 		while (task_i->next != current_task)
 			task_i = task_i->next;
+		// Point it to the next one. We're out of the run queue
 		task_i->next = current_task->next;
 	} else {
+		// Move the run queue to its second task
 		task_i = task_i->next;
 		ready_queue = task_i;
 	}
+	// Prepare for a context switch
 	current_task = task_i;
 	current_dir = current_task->page_dir;
+	set_kernel_stack(current_task->kernel_stack + KERNEL_STACK_SIZE);
+	// Use new current_task's paging dir, because we're about to trash ours
 	asm volatile("mov %0, %%cr3":: "r"(current_dir->physical_address));
-	switch_task();
+
+	// Free everything
 	free_dir(current_cache->page_dir);
 	kfree((void *)current_cache->kernel_stack);
 	kfree((void *)current_cache);
-	asm volatile("sti");
+
+	// Context switching time
+	asm volatile("mov %0, %%ecx;\
+				mov %1, %%esp;\
+				mov %2, %%ebp;\
+				mov $0x12345, %%eax;\
+				sti;\
+				jmp *%%ecx" :: "r"(current_task->eip), "r"(current_task->esp), "r"(current_task->ebp) : "ecx", "esp", "ebp", "eax");
 }	
 
 void switch_user_mode() {
-	current_task->su = 0;
 	set_kernel_stack(current_task->kernel_stack + KERNEL_STACK_SIZE);
 
 	asm volatile("cli;\

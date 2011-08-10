@@ -79,12 +79,18 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	init_paging(mem_end);
 	init_timer(50);
 	init_tasking();
+	init_syscalls();
 	int ret = fork();
-	if (ret == 0)
+	if (ret == 0) {
 		monitor_write("Child\n");
-	else {
+		switch_user_mode();
+		syscall_exit();
+	} else {
 		monitor_write("Parent\n");
 	}
+
+	monitor_write_udec(ret);
+	monitor_put('\n'); 
 
 	halt();
 }

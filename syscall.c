@@ -21,13 +21,16 @@
 #include <common.h>
 #include <monitor.h>
 #include <idt.h>
+#include <task.h>
 
 DEFN_SYSCALL1(monitor_write, 0, const char*);
 DEFN_SYSCALL1(monitor_write_hex, 1, const u32int);
+DEFN_SYSCALL0(exit, 2);
 
 static void *syscalls[] = {
 	&monitor_write,
 	&monitor_write_hex,
+	&exit_task,
 };
 u32int num_syscalls;
 
