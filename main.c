@@ -29,11 +29,14 @@
 #include <task.h>
 #include <kmalloc.h>
 #include <syscall.h>
+#include <time.h>
 
 extern void switch_user_mode();
 
 // Defined in linker script
 extern u32int kend;
+
+extern time_t current_time;
 
 u32int placement_address = (u32int)&kend;
 u32int phys_address = (u32int)&kend - 0xC0000000u;
@@ -49,6 +52,8 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 
 	init_gdt();
 	init_idt();
+	init_time();
+	init_timer(50);
 	init_kbd();
 	u32int mem_end = 0; // Last valid address in memory so we know how far to page
 
@@ -77,9 +82,9 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	}
 
 	init_paging(mem_end);
-	init_timer(50);
 	init_tasking();
 	init_syscalls();
+
 	int ret = fork();
 	if (ret == 0) {
 		monitor_write("Child\n");

@@ -21,25 +21,48 @@
 #include <timer.h>
 #include <idt.h>
 #include <task.h>
-#include <monitor.h>
+#include <time.h>
 
-s32int tick = 3;
+// Defined in time.c
+extern time_t current_time;
 
-static void timer_callback(registers_t regs) {
-	if (--tick <= 0)
-		tick = (20 - switch_task()) / 20 * 3;
+u32int task_tick = 3;
+u32int rtc_tick = 1024;
+
+static void pit_callback(registers_t regs) {
+	if (--task_tick <= 0)
+		task_tick = (20 - switch_task()) / 20 * 3;
+	// Compiler complains otherwise
+	regs.eax = regs.eax;
+}
+
+static void rtc_callback(registers_t regs) {
+	if (--rtc_tick <= 0) {
+		current_time++;
+		rtc_tick = 1024;
+	}
+	READ_CMOS(0x0C);		// Register C has info on what int just fired. We don't care, trash it
 	// Compiler complains otherwise
 	regs.eax = regs.eax;
 }
 
 void init_timer(u32int freq) {
-	register_interrupt_handler(IRQ0, &timer_callback);
+	asm volatile("cli");
+	// PIT
+	register_interrupt_handler(IRQ0, &pit_callback);
 
-	u32int divisor = 1193180 / freq;
+	u32int divisor = 1193182 / freq;
 
 	// Command byte
 	outb(0x43, 0x36);
 
 	outb(0x40, divisor & 0xFF);
 	outb(0x40, divisor >> 8);
+
+	// RTC
+	register_interrupt_handler(IRQ8, &rtc_callback);
+	// Enable interrupts
+	u8int prev = READ_CMOS(0x0B);
+	WRITE_CMOS(0x0B, prev | 0x40);
+	asm volatile("sti");
 }
