@@ -30,6 +30,7 @@
 #include <kmalloc.h>
 #include <syscall.h>
 #include <time.h>
+#include <ide.h>
 
 extern void switch_user_mode();
 
@@ -44,6 +45,8 @@ u32int initial_esp;
 
 void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	initial_esp = esp;
+	u32int mem_end = 0; // Last valid address in memory so we know how far to page
+	u8int buf[1024];
 	monitor_clear();
 	if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
 		monitor_write("ERROR: MULTIBOOT_BOOTLOADER_MAGIC not correct. Halting.\n");
@@ -53,9 +56,8 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	init_gdt();
 	init_idt();
 	init_time();
-	init_timer(50);
+	init_timer(1000);
 	init_kbd();
-	u32int mem_end = 0; // Last valid address in memory so we know how far to page
 
 	if (mboot->flags & MULTIBOOT_INFO_MODS && mboot->mods_count) {
 		multiboot_module_t *mods = (multiboot_module_t *)mboot->mods_addr;
@@ -84,18 +86,9 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	init_paging(mem_end);
 	init_tasking();
 	init_syscalls();
-
-	int ret = fork();
-	if (ret == 0) {
-		monitor_write("Child\n");
-		switch_user_mode();
-		syscall_exit();
-	} else {
-		monitor_write("Parent\n");
-	}
-
-	monitor_write_udec(ret);
-	monitor_put('\n'); 
+	init_ide(0x1F0, 0x3F4, 0x170, 0x374, 0x000);
+	ide_write_sectors(0, 2, 0, 0x10, buf);
+	monitor_write_hex((u32int)&buf);
 
 	halt();
 }

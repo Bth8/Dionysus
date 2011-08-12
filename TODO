@@ -3,7 +3,8 @@ Practically everything. Very little's actually been implemented.
 Immediate concerns:
 Further work on process switching and management.
 
-Work needs to be done to implement reading/writing from/to the hard disk.
+Work needs to be done on improving hard disk operations. Need to
+be able to write to ATAPI, need to implement DMA, etc.
 
 Logically following would be some kind of filesystem support, such as
 ext2 and 3.

@@ -20,18 +20,6 @@
 #include <common.h>
 #include <monitor.h>
 
-u8int inb(u16int port) {
-	u8int ret;
-	asm volatile ("inb %1, %0" : "=a" (ret) : "dN" (port));
-	return ret;
-}
-
-u16int inw(u16int port) {
-	u16int ret;
-	asm volatile ("inw %1, %0" : "=a" (ret) : "dN" (port));
-	return ret;
-}
-
 void panic(u32int line, char *file, char *msg) {
 	asm volatile("cli");
 	monitor_write("KERNEL PANIC AT LINE ");

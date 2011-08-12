@@ -26,12 +26,14 @@
 // Defined in time.c
 extern time_t current_time;
 
-u32int task_tick = 3;
+u32int tick = 0;
+u32int task_tick = 20;
 u32int rtc_tick = 1024;
 
 static void pit_callback(registers_t regs) {
+	++tick;
 	if (--task_tick <= 0)
-		task_tick = (20 - switch_task()) / 20 * 3;
+		task_tick = (20 - switch_task());
 	// Compiler complains otherwise
 	regs.eax = regs.eax;
 }
@@ -65,4 +67,10 @@ void init_timer(u32int freq) {
 	u8int prev = READ_CMOS(0x0B);
 	WRITE_CMOS(0x0B, prev | 0x40);
 	asm volatile("sti");
+}
+
+void sleep(u32int ms) {
+	u32int finish = tick + ms;
+	while (tick > finish)
+		continue;
 }
