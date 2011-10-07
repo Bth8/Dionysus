@@ -87,7 +87,8 @@ void init_tasking() {
 	current_task->page_dir = current_dir;
 	current_task->kernel_stack = (u32int)kmalloc_a(KERNEL_STACK_SIZE);
 	current_task->nice = 0;
-	current_task->su = 1;
+	current_task->euid, current_task->suid, current_task->ruid = 0;
+	current_task->egid, current_task->rgid, current_task->sgid = 0;
 	current_task->next = NULL;
 
 	asm volatile("sti");
@@ -104,9 +105,14 @@ int fork() {
 	new_task->eip = 0;
 	new_task->page_dir = directory;
 	new_task->kernel_stack = (u32int)kmalloc_a(KERNEL_STACK_SIZE);
-	// Inherit niceness and superuser abilities of parent
+	// Inherit niceness and ids of parent
 	new_task->nice = current_task->nice;
-	new_task->su = current_task->su;
+	new_task->euid = current_task->euid;
+	new_task->ruid = current_task->ruid;
+	new_task->suid = current_task->suid;
+	new_task->egid = current_task->egid;
+	new_task->rgid = current_task->rgid;
+	new_task->sgid = current_task->sgid;
 	new_task->next = NULL;
 
 	// Add to end of ready queue
@@ -246,7 +252,7 @@ void switch_user_mode() {
 }
 
 int nice(int inc) {
-	if (inc < 0 && !current_task->su)
+	if (inc < 0 && !current_task->euid)
 		return -1;
 	if (current_task->nice + inc > 19)
 		current_task->nice = 19;
@@ -255,4 +261,168 @@ int nice(int inc) {
 	else
 		current_task->nice += inc;
 	return current_task->nice;
+}
+
+int seteuid(int new_euid) {
+	int suid = current_task->euid;
+	if (current_task->euid)
+		if (new_euid == current_task->suid || new_euid == current_task->ruid || new_euid == current_task->euid)
+			current_task->euid = new_euid;
+		else
+			return -1;
+	else
+		current_task->euid = new_euid;
+
+	current_task->suid = suid;
+	return 0;
+}
+
+int setreuid(int new_ruid, int new_euid) {
+	int suid = current_task->euid;
+	if (current_task->euid) {
+		if (new_ruid > -1) {
+			if (new_ruid == current_task->euid || new_ruid == current_task->ruid)
+				current_task->ruid = new_ruid;
+			else
+				return -1;
+		}
+		if (new_euid > -1 && seteuid(new_euid) < 0)
+			return -1;
+	} else {
+		if (new_ruid > -1)
+			current_task->ruid = new_ruid;
+		if (new_euid > -1)
+			current_task->euid = new_euid;
+	}
+
+	current_task->suid = suid;
+	return 0;
+}			
+
+int setresuid(int new_ruid, int new_euid, int new_suid) {
+	if (current_task->euid) {
+		if (new_suid > -1) {
+			if (new_suid == current_task->euid || new_suid == current_task->ruid || new_suid == current_task->suid)
+				current_task->suid = new_suid;
+			else
+				return -1;
+		}
+		if ((new_euid > -1 || new_ruid > -1) && setreuid(new_ruid, new_euid))
+			return -1;
+	} else {
+		if (new_ruid > -1)
+			current_task->ruid = new_ruid;
+		if (new_euid > -1)
+			current_task->euid = new_euid;
+		if (new_suid > -1)
+			current_task->suid = new_suid;
+	}
+
+	return 0;
+}
+
+int setuid(int uid) {
+	if (!current_task->euid)
+		current_task->ruid = current_task->suid = current_task->euid = uid;
+	else
+		return seteuid(uid);
+
+	return 0;
+}
+
+int getuid() {
+	return current_task->ruid;
+}
+
+int geteuid() {
+	return current_task->euid;
+}
+
+int getresuid(int *ruid, int *euid, int *suid) {
+	*ruid = current_task->ruid;
+	*euid = current_task->euid;
+	*suid = current_task->suid;
+	return 0;
+}
+
+int setegid(int new_egid) {
+	int sgid = current_task->egid;
+	if (current_task->egid)
+		if (new_egid == current_task->sgid || new_egid == current_task->rgid || new_egid == current_task->egid)
+			current_task->egid = new_egid;
+		else
+			return -1;
+	else
+		current_task->egid = new_egid;
+
+	current_task->sgid = sgid;
+	return 0;
+}
+
+int setregid(int new_rgid, int new_egid) {
+	int sgid = current_task->egid;
+	if (current_task->egid) {
+		if (new_rgid > -1) {
+			if (new_rgid == current_task->egid || new_rgid == current_task->rgid)
+				current_task->rgid = new_rgid;
+			else
+				return -1;
+		}
+		if (new_egid > -1 && setegid(new_egid) < 0)
+			return -1;
+	} else {
+		if (new_rgid > -1)
+			current_task->rgid = new_rgid;
+		if (new_egid > -1)
+			current_task->egid = new_egid;
+	}
+
+	current_task->sgid = sgid;
+	return 0;
+}			
+
+int setresgid(int new_rgid, int new_egid, int new_sgid) {
+	if (current_task->egid) {
+		if (new_sgid > -1) {
+			if (new_sgid == current_task->egid || new_sgid == current_task->rgid || new_sgid == current_task->sgid)
+				current_task->sgid = new_sgid;
+			else
+				return -1;
+		}
+		if ((new_egid > -1 || new_rgid > -1) && setregid(new_rgid, new_egid))
+			return -1;
+	} else {
+		if (new_rgid > -1)
+			current_task->rgid = new_rgid;
+		if (new_egid > -1)
+			current_task->egid = new_egid;
+		if (new_sgid > -1)
+			current_task->sgid = new_sgid;
+	}
+
+	return 0;
+}
+
+int setgid(int gid) {
+	if (!current_task->egid)
+		current_task->rgid = current_task->sgid = current_task->egid = gid;
+	else
+		return setegid(gid);
+
+	return 0;
+}
+
+int getgid() {
+	return current_task->rgid;
+}
+
+int getegid() {
+	return current_task->egid;
+}
+
+int getresgid(int *rgid, int *egid, int *sgid) {
+	*rgid = current_task->rgid;
+	*egid = current_task->egid;
+	*sgid = current_task->sgid;
+	return 0;
 }

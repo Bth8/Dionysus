@@ -31,7 +31,8 @@ typedef struct task {
 	page_directory_t *page_dir;
 	u32int kernel_stack;
 	s8int nice;
-	u8int su;
+	int ruid, euid, suid;
+	int rgid, egid, sgid;
 	struct task *next;			// Next task in linked list
 } task_t;
 
@@ -43,5 +44,19 @@ int nice(int inc);
 void move_stack(void *new_stack_start, u32int size);
 int getpid();
 void switch_user_mode();
+int setuid(int uid);
+int seteuid(int new_euid);
+int setreuid(int new_ruid, int new_euid);
+int setresuid(int new_ruid, int new_euid, int new_suid);
+int getuid();
+int geteuid();
+int getresuid(int *ruid, int *euid, int *suid);
+int setgid(int gid);
+int setegid(int new_egid);
+int setregid(int new_rgid, int new_egid);
+int setresgid(int new_rgid, int new_egid, int new_sgid);
+int getgid();
+int getegid();
+int getresgid(int *ruid, int *euid, int *suid);
 
 #endif

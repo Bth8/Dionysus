@@ -32,6 +32,28 @@
 #include <time.h>
 #include <ide.h>
 
+struct partition {
+	u8int active;
+	u8int start_head;
+	u32int start_sec : 6;
+	u32int start_cyl_high : 2;
+	u32int start_cyl_low : 8;
+	u8int sysid;
+	u8int end_head;
+	u32int end_sec : 6;
+	u32int end_cyl_high : 2;
+	u32int end_cyl_low : 8;
+	u32int rel;
+	u32int total_sec;
+} __attribute__((packed));
+
+struct mbr {
+	u8int bcode[436];
+	u8int id[10];
+	struct partition partition_table[4];
+	u16int magic;
+} __attribute__((packed));
+
 extern void switch_user_mode();
 
 // Defined in linker script
@@ -46,7 +68,6 @@ u32int initial_esp;
 void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	initial_esp = esp;
 	u32int mem_end = 0; // Last valid address in memory so we know how far to page
-	u8int buf[1024];
 	monitor_clear();
 	if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
 		monitor_write("ERROR: MULTIBOOT_BOOTLOADER_MAGIC not correct. Halting.\n");
@@ -86,9 +107,14 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	init_paging(mem_end);
 	init_tasking();
 	init_syscalls();
+
+	struct mbr mbr;
+	char buf[1024];
 	init_ide(0x1F0, 0x3F4, 0x170, 0x374, 0x000);
-	ide_write_sectors(0, 2, 0, 0x10, buf);
+	ide_read_sectors(0, 0, 1, &mbr);
+	ide_read_sectors(0, 0x802, 2, &buf);
 	monitor_write_hex((u32int)&buf);
+	magic_break();
 
 	halt();
 }

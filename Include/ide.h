@@ -128,8 +128,8 @@ struct IDEDevice {
 };
 
 void init_ide(u32int BAR0, u32int BAR1, u32int BAR2, u32int BAR3, u32int BAR4);
-u8int ide_read_sectors(u8int drive, u8int numsects, u8int lba, u16int selector, void *edi);
-u8int ide_write_sectors(u8int drive, u8int numsects, u8int lba, u16int selector, void *esi);
+u8int ide_read_sectors(u8int drive, u32int lba, u8int numsects, void *edi);
+u8int ide_write_sectors(u8int drive, u32int lba, u8int numsects, void *esi);
 u8int ide_atapi_eject(u8int drive);
 
 #endif

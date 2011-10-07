@@ -253,10 +253,10 @@ void init_ide(u32int BAR0, u32int BAR1, u32int BAR2, u32int BAR3, u32int BAR4) {
  *   - IRQs
  *   - Polling Status   (+) // Suitable for Singletasking   
  */
-u8int ide_ata_access(u8int direction, u8int drive, u32int lba, u8int numsects, u16int selector, void *edi) {
+u8int ide_ata_access(u8int direction, u8int drive, u32int lba, u8int numsects, void *edi) {
 	u8int lba_mode, /* 0: CHS, 1: LBA28, 2: LBA48 */ dma, cmd = 0, lba_io[6];
 	u32int channel = ide_devices[drive].channel, slave = ide_devices[drive].drive, bus = channels[channel].base, words = 256;
-	u16int cyl, i, old_sel;
+	u16int cyl, i;
 	u8int head, sect, err;
 
 	ide_write(channel, ATA_REG_CONTROL, channels[channel].nEIN = (ide_irq_invoked = 0) + 2);
@@ -345,19 +345,13 @@ u8int ide_ata_access(u8int direction, u8int drive, u32int lba, u8int numsects, u
 			for (i = 0; i < numsects; i++) {
 				if ((err = ide_polling(channel, 1)))
 					return err;
-				asm volatile("mov %%es, %%ax": "=a"(old_sel));
-				asm volatile("mov %%ax, %%es":: "a"(selector));
 				insw(bus, edi, words);
-				asm volatile("mov %%ax, %%es":: "a"(old_sel));
 				edi += words * 2;
 			}
 		else { // PIO write
 			for (i = 0; i < numsects; i++) {
 				ide_polling(channel, 0);
-				asm volatile("mov %%es, %%ax": "=a"(old_sel));
-				asm volatile("mov %%ax, %%es":: "a"(selector));
 				outsw(bus, edi, words);
-				asm volatile("mov %%ax, %%es":: "a"(old_sel));
 				edi += words * 2;
 			}
 			ide_write(channel, ATA_REG_COMMAND, (char []) {ATA_CMD_CACHE_FLUSH, ATA_CMD_CACHE_FLUSH, ATA_CMD_CACHE_FLUSH_EXT}[lba_mode]);
@@ -373,9 +367,8 @@ void ide_wait_irq() {
 	ide_irq_invoked = 0;
 }
 
-u8int ide_atapi_read(u8int drive, u8int lba, u8int numsects, u16int selector, void *edi) {
+u8int ide_atapi_read(u8int drive, u32int lba, u8int numsects, void *edi) {
 	u32int channel = ide_devices[drive].channel, slave = ide_devices[drive].drive, bus = channels[channel].base, words = 1024, i;
-	u16int old_sel;
 	u8int err;
 
 	// Enable IRQs
@@ -424,10 +417,7 @@ u8int ide_atapi_read(u8int drive, u8int lba, u8int numsects, u16int selector, vo
 		ide_wait_irq();
 		if ((err = ide_polling(channel, 1)))
 			return err;
-		asm volatile("mov %%es, %%ax": "=a"(old_sel));
-		asm volatile("mov %%ax, %%es":: "a"(selector));
 		insw(bus, edi, words);
-		asm volatile("mov %%ax, %%es":: "a"(old_sel));
 		edi += words * 2;
 	}
 
@@ -440,7 +430,7 @@ u8int ide_atapi_read(u8int drive, u8int lba, u8int numsects, u16int selector, vo
 	return 0;
 }
 
-u8int ide_read_sectors(u8int drive, u8int numsects, u8int lba, u16int selector, void *edi) {
+u8int ide_read_sectors(u8int drive, u32int lba, u8int numsects, void *edi) {
 	int i;
 
 	// Check if drive present
@@ -455,15 +445,15 @@ u8int ide_read_sectors(u8int drive, u8int numsects, u8int lba, u16int selector, 
 	else {
 		u8int err = 0;
 		if (ide_devices[drive].type == IDE_ATA)
-			err = ide_ata_access(ATA_READ, drive, lba, numsects, selector, edi);
+			err = ide_ata_access(ATA_READ, drive, lba, numsects, edi);
 		else
 			for (i = 0; i < numsects; i++)
-				err = ide_atapi_read(drive, lba + i, 1, selector, edi + i * 2048);
+				err = ide_atapi_read(drive, lba + i, 1, edi + i * 2048);
 		return ide_print_err(drive, err);
 	}
 }
 
-u8int ide_write_sectors(u8int drive, u8int numsects, u8int lba, u16int selector, void *esi) {
+u8int ide_write_sectors(u8int drive, u32int lba, u8int numsects, void *esi) {
 	// Check if drive present
 	if (drive > 3 || !ide_devices[drive].reserved) 
 		return 1;
@@ -476,7 +466,7 @@ u8int ide_write_sectors(u8int drive, u8int numsects, u8int lba, u16int selector,
 	else {
 		u8int err;
 		if (ide_devices[drive].type == IDE_ATA)
-			err = ide_ata_access(ATA_WRITE, drive, lba, numsects, selector, esi);
+			err = ide_ata_access(ATA_WRITE, drive, lba, numsects, esi);
 		else
 			err = 4; // Write-protected
 		return ide_print_err(drive, err);
