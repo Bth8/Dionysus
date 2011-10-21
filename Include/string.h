@@ -21,8 +21,8 @@
 #define STRING_H
 #include <common.h>
 
-u32int strlen(char *buf);
+u32int strlen(const char *buf);
 void memset(void *buf, u8int value, u32int num);
-void memcpy(void *dest, void *src, u32int size);
+void memcpy(void *dest, const void *src, u32int size);
 
 #endif

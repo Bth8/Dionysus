@@ -21,8 +21,15 @@
 #define TASK_H
 #include <common.h>
 #include <paging.h>
+#include <vfs.h>
 
 #define KERNEL_STACK_SIZE 2048
+#define MAX_OF 32
+
+struct filep {
+	fs_node_t *file;
+	u32int off;
+};
 
 typedef struct task {
 	u32int id;					// PID
@@ -33,6 +40,7 @@ typedef struct task {
 	s8int nice;
 	int ruid, euid, suid;
 	int rgid, egid, sgid;
+	struct filep files[MAX_OF];
 	struct task *next;			// Next task in linked list
 } task_t;
 

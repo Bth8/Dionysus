@@ -1,4 +1,7 @@
-/* task.c - C functions for process creation and context switching. Also switches stack from the minimal one set up in boot.s */
+/* task.c - C functions for process creation and context switching. Also
+ * switches stack from the minimal one set up in boot.s and provides several
+ * user functions
+ */
 /* Copyright (C) 2011 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
@@ -23,6 +26,7 @@
 #include <string.h>
 #include <kmalloc.h>
 #include <gdt.h>
+#include <vfs.h>
 
 // Defined in main.c
 extern u32int initial_esp;
@@ -76,6 +80,7 @@ void move_stack(void *new_stack_start, u32int size) {
 
 void init_tasking() {
 	asm volatile("cli");
+	int i;
 	// Relocate stack
 	move_stack((void *)0xF0000000, 0x2000);
 
@@ -91,11 +96,16 @@ void init_tasking() {
 	current_task->egid, current_task->rgid, current_task->sgid = 0;
 	current_task->next = NULL;
 
+	// No open files yet
+	for (i = 0; i < MAX_OF; i++)
+		current_task->files[i].file = NULL;
+
 	asm volatile("sti");
 }
 
 int fork() {
 	asm volatile("cli");
+	int i;
 	page_directory_t *directory = clone_directory(current_dir);
 
 	// Create a new process
@@ -114,6 +124,16 @@ int fork() {
 	new_task->rgid = current_task->rgid;
 	new_task->sgid = current_task->sgid;
 	new_task->next = NULL;
+
+	// Copy open files
+	for (i = 0; i < MAX_OF; i++) {
+		if (current_task->files[i].file != NULL) {
+			new_task->files[i].file = (fs_node_t *)kmalloc(sizeof(fs_node_t));
+			memcpy(new_task->files[i].file, current_task->files[i].file, sizeof(fs_node_t));
+			new_task->files[i].off = current_task->files[i].off;
+		} else
+			new_task->files[i].file = NULL;
+	}
 
 	// Add to end of ready queue
 	task_t *task_i = (task_t *)ready_queue;
@@ -191,6 +211,7 @@ int switch_task() {
 
 void exit_task() {
 	asm volatile("cli");
+	int i;
 	task_t *task_i = (task_t *)ready_queue, *current_cache = (task_t *)current_task;
 
 	// Make sure we're not the only task
@@ -216,6 +237,9 @@ void exit_task() {
 	asm volatile("mov %0, %%cr3":: "r"(current_dir->physical_address));
 
 	// Free everything
+	for (i = 0; i < MAX_OF; i++)
+		if (current_cache->files[i].file != NULL)
+			kfree(current_cache->files[i].file);
 	free_dir(current_cache->page_dir);
 	kfree((void *)current_cache->kernel_stack);
 	kfree((void *)current_cache);
@@ -424,5 +448,96 @@ int getresgid(int *rgid, int *egid, int *sgid) {
 	*rgid = current_task->rgid;
 	*egid = current_task->egid;
 	*sgid = current_task->sgid;
+	return 0;
+}
+
+u32int lseek(int fd, u32int off, int whence) {
+	if (!current_task->files[fd].file)
+		return -1;
+
+	switch (whence) {
+		case 0:
+			current_task->files[fd].off = off;
+			break;
+		case 1:
+			current_task->files[fd].off += off;
+			break;
+		case 2:
+			current_task->files[fd].off = current_task->files[fd].file->len + off;
+			break;
+		default:
+			return -1;
+	}
+
+	return current_task->files[fd].off;
+}
+
+int user_pread(int fd, char *buf, u32int nbytes, u32int off) {
+	if (!current_task->files[fd].file)
+		return -1;
+
+	if (!buf)
+		return -1;
+
+	return read_vfs(current_task->files[fd].file, buf, nbytes, off);
+}
+
+int user_read(int fd, char *buf, u32int nbytes) {
+	if (!current_task->files[fd].file)
+		return -1;
+
+	if (!buf)
+		return -1;
+
+	u32int ret = read_vfs(current_task->files[fd].file, buf, nbytes, current_task->files[fd].off);
+	current_task->files[fd].off += ret;
+	return ret;
+}
+
+int user_pwrite(int fd, const char *buf, u32int nbytes, u32int off) {
+	if (!current_task->files[fd].file)
+		return -1;
+
+	if (!buf)
+		return -1;
+
+	return write_vfs(current_task->files[fd].file, buf, nbytes, off);
+}
+
+int user_write(int fd, const char *buf, u32int nbytes) {
+	if (!current_task->files[fd].file)
+		return -1;
+
+	if (!buf)
+		return -1;
+
+	u32int ret = write_vfs(current_task->files[fd].file, buf, nbytes, current_task->files[fd].off);
+	current_task->files[fd].off += ret;
+	return ret;
+}
+
+int user_open(const char *path, u32int flags) {
+	if (!path)
+		return -1;
+
+	int i;
+	for (i = 0; i < MAX_OF; i++)
+		if (current_task->files[i].file == NULL)
+			break;
+
+	if (i == MAX_OF)
+		return -1;
+
+	current_task->files[i].file = kopen(path, flags);
+	current_task->files[i].off = 0;
+	return i;
+}
+
+int user_close(int fd) {
+	if (!current_task->files[fd].file)
+		return -1;
+
+	close_vfs(current_task->files[fd].file);
+	kfree(current_task->files[fd].file);
 	return 0;
 }
