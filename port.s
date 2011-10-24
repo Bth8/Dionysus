@@ -16,6 +16,27 @@
 ;  You should have received a copy of the GNU General Public License
 ;  along with Dionysus.  If not, see <http://www.gnu.org/licenses/>
 
+global inb
+inb:
+	mov edx, [esp + 4]
+	in al, dx
+
+	ret
+
+global inw
+inw:
+	mov edx, [esp + 4]
+	in ax, dx
+
+	ret
+
+global inl
+inl:
+	mov edx, [esp + 4]
+	in eax, dx
+
+	ret
+
 global insw
 insw:
 	push edi
@@ -27,13 +48,6 @@ insw:
 	rep insw
 
 	pop edi
-	ret
-
-global inb
-inb:
-	mov edx, [esp + 4]
-	in al, dx
-
 	ret
 
 global outsw

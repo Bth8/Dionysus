@@ -1,7 +1,5 @@
 SOURCES=boot.o main.o common.o monitor.o string.o gdt.o descriptor_tables.o idt.o interrupt.o kmalloc.o paging.o \
-		keyboard.o ordered_array.o kheap.o process.o task.o timer.o syscall.o time.o port.o ide.o vfs.o
-
-FS_SOURCES=
+		keyboard.o ordered_array.o kheap.o process.o task.o timer.o syscall.o time.o port.o ide.o vfs.o pci.o
 
 CC=gcc
 CFLAGS=-Wall -Wextra -Werror -nostdlib -nostartfiles -fomit-frame-pointer -nodefaultlibs -I./Include -fno-leading-underscore -m32 -O -fno-builtin
@@ -10,11 +8,10 @@ LDFLAGS=-Tlink.ld
 AS=nasm
 ASFLAGS=-felf32
 
-all: $(SOURCES) $(FS_SOURCES) link
+all: $(SOURCES) link
 
 clean:
 	rm *.o kernel
-	rm fs/*.o
 
 link: $(SOURCES)
 	$(LD) $(LDFLAGS) -o kernel $(SOURCES) $(FS_SOURCES)

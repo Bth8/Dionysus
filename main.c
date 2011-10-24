@@ -31,6 +31,7 @@
 #include <syscall.h>
 #include <time.h>
 #include <ide.h>
+#include <pci.h>
 
 extern void switch_user_mode();
 
@@ -86,7 +87,7 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	init_tasking();
 	init_syscalls();
 
-	magic_break();
+	pci_test();
 
 	halt();
 }
