@@ -87,7 +87,7 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	init_tasking();
 	init_syscalls();
 
-	pci_test();
+	dump_pci();
 
 	halt();
 }

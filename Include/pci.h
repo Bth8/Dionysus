@@ -2,9 +2,9 @@
 #define PCI_H
 #include <common.h>
 
-#define CONFIG_ADDRESS	0xCF8
-#define CONFIG_DATA		0xCFC
+#define CONFIG_ADDRESS	0x0CF8
+#define CONFIG_DATA		0x0CFC
 
-void pci_test();
+void dump_pci();
 
 #endif
