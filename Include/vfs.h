@@ -31,6 +31,19 @@
 #define VFS_MOUNT		0x20
 #define VFS_SYM			0x40
 
+#define VFS_O_EXEC		00001
+#define VFS_O_WRITE		00002
+#define VFS_O_READ		00004
+#define VFS_G_EXEC		00010
+#define VFS_G_WRITE		00020
+#define VFS_G_READ		00040
+#define VFS_U_EXEC		00100
+#define VFS_U_WRITE		00200
+#define VFS_U_READ		00400
+#define VFS_STICKY		01000
+#define VFS_SETGID		02000
+#define VFS_SETUID		04000
+
 struct fs_node;
 struct dirent {
 	u32int d_ino;

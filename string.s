@@ -16,6 +16,24 @@
 ;  You should have received a copy of the GNU General Public License
 ;  along with Dionysus.  If not, see <http://www.gnu.org/licenses/>
 
+global strlen
+strlen:
+	push edi
+
+	mov edi, [esp + 8]
+	xor al, al
+	xor ecx, ecx
+
+.check:
+	scasb
+	je .end
+	inc ecx
+	jmp .check
+.end:
+	mov eax, ecx
+	pop edi
+	ret
+
 global memset
 memset:
 	push edi
@@ -44,20 +62,26 @@ memcpy:
 	pop edi
 	ret
 
-global strlen
-strlen:
+global strcpy
+strcpy:
 	push edi
+	push esi
 
-	mov edi, [esp + 8]
-	mov al, 0
+	mov edi, [esp + 12]
+	mov esi, [esp + 16]
+	xor al, al
 	xor ecx, ecx
 
 .check:
 	scasb
-	je .end
+	je .counted
 	inc ecx
 	jmp .check
-.end:
-	mov eax, ecx
+.counted:
+	inc ecx
+
+	rep movsb
+
+	pop esi
 	pop edi
 	ret

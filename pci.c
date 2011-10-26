@@ -35,8 +35,9 @@ void pciConfigWriteByte(u8int bus, u8int slot, u8int func, u8int off, u8int val)
 	outb(CONFIG_DATA + (off & 3), val);
 }
 
+
 void dump_pci() {
-	u32int bus, slot, func;
+	u16int bus, slot, func;
 	for (bus = 0; bus < 256; bus++)
 		for (slot = 0; slot < 32; slot++)
 			for (func = 0; func < 8; func++) {

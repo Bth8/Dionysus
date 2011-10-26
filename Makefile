@@ -1,8 +1,11 @@
-SOURCES=boot.o main.o common.o monitor.o string.o gdt.o descriptor_tables.o idt.o interrupt.o kmalloc.o paging.o \
-		keyboard.o ordered_array.o kheap.o process.o task.o timer.o syscall.o time.o port.o ide.o vfs.o pci.o
+SOURCES=boot.o main.o common.o monitor.o string.o gdt.o descriptor_tables.o \
+		idt.o interrupt.o kmalloc.o paging.o keyboard.o ordered_array.o \
+		kheap.o process.o task.o timer.o syscall.o time.o port.o ide.o vfs.o \
+		pci.o
 
 CC=gcc
-CFLAGS=-Wall -Wextra -Werror -nostdlib -nostartfiles -fomit-frame-pointer -nodefaultlibs -I./Include -fno-leading-underscore -m32 -O -fno-builtin
+CFLAGS=-Wall -Wextra -Werror -nostdlib -nostartfiles -fomit-frame-pointer \
+		-nodefaultlibs -I./Include -fno-leading-underscore -m32 -O -fno-builtin
 LD=ld
 LDFLAGS=-Tlink.ld
 AS=nasm
