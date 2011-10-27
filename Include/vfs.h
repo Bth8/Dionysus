@@ -50,14 +50,15 @@ struct dirent {
 	char d_name[NAME_MAX];
 };
 
-typedef u32int(*read_type_t)(struct fs_node*, char*, u32int, u32int);
-typedef u32int(*write_type_t)(struct fs_node*, const char*, u32int, u32int);
-typedef void(*open_type_t)(struct fs_node*, u32int);
-typedef void(*close_type_t)(struct fs_node*);
-typedef struct dirent*(*readdir_type_t)(struct fs_node*, u32int);
-typedef struct fs_node*(*finddir_type_t)(struct fs_node*, const char*);
-
-typedef u8int(*init_fs)(struct fs_node *);
+struct file_ops {
+	u32int(*read)(struct fs_node*, char*, u32int, u32int);
+	u32int(*write)(struct fs_node*, const char*, u32int, u32int);
+	void(*open)(struct fs_node*, u32int);
+	void(*close)(struct fs_node*);
+	struct dirent*(*readdir)(struct fs_node*, u32int);
+	struct fs_node*(*finddir)(struct fs_node*, const char*);
+	s32int(*fsync)(struct fs_node*);
+};
 
 typedef struct fs_node {
 	char name[NAME_MAX];
@@ -68,20 +69,9 @@ typedef struct fs_node {
 	u32int inode;			// Way for individual FSs to differentiate between files
 	u32int len;
 	u32int impl;			// Implementation-defined
-	read_type_t read;
-	write_type_t write;
-	open_type_t open;
-	close_type_t close;
-	readdir_type_t readdir;
-	finddir_type_t finddir;
+	struct file_ops ops;
 	struct fs_node *ptr;	// Used for syms/mounts
 } fs_node_t;
-
-struct mountpoint {
-	fs_node_t *point;
-	fs_node_t *root;
-	init_fs init;
-};
 
 extern fs_node_t *vfs_root;
 
@@ -92,6 +82,6 @@ void close_vfs(fs_node_t *node);
 struct dirent *readdir_vfs(fs_node_t *node, u32int index);
 fs_node_t *finddir_vfs(fs_node_t *node, const char *name);
 fs_node_t *kopen(const char *path, u32int flags);
-u8int mount(struct mountpoint *mnt);
+u8int mount(fs_node_t *src, fs_node_t *target, const void *data);
 
 #endif

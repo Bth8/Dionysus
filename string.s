@@ -85,3 +85,48 @@ strcpy:
 	pop esi
 	pop edi
 	ret
+
+global strcmp
+strcmp:
+	push edi
+	push esi
+
+	mov esi, [esp + 12]
+	mov edi, [esp + 16]
+
+	push esi
+	call strlen
+	pop esi
+
+	push eax
+	push edi
+	call strlen
+	pop edi
+	pop ecx
+
+	cmp ecx, eax
+	jg .greater
+	jl .less
+
+.compare:
+	cmpsb
+	jg .greater
+	jl .less
+	dec ecx
+	jz .equal
+	jmp .compare
+.greater:
+	pop esi
+	pop edi
+	mov eax, 1
+	ret
+.less:
+	pop esi
+	pop edi
+	mov eax, -1
+	ret
+.equal:
+	pop esi
+	pop edi
+	mov eax, 0
+	ret

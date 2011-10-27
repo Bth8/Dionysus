@@ -25,59 +25,54 @@
 fs_node_t *vfs_root = NULL;
 
 u32int read_vfs(fs_node_t *node, char *buf, u32int count, u32int off) {
-	if (node->read)
-		return node->read(node, buf, count, off);
+	if (node->ops.read)
+		return node->ops.read(node, buf, count, off);
 	else
 		return 0;
 }
 
 u32int write_vfs(fs_node_t *node, const char *buf, u32int count, u32int off) {
-	if (node->write)
-		return node->write(node, buf, count, off);
+	if (node->ops.write)
+		return node->ops.write(node, buf, count, off);
 	else
 		return 0;
 }
 
 void open_vfs(fs_node_t *node, u32int flags) {
-	if (node->open)
-		node->open(node, flags);
+	if (node->ops.open)
+		node->ops.open(node, flags);
 }
 
 void close_vfs(fs_node_t *node) {
 	if (node == vfs_root)
 		PANIC("Tried closing root");
 
-	if (node->close)
-		node->close(node);
+	if (node->ops.close)
+		node->ops.close(node);
 }
 
 struct dirent *readdir_vfs(fs_node_t *node, u32int index) {
-	if ((node->flags & VFS_MOUNT) && node->ptr->readdir)
-		return node->ptr->readdir(node->ptr, index);
-	else if ((node->flags & VFS_DIR) && node->readdir)
-		return node->readdir(node, index);
+	if ((node->flags & VFS_MOUNT) && node->ptr->ops.readdir)
+		return node->ptr->ops.readdir(node->ptr, index);
+	else if ((node->flags & VFS_DIR) && node->ops.readdir)
+		return node->ops.readdir(node, index);
 	else
 		return NULL;
 }
 
 fs_node_t *finddir_vfs(fs_node_t *node, const char *name) {
-	if ((node->flags & VFS_MOUNT) && node->ptr->finddir)
-		return node->ptr->finddir(node->ptr, name);
-	else if ((node->flags & VFS_DIR) && node->finddir)
-		return node->finddir(node, name);
+	if ((node->flags & VFS_MOUNT) && node->ptr->ops.finddir)
+		return node->ptr->ops.finddir(node->ptr, name);
+	else if ((node->flags & VFS_DIR) && node->ops.finddir)
+		return node->ops.finddir(node, name);
 	else
 		return NULL;
 }
 
-u8int mount(struct mountpoint *mnt) {
-	if (!(mnt->point->flags & VFS_DIR))
-		return 1;
-	if (!mnt->init || mnt->init(mnt->root) != 0)
-		return 2;
-
-	mnt->point->flags |= VFS_MOUNT;
-	mnt->point->ptr = mnt->root;
-
+u8int mount(fs_node_t *src, fs_node_t *target, const void *data) {
+	src = src;
+	target = target;
+	data = data;
 	return 0;
 }
 

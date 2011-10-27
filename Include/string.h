@@ -25,5 +25,6 @@ u32int strlen(const char *buf);
 void memset(void *buf, u8int value, u32int num);
 void memcpy(void *dest, const void *src, u32int size);
 void strcpy(char *dest, const char *src);
+u32int strcmp(const char *str1, const char *str2);
 
 #endif
