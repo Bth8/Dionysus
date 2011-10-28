@@ -44,6 +44,8 @@
 #define VFS_SETGID		02000
 #define VFS_SETUID		04000
 
+#define EOF				-1
+
 struct fs_node;
 struct dirent {
 	u32int d_ino;
