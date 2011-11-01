@@ -18,6 +18,14 @@ struct file_ops ops_default = {
 	NULL,
 };
 
+static struct superblock *return_sb();
+static struct file_system_type dev_fs = {
+	"dev",
+	0,
+	return_sb,
+	NULL
+};
+
 static struct dirent *readdir(fs_node_t *node, u32int index);
 static struct fs_node *finddir(fs_node_t *node, const char *name);
 
@@ -38,6 +46,17 @@ void devfs_init() {
 		drivers[i].name = "Default";
 		drivers[i].ops = ops_default;
 	}
+
+	register_fs(&dev_fs);
+}
+
+static struct superblock *return_sb() {
+	static struct superblock sb;
+	sb.dev = 0;
+	sb.blocksize = 0;
+	sb.fs = &dev_fs;
+	sb.root = &dev_root;
+	return &sb;
 }
 
 static struct dirent *readdir(fs_node_t *node, u32int index) {
@@ -73,8 +92,11 @@ u32int devfs_register(const char *name, u32int flags, u32int major,
 		return -1;
 	u32int i = 0;
 	struct dev_file *filei, *newfile;
-	for (filei = files; filei->next != NULL; filei = filei->next)	// Find last entry in files
+	for (filei = files; filei->next != NULL; filei = filei->next) {	// Find last entry in files
+		if (strcmp(filei->node.name, name) == 0)					// Make sure there aren't any name collisions
+			return -1;
 		i++;
+	}
 
 	newfile = (struct dev_file *)kmalloc(sizeof(struct dev_file));	// Create a new file
 	strcpy(newfile->node.name, name);
@@ -97,15 +119,15 @@ u32int devfs_register(const char *name, u32int flags, u32int major,
 
 u32int register_chrdev(u32int major, const char *name, struct file_ops fops) {
 	if (major == 0)															// Find an open major number if given zero
-		for (; strcmp(drivers[major].name, "Default") != 0; major++)
-			if (major == 255)												// Gone too far, all drivers taken
+		for (major = 1; strcmp(drivers[major - 1].name, "Default") != 0; major++)
+			if (major == 256)												// Gone too far, all drivers taken
 				return -1;
 
-	if (strcmp(drivers[major].name, "Default") != 0)
+	if (strcmp(drivers[major - 1].name, "Default") != 0)
 		return -1;															// Already present
 
-	drivers[major].name = name;
-	drivers[major].ops = fops;
+	drivers[major - 1].name = name;
+	drivers[major - 1].ops = fops;
 
 	struct dev_file *filei;
 	for (filei = files; filei->next != NULL; filei = filei->next)			// For files that existed before their majors were registered

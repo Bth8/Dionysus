@@ -73,7 +73,23 @@ typedef struct fs_node {
 	u32int impl;			// Implementation-defined
 	struct file_ops ops;
 	struct fs_node *ptr;	// Used for syms/mounts
+	struct superblock *sb;	// Used for mount points
 } fs_node_t;
+
+struct file_system_type;
+struct superblock {
+	u32int dev;
+	u32int blocksize;
+	struct file_system_type *fs;
+	fs_node_t *root;
+};
+
+struct file_system_type {
+	const char *name;
+	u32int flags;
+	struct superblock *(*get_super)(struct file_system_type*, int, fs_node_t*);
+	struct file_system_type *next;
+};
 
 extern fs_node_t *vfs_root;
 
@@ -84,6 +100,7 @@ void close_vfs(fs_node_t *node);
 struct dirent *readdir_vfs(fs_node_t *node, u32int index);
 fs_node_t *finddir_vfs(fs_node_t *node, const char *name);
 fs_node_t *kopen(const char *path, u32int flags);
-u8int mount(fs_node_t *src, fs_node_t *target, const void *data);
+s32int register_fs(struct file_system_type *fs);
+s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name, u32int flags);
 
 #endif
