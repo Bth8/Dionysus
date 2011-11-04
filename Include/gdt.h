@@ -75,7 +75,7 @@ typedef struct tss_entry_struct {
 	u16int iomap_base;
 } __attribute__((packed)) tss_entry_t;
 
-void init_gdt();
+void init_gdt(void);
 void set_kernel_stack(u32int esp0);
 
 #endif

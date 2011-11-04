@@ -45,7 +45,7 @@ void register_interrupt_handler(u8int n, isr_t handler) {
 	isr_handlers[n] = handler;
 }
 
-void init_idt() {
+void init_idt(void) {
 	idt_ptr.offset = (sizeof(idt_entry_t) * 256) - 1;
 	idt_ptr.base = (u32int)&idt_entries;
 

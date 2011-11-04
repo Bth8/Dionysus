@@ -100,7 +100,7 @@ struct tm *gmtime(const time_t *timer) {
 	return retp;
 }
 
-void init_time() {
+void init_time(void) {
 	struct tm time;
 	int pm, century;
 

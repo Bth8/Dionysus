@@ -21,6 +21,6 @@
 #define KEYBOARD_H
 #include <common.h>
 
-void init_kbd();
+void init_kbd(void);
 
 #endif

@@ -28,7 +28,7 @@ void setcolor(u8int bg, u8int fg) {
 	attrByte = (bg << 4) | (fg & 0x0F);
 }
 
-static void update_cursor() {
+static void update_cursor(void) {
 	u16int cursorLocation = cursor_y * 80 + cursor_x;
 	outb(0x03D4, 14);					// Setting high cursor byte
 	outb(0x03D5, cursorLocation >> 8);
@@ -42,7 +42,7 @@ void move_cursor(u32int x, u32int y) {
 	update_cursor();
 }
 
-static void scroll() {
+static void scroll(void) {
 	u16int blank = 0x20 | (attrByte << 8);
 
 	if (cursor_y > 24) {
@@ -100,7 +100,7 @@ void monitor_put(char c) {
 	update_cursor();
 }
 
-void monitor_clear() {
+void monitor_clear(void) {
 	u16int blank = 0x20 | (attrByte << 8);
 
 	int i;

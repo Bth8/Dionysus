@@ -39,6 +39,6 @@ struct tm {
 
 time_t mktime(struct tm *tp);
 struct tm *gmtime(const time_t *timer);
-void init_time();
+void init_time(void);
 
 #endif

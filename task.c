@@ -78,7 +78,7 @@ void move_stack(void *new_stack_start, u32int size) {
 	asm volatile("mov %0, %%ebp" :: "r" (new_ebp));
 }
 
-void init_tasking() {
+void init_tasking(void) {
 	asm volatile("cli");
 	int i;
 	// Relocate stack
@@ -103,7 +103,7 @@ void init_tasking() {
 	asm volatile("sti");
 }
 
-int fork() {
+int fork(void) {
 	asm volatile("cli");
 	int i;
 	page_directory_t *directory = clone_directory(current_dir);
@@ -161,11 +161,11 @@ int fork() {
 	}
 }
 
-int getpid() {
+int getpid(void) {
 	return current_task->id;
 }
 
-int switch_task() {
+int switch_task(void) {
 	if (current_task) {
 		asm volatile("cli");
 		u32int esp, ebp, eip;
@@ -209,7 +209,7 @@ int switch_task() {
 	return 0;
 }
 
-void exit_task() {
+void exit_task(void) {
 	asm volatile("cli");
 	int i;
 	task_t *task_i = (task_t *)ready_queue, *current_cache = (task_t *)current_task;
@@ -253,7 +253,7 @@ void exit_task() {
 				jmp *%%ecx" :: "r"(current_task->eip), "r"(current_task->esp), "r"(current_task->ebp) : "ecx", "esp", "ebp", "eax");
 }	
 
-void switch_user_mode() {
+void switch_user_mode(void) {
 	set_kernel_stack(current_task->kernel_stack + KERNEL_STACK_SIZE);
 
 	asm volatile("cli;\
@@ -354,11 +354,11 @@ int setuid(int uid) {
 	return 0;
 }
 
-int getuid() {
+int getuid(void) {
 	return current_task->ruid;
 }
 
-int geteuid() {
+int geteuid(void) {
 	return current_task->euid;
 }
 
@@ -436,11 +436,11 @@ int setgid(int gid) {
 	return 0;
 }
 
-int getgid() {
+int getgid(void) {
 	return current_task->rgid;
 }
 
-int getegid() {
+int getegid(void) {
 	return current_task->egid;
 }
 

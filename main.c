@@ -33,7 +33,7 @@
 #include <ide.h>
 #include <pci.h>
 
-extern void switch_user_mode();
+extern void switch_user_mode(void);
 
 // Defined in linker script
 extern u32int kend;

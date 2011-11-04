@@ -1,3 +1,22 @@
+/* dev.c - devfs function */
+/* Copyright (C) 2011 Bth8 <bth8fwd@gmail.com>
+ *
+ *  This file is part of Dionysus.
+ *
+ *  Dionysus is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Dionysus is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Dionysus.  If not, see <http://www.gnu.org/licenses/>
+ */
+
 #include <common.h>
 #include <vfs.h>
 #include <dev.h>
@@ -18,8 +37,8 @@ struct file_ops ops_default = {
 	NULL,
 };
 
-static struct superblock *return_sb();
-static struct file_system_type dev_fs = {
+static struct superblock *return_sb(struct file_system_type *fs, int, fs_node_t *dev);
+struct file_system_type dev_fs = {
 	"dev",
 	0,
 	return_sb,
@@ -50,7 +69,10 @@ void devfs_init() {
 	register_fs(&dev_fs);
 }
 
-static struct superblock *return_sb() {
+static struct superblock *return_sb(struct file_system_type *fs, int flags, fs_node_t *dev) {
+	fs = fs;		// Compiler complains otherwise
+	flags = flags;
+	dev = dev;
 	static struct superblock sb;
 	sb.dev = 0;
 	sb.blocksize = 0;
@@ -106,7 +128,7 @@ u32int devfs_register(const char *name, u32int flags, u32int major,
 	newfile->node.flags = flags;
 	newfile->node.inode = i;
 	newfile->node.len = 0;
-	newfile->node.impl = ((major & 0xFF) << 24) | (minor & 0xFFFFFF);
+	newfile->node.impl = MKDEV(major, minor);
 	newfile->node.ops = drivers[major].ops;
 	newfile->node.ptr = NULL;
 

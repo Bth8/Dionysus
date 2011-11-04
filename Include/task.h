@@ -44,27 +44,27 @@ typedef struct task {
 	struct task *next;			// Next task in linked list
 } task_t;
 
-void init_tasking();
-int switch_task();
-void exit_task();
-int fork();
+void init_tasking(void);
+int switch_task(void);
+void exit_task(void);
+int fork(void);
 int nice(int inc);
 void move_stack(void *new_stack_start, u32int size);
-int getpid();
-void switch_user_mode();
+int getpid(void);
+void switch_user_mode(void);
 int setuid(int uid);
 int seteuid(int new_euid);
 int setreuid(int new_ruid, int new_euid);
 int setresuid(int new_ruid, int new_euid, int new_suid);
-int getuid();
-int geteuid();
+int getuid(void);
+int geteuid(void);
 int getresuid(int *ruid, int *euid, int *suid);
 int setgid(int gid);
 int setegid(int new_egid);
 int setregid(int new_rgid, int new_egid);
 int setresgid(int new_rgid, int new_egid, int new_sgid);
-int getgid();
-int getegid();
+int getgid(void);
+int getegid(void);
 int getresgid(int *ruid, int *euid, int *suid);
 
 #endif

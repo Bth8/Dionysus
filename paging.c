@@ -69,7 +69,7 @@ static void clear_frame(u32int addr) {
 	return (frames[i] & (0x01 << off));
 } */
 
-static u32int first_frame() {
+static u32int first_frame(void) {
 	u32int i, j;
 	for (i = 0; i < INDEX_FROM_BIT(nframes); i++)
 		if (frames[i] != 0xFFFFFFFF)

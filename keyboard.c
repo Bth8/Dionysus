@@ -115,6 +115,6 @@ static void kbd_isr(registers_t regs) {
 		update_leds(leds);
 }
 
-void init_kbd() {
+void init_kbd(void) {
 	register_interrupt_handler(IRQ1, kbd_isr);
 }

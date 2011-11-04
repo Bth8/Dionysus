@@ -23,7 +23,7 @@
 
 // Defined in descriptor_tables.s
 extern void gdt_flush(u32int);
-extern void tss_flush();
+extern void tss_flush(void);
 
 gdt_entry_t gdt_entries[6];
 gdt_ptr_t gdt_ptr;
@@ -60,7 +60,7 @@ static void write_tss(u32int num, u16int ss0, u16int esp0) {
 	tss_entry.ss = tss_entry.ds = tss_entry.es = tss_entry.fs = tss_entry.gs = 0x13;
 }
 
-void init_gdt() {
+void init_gdt(void) {
 	gdt_ptr.offset = (sizeof(gdt_entry_t) * 6) - 1;
 	gdt_ptr.base = (u32int)&gdt_entries;
 

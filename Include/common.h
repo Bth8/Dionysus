@@ -44,7 +44,7 @@ typedef unsigned int	u32int;
 
 
 // Bochs magic breakpoint. Doesn't actually do anything on a real system
-extern inline void magic_break() { asm volatile("xchg %%bx, %%bx"::); }
+extern inline void magic_break(void) { asm volatile("xchg %%bx, %%bx"::); }
 extern inline void outb(u16int port, u8int value) { asm volatile("outb %1, %0":: "dN"(port), "a"(value)); }
 extern inline void outw(u16int port, u16int value) { asm volatile("outw %1, %0":: "dN"(port), "a"(value)); }
 extern inline void outl(u16int port, u32int value) { asm volatile("outl %1, %0":: "dN"(port), "a"(value)); }
@@ -54,7 +54,7 @@ u16int inw(u16int port);
 u32int inl(u16int port);
 void insw(u16int port, void *buf, int count);
 void outsw(u16int port, void *src, int count);
-extern inline void halt() {while(1){};}
+extern inline void halt(void) {while(1){};}
 //extern inline void halt() {__asm__("hlt");}
 void panic(u32int line, char *file, char *msg);
 

@@ -362,7 +362,7 @@ u8int ide_ata_access(u8int direction, u8int drive, u32int lba, u8int numsects, v
 	return 0;
 }
 
-void ide_wait_irq() {
+void ide_wait_irq(void) {
 	while (!ide_irq_invoked) {}
 	ide_irq_invoked = 0;
 }

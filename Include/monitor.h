@@ -40,7 +40,7 @@
 #define WHITE		15
 
 void monitor_put(char c);
-void monitor_clear();
+void monitor_clear(void);
 void monitor_write(char *s);
 void monitor_write_hex(u32int n);
 void monitor_write_udec(u32int n);
