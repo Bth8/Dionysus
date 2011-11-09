@@ -59,7 +59,6 @@ struct file_ops {
 	void(*close)(struct fs_node*);
 	struct dirent*(*readdir)(struct fs_node*, u32int);
 	struct fs_node*(*finddir)(struct fs_node*, const char*);
-	s32int(*fsync)(struct fs_node*);
 };
 
 typedef struct fs_node {

@@ -1,4 +1,4 @@
-/* keyboard.h - declarations for keyboard handling initialization */
+/* rootfs.h - Quick-n-dirty fs for setting up sone basic mountpoints */
 /* Copyright (C) 2011 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
@@ -17,10 +17,9 @@
  *  along with Dionysus.  If not, see <http://www.gnu.org/licenses/>
  */
 
-#ifndef KEYBOARD_H
-#define KEYBOARD_H
-#include <common.h>
+#ifndef ROOTFS_H
+#define ROOTFS_H
 
-void init_kbd(void);
+void init_rootfs(void);
 
 #endif

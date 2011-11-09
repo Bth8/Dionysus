@@ -34,7 +34,6 @@ struct file_ops ops_default = {
 	NULL,
 	NULL,
 	NULL,
-	NULL,
 };
 
 static struct superblock *return_sb(struct file_system_type *fs, int, fs_node_t *dev);
@@ -48,7 +47,7 @@ struct file_system_type dev_fs = {
 static struct dirent *readdir(fs_node_t *node, u32int index);
 static struct fs_node *finddir(fs_node_t *node, const char *name);
 
-void devfs_init() {
+void init_devfs(void) {
 	strcpy(dev_root.name, "dev");
 	dev_root.mask = VFS_U_READ | VFS_U_WRITE | VFS_U_EXEC | VFS_G_READ |
 					VFS_G_EXEC | VFS_O_READ | VFS_O_EXEC;
@@ -92,7 +91,7 @@ static struct dirent *readdir(fs_node_t *node, u32int index) {
 		else
 			filep = filep->next;
 	}
-	ret.d_ino = i;
+	ret.d_ino = index;
 	strcpy(ret.d_name, filep->node.name);
 	return &ret;
 }
@@ -108,16 +107,20 @@ static struct fs_node *finddir(fs_node_t *node, const char *name) {
 	return &filep->node;
 }
 
-u32int devfs_register(const char *name, u32int flags, u32int major,
+s32int devfs_register(const char *name, u32int flags, u32int major,
 					u32int minor, u32int mode, u32int uid, u32int gid) {
 	if (strlen(name) >= NAME_MAX)
 		return -1;
+	if (major < 1)
+		return -1;
 	u32int i = 0;
-	struct dev_file *filei, *newfile;
-	for (filei = files; filei->next != NULL; filei = filei->next) {	// Find last entry in files
-		if (strcmp(filei->node.name, name) == 0)					// Make sure there aren't any name collisions
-			return -1;
-		i++;
+	struct dev_file *filei = files, *newfile;
+	if (files) {
+		for (; filei->next != NULL; filei = filei->next) {			// Find last entry in files
+			if (strcmp(filei->node.name, name) == 0)				// Make sure there aren't any name collisions
+				return -1;
+			i++;
+		}
 	}
 
 	newfile = (struct dev_file *)kmalloc(sizeof(struct dev_file));	// Create a new file
@@ -129,17 +132,20 @@ u32int devfs_register(const char *name, u32int flags, u32int major,
 	newfile->node.inode = i;
 	newfile->node.len = 0;
 	newfile->node.impl = MKDEV(major, minor);
-	newfile->node.ops = drivers[major].ops;
+	newfile->node.ops = drivers[major - 1].ops;
 	newfile->node.ptr = NULL;
 
 	newfile->next = NULL;
 
-	filei->next = newfile;											// Place ourselves in the file list
+	if (files)
+		filei->next = newfile;										// Place ourselves in the file list
+	else
+		files = newfile;
 
 	return 0;
 }
 
-u32int register_chrdev(u32int major, const char *name, struct file_ops fops) {
+s32int register_chrdev(u32int major, const char *name, struct file_ops fops) {
 	if (major == 0)															// Find an open major number if given zero
 		for (major = 1; strcmp(drivers[major - 1].name, "Default") != 0; major++)
 			if (major == 256)												// Gone too far, all drivers taken
@@ -151,10 +157,12 @@ u32int register_chrdev(u32int major, const char *name, struct file_ops fops) {
 	drivers[major - 1].name = name;
 	drivers[major - 1].ops = fops;
 
-	struct dev_file *filei;
-	for (filei = files; filei->next != NULL; filei = filei->next)			// For files that existed before their majors were registered
-		if (MAJOR(filei->node.impl) == major && filei->node.flags & VFS_CHARDEV)
-			filei->node.ops = fops;
+	if (files) {
+		struct dev_file *filei;
+		for (filei = files; filei->next != NULL; filei = filei->next)		// For files that existed before their majors were registered
+			if (MAJOR(filei->node.impl) == major && filei->node.flags & VFS_CHARDEV)
+				filei->node.ops = fops;
+	}
 
 	return major;
 }

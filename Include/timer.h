@@ -22,6 +22,7 @@
 #include <common.h>
 
 void init_timer(u32int freq);
-void sleep(u32int ms);
+void wait(u32int ms);
+void sleep_thread(void);
 
 #endif

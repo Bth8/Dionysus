@@ -112,7 +112,7 @@ void monitor_clear(void) {
 	update_cursor();
 }
 
-void monitor_write(char *s) {
+void monitor_write(const char *s) {
 	int i = 0;
 	while (s[i])
 		monitor_put(s[i++]);

@@ -72,13 +72,11 @@ strcpy:
 	xor al, al
 	xor ecx, ecx
 
-.check:
-	scasb
-	je .counted
-	inc ecx
-	jmp .check
-.counted:
-	inc ecx
+	push esi
+	call strlen
+	pop esi
+
+	mov ecx, eax
 
 	rep movsb
 

@@ -87,23 +87,28 @@ s32int register_fs(struct file_system_type *fs) {
 s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name, u32int flags) {
 	struct file_system_type *fsi = fs_types;
 	struct superblock *sb = NULL;
-	if (dest == NULL)
+	if (dest == NULL && vfs_root != NULL)
 		return -1;
 	if (fsi == NULL)
 		return -1;
 	for (; fsi->next != NULL; fsi = fsi->next)
 		if (strcmp(fsi->name, fs_name) == 0)
 			break;
-	if (fsi->next == NULL)
+	if (fsi == NULL)
 		return -1;
 
 	if ((sb = fsi->get_super(fsi, flags, dev)) != NULL) {
-		dest->flags &= VFS_MOUNT;
-		dest->ptr = sb->root;
-		dest->sb = sb;
+		if (dest == vfs_root) {
+			vfs_root = sb->root;
+			vfs_root->sb = sb;
+		} else {
+			dest->flags |= VFS_MOUNT;
+			dest->ptr = sb->root;
+			dest->sb = sb;
+		}
 		return 0;
-	} else
-		return -1;
+	}
+	return -1;
 }
 
 fs_node_t *kopen(const char *path, u32int flags) {

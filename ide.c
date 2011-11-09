@@ -161,11 +161,11 @@ void init_ide(u32int BAR0, u32int BAR1, u32int BAR2, u32int BAR3, u32int BAR4) {
 
 			// Select drive
 			ide_write(i, ATA_REG_HDDEVSEL, 0xA0 | (j << 4));
-			sleep(1);
+			wait(1);
 
 			// Send ATA identify command
 			ide_write(i, ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
-			sleep(1);
+			wait(1);
 
 			// Polling
 			if (ide_read(i, ATA_REG_STATUS) == 0)
@@ -189,7 +189,7 @@ void init_ide(u32int BAR0, u32int BAR1, u32int BAR2, u32int BAR3, u32int BAR4) {
 					continue;
 
 				ide_write(i, ATA_REG_COMMAND, ATA_CMD_IDENTIFY_PACKET);
-				sleep(1);
+				wait(1);
 			}
 
 			// Read id space

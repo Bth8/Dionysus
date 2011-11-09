@@ -69,8 +69,12 @@ void init_timer(u32int freq) {
 	asm volatile("sti");
 }
 
-void sleep(u32int ms) {
+void wait(u32int ms) {
 	u32int finish = tick + ms;
 	while (tick > finish)
 		continue;
+}
+
+void sleep_thread(void) {
+	task_tick = (20 - switch_task());
 }

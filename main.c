@@ -24,7 +24,7 @@
 #include <idt.h>
 #include <string.h>
 #include <paging.h>
-#include <keyboard.h>
+#include <chardev/term.h>
 #include <timer.h>
 #include <task.h>
 #include <kmalloc.h>
@@ -32,6 +32,9 @@
 #include <time.h>
 #include <ide.h>
 #include <pci.h>
+#include <fs/rootfs.h>
+#include <dev.h>
+#include <vfs.h>
 
 extern void switch_user_mode(void);
 
@@ -57,7 +60,6 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	init_idt();
 	init_time();
 	init_timer(1000);
-	init_kbd();
 
 	if (mboot->flags & MULTIBOOT_INFO_MODS && mboot->mods_count) {
 		multiboot_module_t *mods = (multiboot_module_t *)mboot->mods_addr;
@@ -86,6 +88,19 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	init_paging(mem_end);
 	init_tasking();
 	init_syscalls();
+
+	init_rootfs();
+	init_devfs();
+	init_term();
+
+	mount(NULL, vfs_root, "rootfs", 0);
+	fs_node_t *dev = finddir_vfs(vfs_root, "dev");
+	mount(NULL, dev, "dev", 0);
+	devfs_register("tty", 0, 1, 0, 0, 0, 0);
+	fs_node_t *tty = finddir_vfs(dev, "tty");
+	char *kbd = "Ohai\n";
+	write_vfs(tty, kbd, 5, 0);
+	monitor_write(kbd);
 
 	dump_pci();
 

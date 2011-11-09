@@ -1,4 +1,4 @@
-/* keyboard.c - initializes and handles keyboard */
+/* term.c - initializes and handles terminal stuff */
 /* Copyright (C) 2011 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
@@ -17,10 +17,13 @@
  *  along with Dionysus.  If not, see <http://www.gnu.org/licenses/>
  */
 
-#include <keyboard.h>
+#include <chardev/term.h>
 #include <common.h>
 #include <monitor.h>
 #include <idt.h>
+#include <vfs.h>
+#include <timer.h>
+#include <dev.h>
 
 #define ESCAPE 0x01
 #define CTRL 0x1D
@@ -34,6 +37,8 @@
 #define NUM_LED 2
 #define CAPS_LED 4
 
+#define BUFSIZE 1024
+
 char noshiftmap[128] = {0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\x08',
 					'\t', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0,
 					'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0, '\\',
@@ -45,6 +50,9 @@ char shiftmap[128] = {0, 0, '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_
 
 int caps_stat = 0, shift_stat = 0, alt_stat = 0, ctrl_stat = 0;
 u8int leds = 0;
+char inbuf[BUFSIZE];
+char *readbufpos = inbuf;
+char *writebufpos = inbuf;
 
 static void update_leds(u8int stat) {
 	while (inb(0x64) & 2) {}	// Loop until keyboard buffer is 0
@@ -106,6 +114,9 @@ static void kbd_isr(registers_t regs) {
 						else if (trans_code >= 'a' && trans_code <= 'z')
 							trans_code -= 0x20;	// Makes uppercase
 					}
+					*writebufpos++ = trans_code;
+					if (writebufpos == inbuf + BUFSIZE)
+						writebufpos = inbuf;
 					monitor_put(trans_code);
 				}
 				break;
@@ -115,6 +126,37 @@ static void kbd_isr(registers_t regs) {
 		update_leds(leds);
 }
 
-void init_kbd(void) {
+static u32int read(struct fs_node *node, char *dest, u32int count, u32int off) {
+	node = node;						// Compiler complains otherwise
+	off = off;
+	while (readbufpos == writebufpos)	// No characters have yet to be read
+		sleep_thread();					// Put the thread to sleep, wait for something to come along
+
+	u32int i;
+	for (i = 0; i < count; i++) {
+		while (readbufpos == writebufpos)	// If we've reached the end of characters yet to be written
+			sleep_thread();					// and have yet to reach our quota, sleep
+		*dest++ = *readbufpos++;
+		if (readbufpos == inbuf + BUFSIZE)	// Circle around when we reach the end
+			readbufpos = inbuf;
+	}
+	return i;
+}
+
+static u32int write(struct fs_node *node, const char *src, u32int count, u32int off) {
+	node = node;
+	off = off;
+	u32int i;
+	for (i = 0; i < count; i++)
+		monitor_put(*src++);
+
+	return i;
+}
+
+void init_term(void) {
 	register_interrupt_handler(IRQ1, kbd_isr);
+	static struct file_ops fops;
+	fops.read = read;
+	fops.write = write;
+	register_chrdev(1, "tty", fops);
 }
