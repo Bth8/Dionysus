@@ -41,7 +41,7 @@ BootPageDir:
 	; Identity map first 4MB. Required for now, okay to unmap later
 	dd 0x00000083
 	times (KERNEL_PAGE_NUMBER - 1) dd 0
-	; Page directory conraining kernel mapped
+	; Page directory containing kernel mapped
 	dd 0x00000083
 	times (1024 - KERNEL_PAGE_NUMBER - 2) dd 0
 

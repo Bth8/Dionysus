@@ -47,7 +47,7 @@ copy_page_physical:
 	mov edx, cr0
 	and edx, 0x7FFFFFFF	; Disable paging so that we can access physical addresses
 	mov cr0, edx
-	mov ecx, 1024		; Number of bytes to copy
+	mov ecx, 1024		; Number of dwords to copy
 	rep movsd
 
 	or edx, 0x80000000	; reenable paging
@@ -57,7 +57,7 @@ copy_page_physical:
 	jmp eax
 
 .higher:
-	mov cr3, ebx		; Reenstate original page directory
+	mov cr3, ebx		; Reinstate original page directory
 
 	popf
 	pop edi

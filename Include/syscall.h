@@ -21,53 +21,75 @@
 #define SYSCALL_H
 #include <common.h>
 
-#define DECL_SYSCALL0(fn) int syscall_##fn();
-#define DECL_SYSCALL1(fn,p1) int syscall_##fn(p1);
-#define DECL_SYSCALL2(fn,p1,p2) int syscall_##fn(p1,p2);
-#define DECL_SYSCALL3(fn,p1,p2,p3) int syscall_##fn(p1,p2,p3);
-#define DECL_SYSCALL4(fn,p1,p2,p3,p4) int syscall_##fn(p1,p2,p3,p4);
-#define DECL_SYSCALL5(fn,p1,p2,p3,p4,p5) int syscall_##fn(p1,p2,p3,p4,p5);
+#define DECL_SYSCALL0(fn) int sys_##fn();
+#define DECL_SYSCALL1(fn,p1) int sys_##fn(p1);
+#define DECL_SYSCALL2(fn,p1,p2) int sys_##fn(p1,p2);
+#define DECL_SYSCALL3(fn,p1,p2,p3) int sys_##fn(p1,p2,p3);
+#define DECL_SYSCALL4(fn,p1,p2,p3,p4) int sys_##fn(p1,p2,p3,p4);
+#define DECL_SYSCALL5(fn,p1,p2,p3,p4,p5) int sys_##fn(p1,p2,p3,p4,p5);
 
 #define DEFN_SYSCALL0(fn, num) \
-int syscall_##fn() { \
+int sys_##fn() { \
 	int a; \
 	asm volatile("int $0x80" : "=a"(a) : "0"(num)); \
 	return a; \
 }
 #define DEFN_SYSCALL1(fn, num, P1) \
-int syscall_##fn(P1 p1) { \
+int sys_##fn(P1 p1) { \
 	int a; \
 	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1)); \
 	return a; \
 }
 #define DEFN_SYSCALL2(fn, num, P1, P2) \
-int syscall_##fn(P1 p1, P2 p2) { \
+int sys_##fn(P1 p1, P2 p2) { \
 	int a; \
 	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), "c"((int)p2)); \
 	return a; \
 }
 #define DEFN_SYSCALL3(fn, num, P1, P2, P3) \
-int syscall_##fn(P1 p1, P2 p2, P3 p3) { \
+int sys_##fn(P1 p1, P2 p2, P3 p3) { \
 	int a; \
 	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), "c"((int)p2), "d"((int)p3)); \
 	return a; \
 }
 #define DEFN_SYSCALL4(fn, num, P1, P2, P3, P4) \
-int syscall_##fn(P1 p1, P2 p2, P3 p3, P4 p4) { \
+int sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4) { \
 	int a; \
-	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), "c"((int)p2), "d"((int)p3), "e"((int)p4)); \
+	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), "c"((int)p2), "d"((int)p3), "S"((int)p4)); \
 	return a; \
 }
 #define DEFN_SYSCALL5(fn, num, P1, P2, P3, P4, P5) \
-int syscall_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) { \
+int sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) { \
 	int a; \
-	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), "c"((int)p2), "d"((int)p3), "e"((int)p4), "f"((int)p5)); \
+	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), "c"((int)p2), "d"((int)p3), "S"((int)p4), "D"((int)p5)); \
 	return a; \
 }
 
-DECL_SYSCALL1(monitor_write, const char*)
-DECL_SYSCALL1(monitor_write_hex, const u32int)
+DECL_SYSCALL0(fork);
 DECL_SYSCALL0(exit);
+DECL_SYSCALL0(getpid);
+DECL_SYSCALL1(nice, int);
+DECL_SYSCALL1(setuid, int);
+DECL_SYSCALL1(seteuid, int);
+DECL_SYSCALL2(setreuid, int, int);
+DECL_SYSCALL3(setresuid, int, int, int);
+DECL_SYSCALL0(getuid);
+DECL_SYSCALL0(geteuid);
+DECL_SYSCALL3(getresuid, int*, int*, int*);
+DECL_SYSCALL1(setgid, int);
+DECL_SYSCALL1(setegid, int);
+DECL_SYSCALL2(setregid, int, int);
+DECL_SYSCALL3(setresgid, int, int, int);
+DECL_SYSCALL0(getgid);
+DECL_SYSCALL0(getegid);
+DECL_SYSCALL3(getresgid, int*, int*, int*);
+DECL_SYSCALL2(open, char*, u32int);
+DECL_SYSCALL1(close, int);
+DECL_SYSCALL4(pread, int, char*, u32int, u32int);
+DECL_SYSCALL3(read, int, char*, u32int);
+DECL_SYSCALL4(pwrite, int, char*, u32int, u32int);
+DECL_SYSCALL3(write, int, char*, u32int);
+DECL_SYSCALL3(lseek, int, int, int);
 
 void init_syscalls(void);
 

@@ -22,6 +22,7 @@
 #include <common.h>
 
 #define NAME_MAX		256
+#define MAX_MNT_PTS		32
 
 #define VFS_FILE		0x01
 #define VFS_DIR			0x02
@@ -30,6 +31,11 @@
 #define VFS_PIPE		0x10
 #define VFS_MOUNT		0x20
 #define VFS_SYM			0x40
+
+#define O_RDONLY		0x1
+#define O_WRONLY		0x2
+#define O_RDWR			0x4
+#define O_APPEND		0x8
 
 #define VFS_O_EXEC		00001
 #define VFS_O_WRITE		00002
@@ -63,16 +69,16 @@ struct file_ops {
 
 typedef struct fs_node {
 	char name[NAME_MAX];
-	u32int mask;			// Permissions mask
+	u32int mask;				// Permissions mask
 	u32int gid;
 	u32int uid;
-	u32int flags;			// Includes node type
-	u32int inode;			// Way for individual FSs to differentiate between files
+	u32int flags;				// Includes node type
+	u32int inode;				// Way for individual FSs to differentiate between files
 	u32int len;
-	u32int impl;			// Implementation-defined
+	u32int impl;				// Implementation-defined
 	struct file_ops ops;
-	struct fs_node *ptr;	// Used for syms/mounts
-	struct superblock *sb;	// Used for mount points
+	struct superblock *fs_sb;	// Parent fs
+	struct superblock *ptr_sb;	// For mount points
 } fs_node_t;
 
 struct file_system_type;

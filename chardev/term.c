@@ -62,8 +62,8 @@ static void update_leds(u8int stat) {
 	outb(0x60, stat);
 }
 
-static void kbd_isr(registers_t regs) {
-	regs.eax = regs.eax;
+static void kbd_isr(registers_t *regs) {
+	regs = regs;
 	char trans_code;
 	u8int scode = inb(0x60), oldleds = leds;
 

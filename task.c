@@ -451,7 +451,7 @@ int getresgid(int *rgid, int *egid, int *sgid) {
 	return 0;
 }
 
-u32int lseek(int fd, u32int off, int whence) {
+int lseek(int fd, u32int off, int whence) {
 	if (!current_task->files[fd].file)
 		return -1;
 
@@ -528,9 +528,14 @@ int user_open(const char *path, u32int flags) {
 	if (i == MAX_OF)
 		return -1;
 
-	current_task->files[i].file = kopen(path, flags);
-	current_task->files[i].off = 0;
-	return i;
+	fs_node_t *file = kopen(path, flags);
+	if (file) {
+		current_task->files[i].file = file;
+		current_task->files[i].off = 0;
+		return i;
+	}
+
+	return -1;
 }
 
 int user_close(int fd) {

@@ -116,7 +116,7 @@ void init_idt(void) {
 void isr_handler(registers_t regs) {
 	isr_t handler;
 	if ((handler = isr_handlers[regs.int_no]) != NULL)
-		handler(regs);
+		handler(&regs);
 	else {
 		monitor_write("Unhandled interrupt: ");
 		monitor_write_udec(regs.int_no);
@@ -128,7 +128,7 @@ void isr_handler(registers_t regs) {
 void irq_handler(registers_t regs) {
 	isr_t handler;
 	if ((handler = isr_handlers[regs.int_no]) != 0)
-		handler(regs);
+		handler(&regs);
 
 	if (regs.int_no >= IRQ8) // Signal came from slave
 		outb(0xA0, 0x20); // Reset slave

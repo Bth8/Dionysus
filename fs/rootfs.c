@@ -21,8 +21,9 @@
 #include <common.h>
 #include <vfs.h>
 #include <string.h>
+#include <kmalloc.h>
 
-fs_node_t root;
+fs_node_t rootfs_root;
 char *names[] = {"bin", "dev"};
 fs_node_t subdirs[sizeof(names)/sizeof(char *)];
 
@@ -34,20 +35,28 @@ struct file_system_type rootfs = {
 	NULL
 };
 
+struct superblock rootfs_sb = {
+	0,
+	0,
+	&rootfs,
+	&rootfs_root
+};
+
 static struct dirent *readdir(fs_node_t *node, u32int index);
 static fs_node_t *finddir(fs_node_t *node, const char *name);
 
 void init_rootfs(void) {
-	strcpy(root.name, "");
-	root.mask = VFS_U_READ | VFS_U_WRITE | VFS_U_EXEC | VFS_G_READ |
+	strcpy(rootfs_root.name, "");
+	rootfs_root.mask = VFS_U_READ | VFS_U_WRITE | VFS_U_EXEC | VFS_G_READ |
 					VFS_G_EXEC | VFS_O_READ | VFS_O_EXEC;
-	root.gid = root.uid = 0;
-	root.flags = VFS_DIR;
-	root.inode = 0;
-	root.len = 0;
-	root.impl = 0;
-	root.ops.readdir = readdir;
-	root.ops.finddir = finddir;
+	rootfs_root.gid = rootfs_root.uid = 0;
+	rootfs_root.flags = VFS_DIR;
+	rootfs_root.inode = 0;
+	rootfs_root.len = 0;
+	rootfs_root.impl = 0;
+	rootfs_root.ops.readdir = readdir;
+	rootfs_root.ops.finddir = finddir;
+	rootfs_root.fs_sb = &rootfs_sb;
 
 	u32int i;
 	for (i = 0; i < sizeof(names)/sizeof(char *); i++) {
@@ -59,6 +68,7 @@ void init_rootfs(void) {
 		subdirs[i].inode = i;
 		subdirs[i].len = 0;
 		subdirs[i].impl = 0;
+		subdirs[i].fs_sb = &rootfs_sb;
 	}
 
 	register_fs(&rootfs);
@@ -68,16 +78,11 @@ static struct superblock *return_sb(struct file_system_type *fs, int flags, fs_n
 	fs = fs;
 	flags = flags;
 	dev = dev;
-	static struct superblock sb;
-	sb.dev = 0;
-	sb.blocksize = 0;
-	sb.fs = &rootfs;
-	sb.root = &root;
-	return &sb;
+	return &rootfs_sb;
 }
 
 static struct dirent *readdir(fs_node_t *node, u32int index) {
-	ASSERT(node == &root);
+	node = node;
 	if (index >= sizeof(names)/sizeof(char *))
 		return NULL;
 	static struct dirent ret;
@@ -87,10 +92,13 @@ static struct dirent *readdir(fs_node_t *node, u32int index) {
 }
 
 static fs_node_t *finddir(fs_node_t *node, const char *name) {
-	ASSERT(node == &root);
+	node = node;
 	u32int i;
 	for (i = 0; i < sizeof(names)/sizeof(char *); i++)
-		if (strcmp(name, names[i]) == 0)
-			return &subdirs[i];
+		if (strcmp(name, names[i]) == 0) {
+			fs_node_t *ret = (fs_node_t *)kmalloc(sizeof(fs_node_t));
+			memcpy(ret, &subdirs[i], sizeof(fs_node_t));
+			return ret;
+		}
 	return NULL;
 }

@@ -17,6 +17,8 @@
  *  along with Dionysus.  If not, see <http://www.gnu.org/licenses/>
  */
 
+// Reader, beware. It gets a bit kludgy
+
 #include <vfs.h>
 #include <common.h>
 #include <string.h>
@@ -24,6 +26,9 @@
 
 fs_node_t *vfs_root = NULL;
 struct file_system_type *fs_types = NULL;
+
+fs_node_t mnt_pts[MAX_MNT_PTS];
+u32int nmnts = 0;
 
 u32int read_vfs(fs_node_t *node, char *buf, u32int count, u32int off) {
 	if (node->ops.read)
@@ -52,20 +57,37 @@ void close_vfs(fs_node_t *node) {
 		node->ops.close(node);
 }
 
+// Determines if the fs node passed to it is a mountpoint, returns the root if it is
+static fs_node_t *get_mnt(fs_node_t *node) {
+	u32int i;
+	for (i = 0; i < nmnts; i++) {
+		if (node->fs_sb != mnt_pts[i].fs_sb)
+			continue;
+		if (node->inode != mnt_pts[i].inode)
+			continue;
+		break;
+	}
+	if (i != nmnts)
+		return mnt_pts[i].ptr_sb->root;
+
+	return node;
+}
+
 struct dirent *readdir_vfs(fs_node_t *node, u32int index) {
-	if ((node->flags & VFS_MOUNT) && node->ptr->ops.readdir)
-		return node->ptr->ops.readdir(node->ptr, index);
-	else if ((node->flags & VFS_DIR) && node->ops.readdir)
-		return node->ops.readdir(node, index);
-	else
+	if (!(node->flags & VFS_DIR))
 		return NULL;
+	fs_node_t *mnt = get_mnt(node);
+	if (mnt->ops.readdir)
+		return mnt->ops.readdir(mnt, index);
+	return NULL;
 }
 
 fs_node_t *finddir_vfs(fs_node_t *node, const char *name) {
-	if ((node->flags & VFS_MOUNT) && node->ptr->ops.finddir)
-		return node->ptr->ops.finddir(node->ptr, name);
-	else if ((node->flags & VFS_DIR) && node->ops.finddir)
-		return node->ops.finddir(node, name);
+	if (!(node->flags & VFS_DIR))
+		return NULL;
+	fs_node_t *mnt = get_mnt(node);
+	if (mnt->ops.finddir)
+		return mnt->ops.finddir(mnt, name);
 	else
 		return NULL;
 }
@@ -84,9 +106,14 @@ s32int register_fs(struct file_system_type *fs) {
 	return 0;
 }
 
+// TODO: Return error codes slightly more useful than -1
 s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name, u32int flags) {
 	struct file_system_type *fsi = fs_types;
 	struct superblock *sb = NULL;
+	if (nmnts >= MAX_MNT_PTS)
+		return -1;
+	if (!(dest->flags & VFS_DIR))
+		return -1;
 	if (dest == NULL && vfs_root != NULL)
 		return -1;
 	if (fsi == NULL)
@@ -100,11 +127,11 @@ s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name, u32int flags)
 	if ((sb = fsi->get_super(fsi, flags, dev)) != NULL) {
 		if (dest == vfs_root) {
 			vfs_root = sb->root;
-			vfs_root->sb = sb;
+			vfs_root->ptr_sb = sb;
 		} else {
 			dest->flags |= VFS_MOUNT;
-			dest->ptr = sb->root;
-			dest->sb = sb;
+			dest->ptr_sb = sb;
+			memcpy(&mnt_pts[nmnts++], dest, sizeof(fs_node_t));
 		}
 		return 0;
 	}
@@ -116,24 +143,24 @@ fs_node_t *kopen(const char *path, u32int flags) {
 		return NULL;
 
 	int path_len = strlen(path);
-	if (path_len == 1) {
+	if (path_len == 1) {								// It's just root
 		fs_node_t *ret = kmalloc(sizeof(fs_node_t));
 		memcpy(ret, vfs_root, sizeof(fs_node_t));
 		return ret;
 	}
 
 	char *path_cpy = (char *)kmalloc(path_len + 1);
-	memcpy(path_cpy, path, sizeof(path_cpy));
+	strcpy(path_cpy, path);
 	char *off;
 	int depth = 0;
 
+	// Breaks the path into several strings with / as its delimiter
 	for (off = path_cpy; off < path_cpy + path_len; off++)
 		if (*off == '/') {
 			*off = '\0';
 			depth++;
 		}
 
-	path_cpy[path_len] = '\0';
 	off = path_cpy + 1;
 	fs_node_t *cur_node = (fs_node_t *)kmalloc(sizeof(fs_node_t));
 	memcpy(cur_node, vfs_root, sizeof(fs_node_t));
@@ -154,6 +181,7 @@ fs_node_t *kopen(const char *path, u32int flags) {
 		off += strlen(off) + 1;
 	}
 
+	// Shouldn't be reached
 	kfree(path_cpy);
 	return NULL;
 }

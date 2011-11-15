@@ -29,8 +29,8 @@ u8int ide_buf[2048] = {0};
 u8int ide_irq_invoked = 0;
 u8int atapi_packet[] = {0xA8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-static void ide_irq(registers_t regs) {
-	regs.eax = regs.eax;
+static void ide_irq(registers_t *regs) {
+	regs = regs;
 	ide_irq_invoked = 1;
 }
 

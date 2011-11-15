@@ -6,13 +6,12 @@ Further work on process switching and management.
 Work needs to be done on improving hard disk operations. Need to be able to
 write to ATAPI, need to implement DMA, etc.
 
-A VFS of some description needs to be built.
+The VFS needs eventual improvement, though it works alright for now.
 
-Logically following would be some kind of filesystem support, such as ext2 and
-ext3.
+The device management system needs expansion. A lot of it.
 
-Possibly awful idea: Assemble the previous three ideas separately and throw it
-all together... somehow.
+Some actual filesystems need to be implemented, but that probably needs to wait
+until there are usable devices on top of which they can be built.
 
 Loading ELFs and perhaps other executable formats.
 

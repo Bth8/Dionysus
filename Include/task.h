@@ -66,5 +66,12 @@ int setresgid(int new_rgid, int new_egid, int new_sgid);
 int getgid(void);
 int getegid(void);
 int getresgid(int *ruid, int *euid, int *suid);
+int lseek(int fd, u32int off, int whence);
+int user_pread(int fd, char *buf, u32int nbytes, u32int off);
+int user_read(int fd, char *buf, u32int nbytes);
+int user_pwrite(int fd, const char *buf, u32int nbytes, u32int off);
+int user_write(int fd, const char *buf, u32int nbytes);
+int user_open(const char *path, u32int flags);
+int user_close(int fd);
 
 #endif

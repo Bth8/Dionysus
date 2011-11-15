@@ -44,6 +44,13 @@ struct file_system_type dev_fs = {
 	NULL
 };
 
+struct superblock dev_sb = {
+	0,
+	0,
+	&dev_fs,
+	&dev_root
+};
+
 static struct dirent *readdir(fs_node_t *node, u32int index);
 static struct fs_node *finddir(fs_node_t *node, const char *name);
 
@@ -58,6 +65,7 @@ void init_devfs(void) {
 	dev_root.impl = 0;
 	dev_root.ops.readdir = readdir;
 	dev_root.ops.finddir = finddir;
+	dev_root.fs_sb = &dev_sb;
 
 	u32int i;
 	for (i = 0; i < 256; i++) {
@@ -72,24 +80,19 @@ static struct superblock *return_sb(struct file_system_type *fs, int flags, fs_n
 	fs = fs;		// Compiler complains otherwise
 	flags = flags;
 	dev = dev;
-	static struct superblock sb;
-	sb.dev = 0;
-	sb.blocksize = 0;
-	sb.fs = &dev_fs;
-	sb.root = &dev_root;
-	return &sb;
+	return &dev_sb;
 }
 
 static struct dirent *readdir(fs_node_t *node, u32int index) {
-	ASSERT(node == &dev_root);
+	node = node;
 	static struct dirent ret;
 	u32int i;
 	struct dev_file *filep = files;
-	for (i = 0; i < index; i++) {
+	for (i = 0; i < index; filep = filep->next) {
 		if (filep == NULL)
 			return NULL;
 		else
-			filep = filep->next;
+			++i;
 	}
 	ret.d_ino = index;
 	strcpy(ret.d_name, filep->node.name);
@@ -97,14 +100,16 @@ static struct dirent *readdir(fs_node_t *node, u32int index) {
 }
 
 static struct fs_node *finddir(fs_node_t *node, const char *name) {
-	ASSERT(node == &dev_root);
+	node = node;
 	struct dev_file *filep = files;
 	while (strcmp(filep->node.name, name) != 0) {
 		filep = filep->next;
 		if (filep == NULL)
 			return NULL;
 	}
-	return &filep->node;
+	fs_node_t *ret = (fs_node_t *)kmalloc(sizeof(fs_node_t));
+	memcpy(ret, &filep->node, sizeof(fs_node_t));
+	return ret;
 }
 
 s32int devfs_register(const char *name, u32int flags, u32int major,
@@ -133,7 +138,7 @@ s32int devfs_register(const char *name, u32int flags, u32int major,
 	newfile->node.len = 0;
 	newfile->node.impl = MKDEV(major, minor);
 	newfile->node.ops = drivers[major - 1].ops;
-	newfile->node.ptr = NULL;
+	newfile->node.fs_sb = &dev_sb;
 
 	newfile->next = NULL;
 

@@ -19,25 +19,68 @@
 
 #include <syscall.h>
 #include <common.h>
-#include <monitor.h>
 #include <idt.h>
 #include <task.h>
 
-DEFN_SYSCALL1(monitor_write, 0, const char*);
-DEFN_SYSCALL1(monitor_write_hex, 1, const u32int);
-DEFN_SYSCALL0(exit, 2);
+DEFN_SYSCALL0(fork, 0);
+DEFN_SYSCALL0(exit, 1);
+DEFN_SYSCALL0(getpid, 2);
+DEFN_SYSCALL1(nice, 3, int);
+DEFN_SYSCALL1(setuid, 4, int);
+DEFN_SYSCALL1(seteuid, 5, int);
+DEFN_SYSCALL2(setreuid, 6, int, int);
+DEFN_SYSCALL3(setresuid, 7, int, int, int);
+DEFN_SYSCALL0(getuid, 8);
+DEFN_SYSCALL0(geteuid, 9);
+DEFN_SYSCALL3(getresuid, 10, int*, int*, int*);
+DEFN_SYSCALL1(setgid, 11, int);
+DEFN_SYSCALL1(setegid, 12, int);
+DEFN_SYSCALL2(setregid, 13, int, int);
+DEFN_SYSCALL3(setresgid, 14, int, int, int);
+DEFN_SYSCALL0(getgid, 15);
+DEFN_SYSCALL0(getegid, 16);
+DEFN_SYSCALL3(getresgid, 17, int*, int*, int*);
+DEFN_SYSCALL2(open, 18, char*, u32int);
+DEFN_SYSCALL1(close, 19, int);
+DEFN_SYSCALL4(pread, 20, int, char*, u32int, u32int);
+DEFN_SYSCALL3(read, 21, int, char*, u32int);
+DEFN_SYSCALL4(pwrite, 22, int, char*, u32int, u32int);
+DEFN_SYSCALL3(write, 23, int, char*, u32int);
+DEFN_SYSCALL3(lseek, 24, int, int, int);
 
 static void *syscalls[] = {
-	&monitor_write,
-	&monitor_write_hex,
-	&exit_task,
+	fork,		// Defined in task.c
+	exit_task,
+	getpid,
+	nice,
+	setuid,
+	seteuid,
+	setreuid,
+	setresuid,
+	getuid,
+	geteuid,
+	getresuid,
+	setgid,
+	setegid,
+	setregid,
+	setresgid,
+	getgid,
+	getegid,
+	getresgid,
+	user_open,
+	user_close,
+	user_pread,
+	user_read,
+	user_pwrite,
+	user_write,
+	lseek
 };
 u32int num_syscalls;
 
-void syscall_handler(registers_t regs) {
+void syscall_handler(registers_t *regs) {
 	asm volatile("mov %bx, %bx");
-	if (regs.eax < num_syscalls) {
-		void *location = syscalls[regs.eax];
+	if (regs->eax < num_syscalls) {
+		void *location = syscalls[regs->eax];
 
 		// Push all of the parameters
 		asm volatile("push %1;\
@@ -50,7 +93,7 @@ void syscall_handler(registers_t regs) {
 					pop %%ebx;\
 					pop %%ebx;\
 					pop %%ebx;\
-					pop %%ebx;": "=a"(regs.eax) : "r"(regs.edi), "r"(regs.esi), "r"(regs.edx), "r"(regs.ecx), "r"(regs.ebx), "r"(location) : "ebx");
+					pop %%ebx;": "=a"(regs->eax) : "r"(regs->edi), "r"(regs->esi), "r"(regs->edx), "r"(regs->ecx), "r"(regs->ebx), "r"(location) : "ebx");
 	}
 }
 

@@ -103,13 +103,42 @@ strcmp:
 	pop ecx
 
 	cmp ecx, eax
-	jg .greater
-	jl .less
+	ja .greater
+	jb .less
+
+	push ecx
+	push edi
+	push esi
+	call strncmp
+	add esp, 12
+	pop esi
+	pop edi
+	ret
+
+.greater:
+	pop esi
+	pop edi
+	mov eax, 1
+	ret
+.less:
+	pop esi
+	pop edi
+	mov eax, -1
+	ret
+
+global strncmp
+strncmp:
+	push edi
+	push esi
+
+	mov esi, [esp+12]
+	mov edi, [esp+16]
+	mov ecx, [esp+20]
 
 .compare:
 	cmpsb
-	jg .greater
-	jl .less
+	ja .greater
+	jb .less
 	dec ecx
 	jz .equal
 	jmp .compare
@@ -126,5 +155,5 @@ strcmp:
 .equal:
 	pop esi
 	pop edi
-	mov eax, 0
+	xor eax, eax
 	ret

@@ -30,22 +30,22 @@ u32int tick = 0;
 u32int task_tick = 20;
 u32int rtc_tick = 1024;
 
-static void pit_callback(registers_t regs) {
+static void pit_callback(registers_t *regs) {
 	++tick;
 	if (--task_tick <= 0)
 		task_tick = (20 - switch_task());
 	// Compiler complains otherwise
-	regs.eax = regs.eax;
+	regs = regs;
 }
 
-static void rtc_callback(registers_t regs) {
+static void rtc_callback(registers_t *regs) {
 	if (--rtc_tick <= 0) {
 		current_time++;
 		rtc_tick = 1024;
 	}
 	READ_CMOS(0x0C);		// Register C has info on what int just fired. We don't care, trash it
 	// Compiler complains otherwise
-	regs.eax = regs.eax;
+	regs = regs;
 }
 
 void init_timer(u32int freq) {

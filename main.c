@@ -22,7 +22,6 @@
 #include <monitor.h>
 #include <gdt.h>
 #include <idt.h>
-#include <string.h>
 #include <paging.h>
 #include <chardev/term.h>
 #include <timer.h>
@@ -30,11 +29,12 @@
 #include <kmalloc.h>
 #include <syscall.h>
 #include <time.h>
-#include <ide.h>
 #include <pci.h>
 #include <fs/rootfs.h>
 #include <dev.h>
 #include <vfs.h>
+
+#include <string.h>
 
 extern void switch_user_mode(void);
 
@@ -96,11 +96,16 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	mount(NULL, vfs_root, "rootfs", 0);
 	fs_node_t *dev = finddir_vfs(vfs_root, "dev");
 	mount(NULL, dev, "dev", 0);
+	kfree(dev);
 	devfs_register("tty", 0, 1, 0, 0, 0, 0);
-	fs_node_t *tty = finddir_vfs(dev, "tty");
-	char *kbd = "Ohai\n";
-	write_vfs(tty, kbd, 5, 0);
-	monitor_write(kbd);
+
+	int fd = sys_open("/dev/tty", O_RDWR);
+	monitor_write_sdec(fd);
+	monitor_put('\n');
+	char buf[64];
+	sys_read(fd, buf, 10);
+	sys_write(fd, buf, 10);
+
 
 	dump_pci();
 

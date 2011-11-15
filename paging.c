@@ -106,17 +106,17 @@ void free_frame(page_t *page) {
 	page->frame = 0;
 }
 
-static void page_fault(registers_t regs) {
+static void page_fault(registers_t *regs) {
 	// Store faulting address
 	u32int fault_addr;
 	asm volatile("mov %%cr2, %0" : "=r" (fault_addr));
 
 	// Output an error message.
 	monitor_write("Page fault! ( ");
-	if (!(regs.err_code & 0x1)) {monitor_write("present ");}	// Page not present
-	if (regs.err_code & 0x2) {monitor_write("read-only ");}		// Write operation
-	if (regs.err_code & 0x4) {monitor_write("user-mode ");}		// In user mode
-	if (regs.err_code & 0x8) {monitor_write("reserved ");}		// Reserved bits overwritten
+	if (!(regs->err_code & 0x1)) {monitor_write("present ");}	// Page not present
+	if (regs->err_code & 0x2) {monitor_write("read-only ");}	// Write operation
+	if (regs->err_code & 0x4) {monitor_write("user-mode ");}	// In user mode
+	if (regs->err_code & 0x8) {monitor_write("reserved ");}		// Reserved bits overwritten
 	monitor_write(") at ");
 	monitor_write_hex(fault_addr);
 	monitor_write("\n");

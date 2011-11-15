@@ -59,7 +59,7 @@ typedef struct registers {
 	u32int eip, cs, eflags, useresp, ss;			// Pushed automatically by processor upon interrupt
 } registers_t;
 
-typedef void (*isr_t)(registers_t);
+typedef void (*isr_t)(registers_t*);
 
 void init_idt(void);
 void register_interrupt_handler(u8int n, isr_t handler);
