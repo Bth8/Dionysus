@@ -153,10 +153,15 @@ static u32int write(struct fs_node *node, const char *src, u32int count, u32int 
 	return i;
 }
 
+static void open(struct fs_node *node, u32int flags) {
+	node->flags = (flags & O_RDWR);		// Protection from bogus flags
+}
+
 void init_term(void) {
 	register_interrupt_handler(IRQ1, kbd_isr);
 	static struct file_ops fops;
 	fops.read = read;
 	fops.write = write;
+	fops.open = open;
 	register_chrdev(1, "tty", fops);
 }

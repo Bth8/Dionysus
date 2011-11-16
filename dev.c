@@ -27,15 +27,6 @@ fs_node_t dev_root;
 struct dev_file *files = NULL;
 struct chrdev_driver drivers[256];		// 1 for every valid major number
 
-struct file_ops ops_default = {
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-	NULL,
-};
-
 static struct superblock *return_sb(struct file_system_type *fs, int, fs_node_t *dev);
 struct file_system_type dev_fs = {
 	"dev",
@@ -70,7 +61,7 @@ void init_devfs(void) {
 	u32int i;
 	for (i = 0; i < 256; i++) {
 		drivers[i].name = "Default";
-		drivers[i].ops = ops_default;
+		drivers[i].ops = (struct file_ops){NULL, NULL, NULL, NULL, NULL, NULL};
 	}
 
 	register_fs(&dev_fs);
@@ -81,6 +72,30 @@ static struct superblock *return_sb(struct file_system_type *fs, int flags, fs_n
 	flags = flags;
 	dev = dev;
 	return &dev_sb;
+}
+
+static u32int read(fs_node_t *node, char *buf, u32int count, u32int off) {
+	if (drivers[MAJOR(node->impl) - 1].ops.read)
+		return drivers[MAJOR(node->impl) - 1].ops.read(node, buf, count, off);
+
+	return 0;
+}
+
+static u32int write(fs_node_t *node, const char *buf, u32int count, u32int off) {
+	if (drivers[MAJOR(node->impl) - 1].ops.write)
+		return drivers[MAJOR(node->impl) - 1].ops.write(node, buf, count, off);
+
+	return 0;
+}
+
+static void open(fs_node_t *node, u32int flags) {
+	if (drivers[MAJOR(node->impl) - 1].ops.open)
+		return drivers[MAJOR(node->impl) - 1].ops.open(node, flags);
+}
+
+static void close(fs_node_t *node) {
+	if (drivers[MAJOR(node->impl) - 1].ops.close)
+		return drivers[MAJOR(node->impl) - 1].ops.close(node);
 }
 
 static struct dirent *readdir(fs_node_t *node, u32int index) {
@@ -137,7 +152,10 @@ s32int devfs_register(const char *name, u32int flags, u32int major,
 	newfile->node.inode = i;
 	newfile->node.len = 0;
 	newfile->node.impl = MKDEV(major, minor);
-	newfile->node.ops = drivers[major - 1].ops;
+	newfile->node.ops.read = read;
+	newfile->node.ops.write = write;
+	newfile->node.ops.open = open;
+	newfile->node.ops.close = close;
 	newfile->node.fs_sb = &dev_sb;
 
 	newfile->next = NULL;
@@ -161,13 +179,6 @@ s32int register_chrdev(u32int major, const char *name, struct file_ops fops) {
 
 	drivers[major - 1].name = name;
 	drivers[major - 1].ops = fops;
-
-	if (files) {
-		struct dev_file *filei;
-		for (filei = files; filei->next != NULL; filei = filei->next)		// For files that existed before their majors were registered
-			if (MAJOR(filei->node.impl) == major && filei->node.flags & VFS_CHARDEV)
-				filei->node.ops = fops;
-	}
 
 	return major;
 }

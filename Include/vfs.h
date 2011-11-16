@@ -34,8 +34,8 @@
 
 #define O_RDONLY		0x1
 #define O_WRONLY		0x2
-#define O_RDWR			0x4
-#define O_APPEND		0x8
+#define O_RDWR			(O_RDONLY | O_WRONLY)
+#define O_APPEND		0x4
 
 #define VFS_O_EXEC		00001
 #define VFS_O_WRITE		00002

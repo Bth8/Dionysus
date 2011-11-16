@@ -479,6 +479,9 @@ int user_pread(int fd, char *buf, u32int nbytes, u32int off) {
 	if (!buf)
 		return -1;
 
+	if (!(current_task->files[fd].file->flags & O_WRONLY))
+		return -1;
+
 	return read_vfs(current_task->files[fd].file, buf, nbytes, off);
 }
 
@@ -487,6 +490,9 @@ int user_read(int fd, char *buf, u32int nbytes) {
 		return -1;
 
 	if (!buf)
+		return -1;
+
+	if (!(current_task->files[fd].file->flags & O_RDONLY))
 		return -1;
 
 	u32int ret = read_vfs(current_task->files[fd].file, buf, nbytes, current_task->files[fd].off);
@@ -501,6 +507,9 @@ int user_pwrite(int fd, const char *buf, u32int nbytes, u32int off) {
 	if (!buf)
 		return -1;
 
+	if (!(current_task->files[fd].file->flags & O_WRONLY))
+		return -1;
+
 	return write_vfs(current_task->files[fd].file, buf, nbytes, off);
 }
 
@@ -509,6 +518,9 @@ int user_write(int fd, const char *buf, u32int nbytes) {
 		return -1;
 
 	if (!buf)
+		return -1;
+
+	if (!(current_task->files[fd].file->flags & O_WRONLY))
 		return -1;
 
 	u32int ret = write_vfs(current_task->files[fd].file, buf, nbytes, current_task->files[fd].off);
