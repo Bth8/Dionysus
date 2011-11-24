@@ -33,6 +33,7 @@
 #include <fs/rootfs.h>
 #include <dev.h>
 #include <vfs.h>
+#include <ide.h>
 
 #include <string.h>
 
@@ -89,25 +90,27 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	init_tasking();
 	init_syscalls();
 
+	dump_pci();
 	init_rootfs();
 	init_devfs();
-	init_term();
+	init_ide(0, 0, 0, 0, 0);
 
 	mount(NULL, vfs_root, "rootfs", 0);
 	fs_node_t *dev = finddir_vfs(vfs_root, "dev");
 	mount(NULL, dev, "dev", 0);
 	kfree(dev);
-	devfs_register("tty", 0, 1, 0, 0, 0, 0);
-
-	int fd = sys_open("/dev/tty", O_RDWR);
+	devfs_register("sda0", VFS_FILE | VFS_BLOCKDEV, 1, 1, 0, 0, 0);
+	int fd = sys_open("/dev/sda0", O_RDWR);
 	monitor_write_sdec(fd);
 	monitor_put('\n');
-	char buf[64];
-	sys_read(fd, buf, 10);
-	sys_write(fd, buf, 10);
-
-
-	dump_pci();
+	char buf[1024];
+	sys_pread(fd, buf, 1024, 12);
+	buf[0] = 0xDE;
+	buf[1] = 0xAD;
+	buf[2] = 0xBE;
+	buf[3] = 0xEF;
+	sys_pwrite(fd, buf, 1024, 12);
+	monitor_write_hex((u32int)buf);
 
 	halt();
 }

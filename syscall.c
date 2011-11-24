@@ -46,7 +46,8 @@ DEFN_SYSCALL4(pread, 20, int, char*, u32int, u32int);
 DEFN_SYSCALL3(read, 21, int, char*, u32int);
 DEFN_SYSCALL4(pwrite, 22, int, char*, u32int, u32int);
 DEFN_SYSCALL3(write, 23, int, char*, u32int);
-DEFN_SYSCALL3(lseek, 24, int, int, int);
+DEFN_SYSCALL3(ioctl, 24, int, u32int, void*);
+DEFN_SYSCALL3(lseek, 25, int, int, int);
 
 static void *syscalls[] = {
 	fork,		// Defined in task.c
@@ -73,6 +74,7 @@ static void *syscalls[] = {
 	user_read,
 	user_pwrite,
 	user_write,
+	user_ioctl,
 	lseek
 };
 u32int num_syscalls;

@@ -127,7 +127,7 @@ void isr_handler(registers_t regs) {
 
 void irq_handler(registers_t regs) {
 	isr_t handler;
-	if ((handler = isr_handlers[regs.int_no]) != 0)
+	if ((handler = isr_handlers[regs.int_no]) != NULL)
 		handler(&regs);
 
 	if (regs.int_no >= IRQ8) // Signal came from slave

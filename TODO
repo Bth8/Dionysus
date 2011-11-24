@@ -8,10 +8,10 @@ write to ATAPI, need to implement DMA, etc.
 
 The VFS needs eventual improvement, though it works alright for now.
 
-The device management system needs expansion. A lot of it.
+Race conditions need to be brought into consideration, and error reporting
+needs to consist of something more than just returning -1.
 
-Some actual filesystems need to be implemented, but that probably needs to wait
-until there are usable devices on top of which they can be built.
+Some actual filesystems need to be implemented.
 
 Loading ELFs and perhaps other executable formats.
 

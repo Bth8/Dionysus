@@ -22,6 +22,7 @@
 #include <monitor.h>
 #include <timer.h>
 #include <idt.h>
+#include <dev.h>
 
 struct IDEChannelRegisters channels[2];
 struct IDEDevice ide_devices[4];
@@ -136,7 +137,7 @@ u8int ide_print_err(u8int drive, u8int err) {
 }
 
 void init_ide(u32int BAR0, u32int BAR1, u32int BAR2, u32int BAR3, u32int BAR4) {
-	int i, j, k, count = 0;
+	u32int i, j, k, count = 0, sizes[4] = {0,};
 
 	register_interrupt_handler(IRQ14, ide_irq);
 	register_interrupt_handler(IRQ15, ide_irq);
@@ -208,7 +209,7 @@ void init_ide(u32int BAR0, u32int BAR1, u32int BAR2, u32int BAR3, u32int BAR4) {
 			if (ide_devices[count].commandsets & (1 << 26)) // Device uses 48-bit addressing
 				ide_devices[count].size = *(u32int *)(ide_buf + ATA_IDENT_MAX_LBA_EXT);
 			else
-				ide_devices[count].size = *(u32int *)(ide_buf + ATA_IDENT_MAX_LBA);
+				ide_devices[count].size = sizes[count] = *(u32int *)(ide_buf + ATA_IDENT_MAX_LBA);
 
 			// Get device string
 			for (k = 0; k < 40; k += 2) {
@@ -233,6 +234,12 @@ void init_ide(u32int BAR0, u32int BAR1, u32int BAR2, u32int BAR3, u32int BAR4) {
 			monitor_write(ide_devices[i].model);
 			monitor_put('\n');
 		}
+
+	int major = register_blkdev(IDE_MAJOR, "IDE", ide_read_sectors, ide_write_sectors,
+							NULL, count, 512, sizes);
+
+	if (major < 0)
+		monitor_write("IDE: Error registering blkdev driver\n");
 }
 
 /* ATA/ATAPI Read/Write Modes:
@@ -367,7 +374,7 @@ void ide_wait_irq(void) {
 	ide_irq_invoked = 0;
 }
 
-u8int ide_atapi_read(u8int drive, u32int lba, u8int numsects, void *edi) {
+u32int ide_atapi_read(u32int drive, u32int lba, u32int numsects, void *edi) {
 	u32int channel = ide_devices[drive].channel, slave = ide_devices[drive].drive, bus = channels[channel].base, words = 1024, i;
 	u8int err;
 
@@ -430,8 +437,8 @@ u8int ide_atapi_read(u8int drive, u32int lba, u8int numsects, void *edi) {
 	return 0;
 }
 
-u8int ide_read_sectors(u8int drive, u32int lba, u8int numsects, void *edi) {
-	int i;
+u32int ide_read_sectors(u32int drive, u32int lba, u32int numsects, void *edi) {
+	u32int i;
 
 	// Check if drive present
 	if (drive > 3 || !ide_devices[drive].reserved)
@@ -453,7 +460,7 @@ u8int ide_read_sectors(u8int drive, u32int lba, u8int numsects, void *edi) {
 	}
 }
 
-u8int ide_write_sectors(u8int drive, u32int lba, u8int numsects, void *esi) {
+u32int ide_write_sectors(u32int drive, u32int lba, u32int numsects, const void *esi) {
 	// Check if drive present
 	if (drive > 3 || !ide_devices[drive].reserved) 
 		return 1;
@@ -466,7 +473,7 @@ u8int ide_write_sectors(u8int drive, u32int lba, u8int numsects, void *esi) {
 	else {
 		u8int err;
 		if (ide_devices[drive].type == IDE_ATA)
-			err = ide_ata_access(ATA_WRITE, drive, lba, numsects, esi);
+			err = ide_ata_access(ATA_WRITE, drive, lba, numsects, (void *)esi);
 		else
 			err = 4; // Write-protected
 		return ide_print_err(drive, err);

@@ -92,6 +92,14 @@ fs_node_t *finddir_vfs(fs_node_t *node, const char *name) {
 		return NULL;
 }
 
+s32int ioctl_vfs(fs_node_t *node, u32int request, void *ptr) {
+	if (!(node->flags & VFS_FILE))
+		return -1;
+	if (node->ops.ioctl)
+		return node->ops.ioctl(node, request, ptr);
+	return -1;
+}
+
 s32int register_fs(struct file_system_type *fs) {
 	struct file_system_type *fsi = fs_types;
 	if (fsi == NULL) {

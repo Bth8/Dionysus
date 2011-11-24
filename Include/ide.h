@@ -108,6 +108,8 @@
 #define ATA_READ				0x00
 #define ATA_WRITE				0x01
 
+#define IDE_MAJOR				1
+
 struct IDEChannelRegisters {
 	u16int base;
 	u16int ctrl;
@@ -116,20 +118,20 @@ struct IDEChannelRegisters {
 };
 
 struct IDEDevice {
-	u8int reserved;				// Does exist if set
-	u8int channel;				// Secondary if set
-	u8int drive;				// Slave if set
-	u16int type;				// ATAPI if set
+	u8int reserved;		// Does exist if set
+	u8int channel;		// Secondary if set
+	u8int drive;		// Slave if set
+	u8int type;			// ATAPI if set
 	u16int sig;
-	u16int cap;					// Drive features
+	u16int cap;			// Drive features
 	u32int commandsets;
-	u32int size;				// Drive size in sectors
-	char model[41];				// Model string
+	u32int size;		// Drive size in sectors
+	char model[41];		// Model string
 };
 
 void init_ide(u32int BAR0, u32int BAR1, u32int BAR2, u32int BAR3, u32int BAR4);
-u8int ide_read_sectors(u8int drive, u32int lba, u8int numsects, void *edi);
-u8int ide_write_sectors(u8int drive, u32int lba, u8int numsects, void *esi);
+u32int ide_read_sectors(u32int drive, u32int lba, u32int numsects, void *edi);
+u32int ide_write_sectors(u32int drive, u32int lba, u32int numsects, const void *esi);
 u8int ide_atapi_eject(u8int drive);
 
 #endif

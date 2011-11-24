@@ -53,6 +53,7 @@ u8int leds = 0;
 char inbuf[BUFSIZE];
 char *readbufpos = inbuf;
 char *writebufpos = inbuf;
+int echo = 1;
 
 static void update_leds(u8int stat) {
 	while (inb(0x64) & 2) {}	// Loop until keyboard buffer is 0
@@ -117,7 +118,8 @@ static void kbd_isr(registers_t *regs) {
 					*writebufpos++ = trans_code;
 					if (writebufpos == inbuf + BUFSIZE)
 						writebufpos = inbuf;
-					monitor_put(trans_code);
+					if (echo)
+						monitor_put(trans_code);
 				}
 				break;
 		}
@@ -157,11 +159,34 @@ static void open(struct fs_node *node, u32int flags) {
 	node->flags = (flags & O_RDWR);		// Protection from bogus flags
 }
 
+static s32int ioctl(struct fs_node *node, u32int req, void *ptr) {
+	node = node;
+	int ret;
+	switch (req) {
+		case TERMIOECHO:
+			if (ptr) {
+				if (*(int*)ptr)
+					echo = 1;
+				else
+					echo = 0;
+				ret = 0;
+			} else
+				ret = -1;
+			break;
+		default:
+			ret = -1;
+			break;
+	}
+	return ret;
+}
+
 void init_term(void) {
 	register_interrupt_handler(IRQ1, kbd_isr);
+	update_leds(leds);							// Flush keyboard buffer
 	static struct file_ops fops;
 	fops.read = read;
 	fops.write = write;
 	fops.open = open;
+	fops.ioctl = ioctl;
 	register_chrdev(1, "tty", fops);
 }
