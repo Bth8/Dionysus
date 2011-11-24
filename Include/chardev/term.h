@@ -21,6 +21,8 @@
 #define TERM_H
 #include <common.h>
 
+#define TERMIOECHO	0
+
 void init_term(void);
 
 #endif

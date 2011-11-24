@@ -65,6 +65,7 @@ struct file_ops {
 	void(*close)(struct fs_node*);
 	struct dirent*(*readdir)(struct fs_node*, u32int);
 	struct fs_node*(*finddir)(struct fs_node*, const char*);
+	s32int (*ioctl)(struct fs_node*, u32int, void*);
 };
 
 typedef struct fs_node {
@@ -104,6 +105,7 @@ void open_vfs(fs_node_t *node, u32int flags);
 void close_vfs(fs_node_t *node);
 struct dirent *readdir_vfs(fs_node_t *node, u32int index);
 fs_node_t *finddir_vfs(fs_node_t *node, const char *name);
+s32int ioctl_vfs(fs_node_t *node, u32int, void *);
 fs_node_t *kopen(const char *path, u32int flags);
 s32int register_fs(struct file_system_type *fs);
 s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name, u32int flags);

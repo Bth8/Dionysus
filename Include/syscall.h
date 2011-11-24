@@ -89,6 +89,7 @@ DECL_SYSCALL4(pread, int, char*, u32int, u32int);
 DECL_SYSCALL3(read, int, char*, u32int);
 DECL_SYSCALL4(pwrite, int, char*, u32int, u32int);
 DECL_SYSCALL3(write, int, char*, u32int);
+DECL_SYSCALL3(ioctl, int, u32int, void*);
 DECL_SYSCALL3(lseek, int, int, int);
 
 void init_syscalls(void);

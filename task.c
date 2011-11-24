@@ -451,8 +451,19 @@ int getresgid(int *rgid, int *egid, int *sgid) {
 	return 0;
 }
 
-int lseek(int fd, u32int off, int whence) {
+static int valid_fd(int fd) {
+	if (fd < 0)
+		return 0;
+	if (fd > MAX_OF)
+		return 0;
 	if (!current_task->files[fd].file)
+		return 0;
+
+	return 1;
+}
+
+int lseek(int fd, u32int off, int whence) {
+	if (!valid_fd(fd))
 		return -1;
 
 	switch (whence) {
@@ -473,26 +484,26 @@ int lseek(int fd, u32int off, int whence) {
 }
 
 int user_pread(int fd, char *buf, u32int nbytes, u32int off) {
-	if (!current_task->files[fd].file)
+	if (!valid_fd(fd))
 		return -1;
 
 	if (!buf)
 		return -1;
 
-	if (!(current_task->files[fd].file->flags & O_WRONLY))
+	if (!(current_task->files[fd].file->mask & O_RDONLY))
 		return -1;
 
 	return read_vfs(current_task->files[fd].file, buf, nbytes, off);
 }
 
 int user_read(int fd, char *buf, u32int nbytes) {
-	if (!current_task->files[fd].file)
+	if (!valid_fd(fd))
 		return -1;
 
 	if (!buf)
 		return -1;
 
-	if (!(current_task->files[fd].file->flags & O_RDONLY))
+	if (!(current_task->files[fd].file->mask & O_RDONLY))
 		return -1;
 
 	u32int ret = read_vfs(current_task->files[fd].file, buf, nbytes, current_task->files[fd].off);
@@ -501,26 +512,26 @@ int user_read(int fd, char *buf, u32int nbytes) {
 }
 
 int user_pwrite(int fd, const char *buf, u32int nbytes, u32int off) {
-	if (!current_task->files[fd].file)
+	if (!valid_fd(fd))
 		return -1;
 
 	if (!buf)
 		return -1;
 
-	if (!(current_task->files[fd].file->flags & O_WRONLY))
+	if (!(current_task->files[fd].file->mask & O_WRONLY))
 		return -1;
 
 	return write_vfs(current_task->files[fd].file, buf, nbytes, off);
 }
 
 int user_write(int fd, const char *buf, u32int nbytes) {
-	if (!current_task->files[fd].file)
+	if (!valid_fd(fd))
 		return -1;
 
 	if (!buf)
 		return -1;
 
-	if (!(current_task->files[fd].file->flags & O_WRONLY))
+	if (!(current_task->files[fd].file->mask & O_WRONLY))
 		return -1;
 
 	u32int ret = write_vfs(current_task->files[fd].file, buf, nbytes, current_task->files[fd].off);
@@ -551,10 +562,17 @@ int user_open(const char *path, u32int flags) {
 }
 
 int user_close(int fd) {
-	if (!current_task->files[fd].file)
+	if (!valid_fd(fd))
 		return -1;
 
 	close_vfs(current_task->files[fd].file);
 	kfree(current_task->files[fd].file);
 	return 0;
+}
+
+int user_ioctl(int fd, u32int request, void *ptr) {
+	if (!valid_fd(fd))
+		return -1;
+
+	return ioctl_vfs(current_task->files[fd].file, request, ptr);
 }
