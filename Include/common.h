@@ -24,7 +24,7 @@
 #define NULL ((void *)0)
 
 #define PANIC(b) panic(__LINE__, __FILE__, b)
-#define ASSERT(b) b ? NULL : PANIC("ASSERT failed")
+#define ASSERT(b) (b) ? NULL : PANIC("ASSERT failed")
 #define BCD2HEX(bcd) ((bcd) = (((bcd) & 0xF0) >> 1) + (((bcd) & 0xF0) >> 3) + ((bcd) & 0xf))
 #define READ_CMOS(addr) ({ \
 outb(0x70, 0x80 | addr); \

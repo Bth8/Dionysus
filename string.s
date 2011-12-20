@@ -76,7 +76,24 @@ strcpy:
 	call strlen
 	pop esi
 
-	mov ecx, eax
+	push eax
+	push esi
+	push edi
+	call strncpy
+	add esp, 12
+
+	pop esi
+	pop edi
+	ret
+
+global strncpy
+strncpy:
+	push edi
+	push esi
+
+	mov edi, [esp + 12]
+	mov esi, [esp + 16]
+	mov ecx, [esp + 20]
 
 	rep movsb
 
@@ -135,13 +152,13 @@ strncmp:
 	mov edi, [esp+16]
 	mov ecx, [esp+20]
 
-.compare:
-	cmpsb
+	repe cmpsb
 	ja .greater
 	jb .less
-	dec ecx
-	jz .equal
-	jmp .compare
+	pop esi
+	pop edi
+	xor eax, eax
+	ret
 .greater:
 	pop esi
 	pop edi
@@ -151,9 +168,4 @@ strncmp:
 	pop esi
 	pop edi
 	mov eax, -1
-	ret
-.equal:
-	pop esi
-	pop edi
-	xor eax, eax
 	ret

@@ -24,22 +24,18 @@
 #include <kmalloc.h>
 
 fs_node_t rootfs_root;
-char *names[] = {"bin", "dev"};
+char *names[] = {"real", "dev"};
 fs_node_t subdirs[sizeof(names)/sizeof(char *)];
 
-static struct superblock *return_sb(struct file_system_type *fs, int, fs_node_t *dev);
+static struct superblock *return_sb(u32int flags, fs_node_t *dev);
 struct file_system_type rootfs = {
-	"rootfs",
-	0,
-	return_sb,
-	NULL
+	.name = "rootfs",
+	.flags = FS_NODEV,
+	.get_super = return_sb,
 };
 
 struct superblock rootfs_sb = {
-	0,
-	0,
-	&rootfs,
-	&rootfs_root
+	.root = &rootfs_root
 };
 
 static struct dirent *readdir(fs_node_t *node, u32int index);
@@ -65,7 +61,7 @@ void init_rootfs(void) {
 						VFS_G_EXEC | VFS_O_READ | VFS_O_EXEC;
 		subdirs[i].gid = subdirs[i].uid = 0;
 		subdirs[i].flags = VFS_DIR;
-		subdirs[i].inode = i;
+		subdirs[i].inode = i + 1;
 		subdirs[i].len = 0;
 		subdirs[i].impl = 0;
 		subdirs[i].fs_sb = &rootfs_sb;
@@ -74,8 +70,7 @@ void init_rootfs(void) {
 	register_fs(&rootfs);
 }
 
-static struct superblock *return_sb(struct file_system_type *fs, int flags, fs_node_t *dev) {
-	fs = fs;
+static struct superblock *return_sb(u32int flags, fs_node_t *dev) {
 	flags = flags;
 	dev = dev;
 	return &rootfs_sb;
@@ -94,11 +89,12 @@ static struct dirent *readdir(fs_node_t *node, u32int index) {
 static fs_node_t *finddir(fs_node_t *node, const char *name) {
 	node = node;
 	u32int i;
-	for (i = 0; i < sizeof(names)/sizeof(char *); i++)
+	for (i = 0; i < sizeof(names)/sizeof(char *); i++) {
 		if (strcmp(name, names[i]) == 0) {
 			fs_node_t *ret = (fs_node_t *)kmalloc(sizeof(fs_node_t));
 			memcpy(ret, &subdirs[i], sizeof(fs_node_t));
 			return ret;
 		}
+	}
 	return NULL;
 }

@@ -30,19 +30,15 @@ struct dev_file *files = NULL;
 struct chrdev_driver char_drivers[256];		// 1 for every valid major number
 struct blkdev_driver blk_drivers[256];
 
-static struct superblock *return_sb(struct file_system_type *fs, int, fs_node_t *dev);
+static struct superblock *return_sb(u32int, fs_node_t *dev);
 struct file_system_type dev_fs = {
-	"dev",
-	0,
-	return_sb,
-	NULL
+	.name = "dev",
+	.flags = FS_NODEV,
+	.get_super = return_sb,
 };
 
 struct superblock dev_sb = {
-	0,
-	0,
-	&dev_fs,
-	&dev_root
+	.root = &dev_root,
 };
 
 static struct dirent *readdir(fs_node_t *node, u32int index);
@@ -74,9 +70,8 @@ void init_devfs(void) {
 	register_fs(&dev_fs);
 }
 
-static struct superblock *return_sb(struct file_system_type *fs, int flags, fs_node_t *dev) {
-	fs = fs;		// Compiler complains otherwise
-	flags = flags;
+static struct superblock *return_sb(u32int flags, fs_node_t *dev) {
+	flags = flags;	// Compiler complains otherwise
 	dev = dev;
 	return &dev_sb;
 }
@@ -84,7 +79,7 @@ static struct superblock *return_sb(struct file_system_type *fs, int flags, fs_n
 s32int read_blkdev(u32int major, u32int minor, u32int count, u32int off, char *buf);
 s32int write_blkdev(u32int major, u32int minor, u32int count, u32int off, const char *buf);
 
-static u32int read(fs_node_t *node, char *buf, u32int count, u32int off) {
+static u32int read(fs_node_t *node, void *buf, u32int count, u32int off) {
 	if (node->flags & VFS_CHARDEV) {
 		if (char_drivers[MAJOR(node->impl) - 1].ops.read)
 			return char_drivers[MAJOR(node->impl) - 1].ops.read(node, buf, count, off);
@@ -96,7 +91,7 @@ static u32int read(fs_node_t *node, char *buf, u32int count, u32int off) {
 	return 0;
 }
 
-static u32int write(fs_node_t *node, const char *buf, u32int count, u32int off) {
+static u32int write(fs_node_t *node, const void *buf, u32int count, u32int off) {
 	if (node->flags & VFS_CHARDEV) {
 		if (char_drivers[MAJOR(node->impl) - 1].ops.write)
 			return char_drivers[MAJOR(node->impl) - 1].ops.write(node, buf, count, off);

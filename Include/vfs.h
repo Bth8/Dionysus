@@ -31,6 +31,7 @@
 #define VFS_PIPE		0x10
 #define VFS_MOUNT		0x20
 #define VFS_SYM			0x40
+#define VFS_UNKNOWN		0x80
 
 #define O_RDONLY		0x1
 #define O_WRONLY		0x2
@@ -50,6 +51,8 @@
 #define VFS_SETGID		02000
 #define VFS_SETUID		04000
 
+#define FS_NODEV		0x01
+
 #define EOF				-1
 
 struct fs_node;
@@ -59,8 +62,8 @@ struct dirent {
 };
 
 struct file_ops {
-	u32int(*read)(struct fs_node*, char*, u32int, u32int);
-	u32int(*write)(struct fs_node*, const char*, u32int, u32int);
+	u32int(*read)(struct fs_node*, void*, u32int, u32int);
+	u32int(*write)(struct fs_node*, const void*, u32int, u32int);
 	void(*open)(struct fs_node*, u32int);
 	void(*close)(struct fs_node*);
 	struct dirent*(*readdir)(struct fs_node*, u32int);
@@ -80,27 +83,28 @@ typedef struct fs_node {
 	struct file_ops ops;
 	struct superblock *fs_sb;	// Parent fs
 	struct superblock *ptr_sb;	// For mount points
+	void *private_data;
 } fs_node_t;
 
 struct file_system_type;
 struct superblock {
-	u32int dev;
-	u32int blocksize;
-	struct file_system_type *fs;
+	fs_node_t *dev;
+	void *private_data;
 	fs_node_t *root;
+	u32int flags;
 };
 
 struct file_system_type {
 	const char *name;
 	u32int flags;
-	struct superblock *(*get_super)(struct file_system_type*, int, fs_node_t*);
+	struct superblock *(*get_super)(u32int, fs_node_t*);
 	struct file_system_type *next;
 };
 
 extern fs_node_t *vfs_root;
 
-u32int read_vfs(fs_node_t *node, char *buf, u32int count, u32int off);
-u32int write_vfs(fs_node_t *node, const char *buf, u32int count, u32int off);
+u32int read_vfs(fs_node_t *node, void *buf, u32int count, u32int off);
+u32int write_vfs(fs_node_t *node, const void *buf, u32int count, u32int off);
 void open_vfs(fs_node_t *node, u32int flags);
 void close_vfs(fs_node_t *node);
 struct dirent *readdir_vfs(fs_node_t *node, u32int index);

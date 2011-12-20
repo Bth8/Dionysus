@@ -30,14 +30,18 @@ struct file_system_type *fs_types = NULL;
 fs_node_t mnt_pts[MAX_MNT_PTS];
 u32int nmnts = 0;
 
-u32int read_vfs(fs_node_t *node, char *buf, u32int count, u32int off) {
+u32int read_vfs(fs_node_t *node, void *buf, u32int count, u32int off) {
+	if (!node)
+		return 0;
 	if (node->ops.read)
 		return node->ops.read(node, buf, count, off);
 	else
 		return 0;
 }
 
-u32int write_vfs(fs_node_t *node, const char *buf, u32int count, u32int off) {
+u32int write_vfs(fs_node_t *node, const void *buf, u32int count, u32int off) {
+	if (!node)
+		return 0;
 	if (node->ops.write)
 		return node->ops.write(node, buf, count, off);
 	else
@@ -45,11 +49,15 @@ u32int write_vfs(fs_node_t *node, const char *buf, u32int count, u32int off) {
 }
 
 void open_vfs(fs_node_t *node, u32int flags) {
+	if (!node)
+		return;
 	if (node->ops.open)
 		node->ops.open(node, flags);
 }
 
 void close_vfs(fs_node_t *node) {
+	if (!node)
+		return;
 	if (node == vfs_root)
 		PANIC("Tried closing root");
 
@@ -74,6 +82,8 @@ static fs_node_t *get_mnt(fs_node_t *node) {
 }
 
 struct dirent *readdir_vfs(fs_node_t *node, u32int index) {
+	if (!node)
+		return NULL;
 	if (!(node->flags & VFS_DIR))
 		return NULL;
 	fs_node_t *mnt = get_mnt(node);
@@ -83,6 +93,8 @@ struct dirent *readdir_vfs(fs_node_t *node, u32int index) {
 }
 
 fs_node_t *finddir_vfs(fs_node_t *node, const char *name) {
+	if (!node)
+		return NULL;
 	if (!(node->flags & VFS_DIR))
 		return NULL;
 	fs_node_t *mnt = get_mnt(node);
@@ -93,7 +105,9 @@ fs_node_t *finddir_vfs(fs_node_t *node, const char *name) {
 }
 
 s32int ioctl_vfs(fs_node_t *node, u32int request, void *ptr) {
-	if (!(node->flags & VFS_FILE))
+	if (!node)
+		return -1;
+	if (!(node->flags & VFS_CHARDEV) && !(node->flags & VFS_BLOCKDEV))
 		return -1;
 	if (node->ops.ioctl)
 		return node->ops.ioctl(node, request, ptr);
@@ -131,8 +145,15 @@ s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name, u32int flags)
 			break;
 	if (fsi == NULL)
 		return -1;
+	if (fsi->flags & FS_NODEV) {
+		if (dev)
+			return -1;
+	} else {
+		if (!dev)
+			return -1;
+	}
 
-	if ((sb = fsi->get_super(fsi, flags, dev)) != NULL) {
+	if ((sb = fsi->get_super(flags, dev)) != NULL) {
 		if (dest == vfs_root) {
 			vfs_root = sb->root;
 			vfs_root->ptr_sb = sb;

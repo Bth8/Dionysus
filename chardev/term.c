@@ -128,7 +128,7 @@ static void kbd_isr(registers_t *regs) {
 		update_leds(leds);
 }
 
-static u32int read(struct fs_node *node, char *dest, u32int count, u32int off) {
+static u32int read(struct fs_node *node, void *dest, u32int count, u32int off) {
 	node = node;						// Compiler complains otherwise
 	off = off;
 	while (readbufpos == writebufpos)	// No characters have yet to be read
@@ -138,19 +138,19 @@ static u32int read(struct fs_node *node, char *dest, u32int count, u32int off) {
 	for (i = 0; i < count; i++) {
 		while (readbufpos == writebufpos)	// If we've reached the end of characters yet to be written
 			sleep_thread();					// and have yet to reach our quota, sleep
-		*dest++ = *readbufpos++;
+		*(char *)dest++ = *readbufpos++;
 		if (readbufpos == inbuf + BUFSIZE)	// Circle around when we reach the end
 			readbufpos = inbuf;
 	}
 	return i;
 }
 
-static u32int write(struct fs_node *node, const char *src, u32int count, u32int off) {
+static u32int write(struct fs_node *node, const void *src, u32int count, u32int off) {
 	node = node;
 	off = off;
 	u32int i;
 	for (i = 0; i < count; i++)
-		monitor_put(*src++);
+		monitor_put(*(char *)src++);
 
 	return i;
 }

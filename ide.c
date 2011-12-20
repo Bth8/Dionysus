@@ -30,6 +30,9 @@ u8int ide_buf[2048] = {0};
 u8int ide_irq_invoked = 0;
 u8int atapi_packet[] = {0xA8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
+u32int ide_read_sectors(u32int drive, u32int lba, u32int numsects, void *edi);
+u32int ide_write_sectors(u32int drive, u32int lba, u32int numsects, const void *esi);
+
 static void ide_irq(registers_t *regs) {
 	regs = regs;
 	ide_irq_invoked = 1;
