@@ -21,14 +21,14 @@
 #include <time.h>
 #include <monitor.h>
 
-#define MINUTE 60
-#define HOUR (60*MINUTE)
-#define DAY (24*HOUR)
-#define YEAR (365*DAY)
-#define YEAR0 1900
-#define EPOCH_YR 1970
-#define LEAPYEAR(year) (!((year) % 4) && (((year) % 100) || !((year) % 400)))
-#define YEARSIZE(year) (LEAPYEAR(year) ? 366 : 365)
+#define MINUTE			60
+#define HOUR			(60*MINUTE)
+#define DAY				(24*HOUR)
+#define YEAR			(365*DAY)
+#define YEAR0			1900
+#define EPOCH_YR		1970
+#define LEAPYEAR(year)	(!((year) % 4) && (((year) % 100) || !((year) % 400)))
+#define YEARSIZE(year)	(LEAPYEAR(year) ? 366 : 365)
 
 time_t start_time = 0, current_time = 0;
 
@@ -49,8 +49,8 @@ static int month[12] = {
 };
 
 static unsigned int _ytab[2][12] = {
-	{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30},
-	{31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30}
+	{31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31},
+	{31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31}
 };
 
 time_t mktime(struct tm *tp) {
@@ -87,7 +87,7 @@ struct tm *gmtime(const time_t *timer) {
 		dayno -= YEARSIZE(year);
 		year++;
 	}
-	retp->tm_year -= YEAR0;
+	retp->tm_year = year - YEAR0;
 	retp->tm_yday = dayno;
 	retp->tm_mon = 0;
 	while (dayno >= _ytab[LEAPYEAR(year)][retp->tm_mon]) {
@@ -98,6 +98,12 @@ struct tm *gmtime(const time_t *timer) {
 	retp->tm_isdst = 0;
 
 	return retp;
+}
+
+time_t time(time_t *timer) {
+	if (timer)
+		*timer = current_time;
+	return current_time;
 }
 
 void init_time(void) {
