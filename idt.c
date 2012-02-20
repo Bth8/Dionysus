@@ -19,7 +19,7 @@
 
 #include <idt.h>
 #include <common.h>
-#include <monitor.h>
+#include <printf.h>
 
 // Flush IDT. Defined in descriptor_tables.s
 extern void idt_flush(u32int);
@@ -118,9 +118,7 @@ void isr_handler(registers_t regs) {
 	if ((handler = isr_handlers[regs.int_no]) != NULL)
 		handler(&regs);
 	else {
-		monitor_write("Unhandled interrupt: ");
-		monitor_write_udec(regs.int_no);
-		monitor_put('\n');
+		printf("Unhandled interrupt: %i\n", regs.int_no);
 		halt();
 	}
 }

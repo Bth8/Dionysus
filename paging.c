@@ -21,7 +21,7 @@
 #include <paging.h>
 #include <idt.h>
 #include <kmalloc.h>
-#include <monitor.h>
+#include <printf.h>
 #include <string.h>
 #include <kheap.h>
 
@@ -112,14 +112,12 @@ static void page_fault(registers_t *regs) {
 	asm volatile("mov %%cr2, %0" : "=r" (fault_addr));
 
 	// Output an error message.
-	monitor_write("Page fault! ( ");
-	if (!(regs->err_code & 0x1)) {monitor_write("present ");}	// Page not present
-	if (regs->err_code & 0x2) {monitor_write("read-only ");}	// Write operation
-	if (regs->err_code & 0x4) {monitor_write("user-mode ");}	// In user mode
-	if (regs->err_code & 0x8) {monitor_write("reserved ");}		// Reserved bits overwritten
-	monitor_write(") at ");
-	monitor_write_hex(fault_addr);
-	monitor_write("\n");
+	printf("Page fault! ( ");
+	if (!(regs->err_code & 0x1)) {printf("present ");}	// Page not present
+	if (regs->err_code & 0x2) {printf("read-only ");}	// Write operation
+	if (regs->err_code & 0x4) {printf("user-mode ");}	// In user mode
+	if (regs->err_code & 0x8) {printf("reserved ");}		// Reserved bits overwritten
+	printf(") at 0x%X\n", fault_addr);
 	PANIC("Page fault");
 }
 

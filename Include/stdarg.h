@@ -1,4 +1,4 @@
-/* time.h - Header for time data types/functions */
+/* stdargs.h - header for va_args */
 /* Copyright (C) 2011 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
@@ -17,29 +17,17 @@
  *  along with Dionysus.  If not, see <http://www.gnu.org/licenses/>
  */
 
-#ifndef TIME_H
-#define TIME_H
+/* If it isn't obvious yet, I'm assuming you're compiling with GCC because,
+ * if you're not, fuck you. <3
+ */
 
-#ifndef TIME_T
-#define TIME_T
-typedef unsigned int time_t;
-#endif
+#ifndef STDARG_H
+#define STDARG_H
 
-struct tm {
-	int tm_sec;
-	int tm_min;
-	int tm_hour;
-	int tm_mday;
-	int tm_mon;
-	int tm_year;
-	int tm_wday;
-	int tm_yday;
-	int tm_isdst;
-};
-
-time_t mktime(struct tm *tp);
-struct tm *gmtime(const time_t *timer);
-time_t time(time_t *timer);
-void init_time(void);
+#define va_start(v, l)	__builtin_va_start(v, l)
+#define va_arg(v, l)	__builtin_va_arg(v, l)
+#define va_end(v)	__builtin_va_end(v)
+#define va_copy(v, l)	__builtin_va_copy(v, l)
+typedef __builtin_va_list va_list;
 
 #endif

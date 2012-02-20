@@ -20,7 +20,7 @@
 #include <common.h>
 #include <pci.h>
 #include <pci_regs.h>
-#include <monitor.h>
+#include <printf.h>
 
 u32int pciConfigReadDword(u8int bus, u8int slot, u8int func, u8int off) {
 	// Select config address
@@ -61,20 +61,9 @@ void dump_pci(void) {
 		for (slot = 0; slot < 32; slot++)
 			for (func = 0; func < 8; func++) {
 				int vend = pciConfigReadWord(bus, slot, func, PCI_VENDOR_ID);
-				if (vend != 0xFFFF) {
-					monitor_write("Bus ");
-					monitor_write_udec(bus);
-					monitor_write(" Slot ");
-					monitor_write_udec(slot);
-					monitor_write(" Func ");
-					monitor_write_udec(func);
-					monitor_write(" - Device: ");
-					monitor_write_hex(pciConfigReadWord(bus, slot, func, PCI_DEVICE_ID));
-					monitor_write(" vendor: ");
-					monitor_write_hex(vend);
-					monitor_write(" class: ");
-					monitor_write_hex(pciConfigReadWord(bus, slot, func, PCI_CLASS_DEVICE));
-					monitor_put('\n');
-				}
+				if (vend != 0xFFFF)
+					printf("Bus %u Slot %u Func %u - Device: 0x%X vendor: 0x%X class: 0x%X\n",
+							bus, slot, func, pciConfigReadWord(bus, slot, func, PCI_DEVICE_ID),
+							vend, pciConfigReadWord(bus, slot, func, PCI_CLASS_DEVICE));
 			}
 }

@@ -32,7 +32,7 @@
 extern u32int initial_esp;
 
 // Defined in process.s
-extern u32int read_eip();
+extern u32int read_eip(void);
 
 // Defined in paging.c
 extern page_directory_t *current_dir;

@@ -18,16 +18,12 @@
  */
 
 #include <common.h>
-#include <monitor.h>
+#include <printf.h>
 
 void panic(u32int line, char *file, char *msg) {
 	asm volatile("cli");
-	monitor_write("KERNEL PANIC AT LINE ");
-	monitor_write_udec(line);
-	monitor_write(" IN FILE ");
-	monitor_write(file);
-	monitor_write(": ");
-	monitor_write(msg);
+
+	printf("KERNEL PANIC AT LINE %u IN FILE %s: %s\n", line, file, msg);
 
 	halt();
 }

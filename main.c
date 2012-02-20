@@ -31,9 +31,11 @@
 #include <time.h>
 #include <pci.h>
 #include <fs/rootfs.h>
+//#include <fs/ext2.h>
 #include <dev.h>
 #include <vfs.h>
 #include <ide.h>
+#include <printf.h>
 
 #include <string.h>
 
@@ -48,18 +50,26 @@ u32int placement_address = (u32int)&kend;
 u32int phys_address = (u32int)&kend - 0xC0000000u;
 u32int initial_esp;
 
+void print_time(struct tm *time);
+
 void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	initial_esp = esp;
 	u32int mem_end = 0; // Last valid address in memory so we know how far to page
 	monitor_clear();
+	printf("Booting Dionysus!\n");
 	if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
-		monitor_write("ERROR: MULTIBOOT_BOOTLOADER_MAGIC not correct. Halting.\n");
+		printf("ERROR: MULTIBOOT_BOOTLOADER_MAGIC not correct. Halting.\n");
 		halt();
 	}
 
+	printf("Initializing GDT\n");
 	init_gdt();
+	printf("Initializing IDT\n");
 	init_idt();
+	printf("Getting system time: ");
 	init_time();
+	time_t rawtime = time(NULL);
+	print_time(gmtime(&rawtime));
 	init_timer(1000);
 
 	if (mboot->flags & MULTIBOOT_INFO_MODS && mboot->mods_count) {
@@ -82,11 +92,12 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 			mmap = (multiboot_memory_map_t *)((u32int)mmap + mmap->size + sizeof(mmap->size));
 		}
 	} else {
-		monitor_write("Error! MULTIBOOT_INFO_MEM_MAP not set in mboot->flags.\n");
+		printf("Error! MULTIBOOT_INFO_MEM_MAP not set in mboot->flags.\n");
 		halt();
 	}
 
 	init_paging(mem_end);
+	printf("Starting task scheduling\n");
 	init_tasking();
 	init_syscalls();
 
@@ -95,22 +106,16 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	init_devfs();
 	init_ide(0, 0, 0, 0, 0);
 
-	mount(NULL, vfs_root, "rootfs", 0);
-	fs_node_t *dev = finddir_vfs(vfs_root, "dev");
-	mount(NULL, dev, "dev", 0);
-	kfree(dev);
-	devfs_register("sda0", VFS_FILE | VFS_BLOCKDEV, 1, 1, 0, 0, 0);
-	int fd = sys_open("/dev/sda0", O_RDWR);
-	monitor_write_sdec(fd);
-	monitor_put('\n');
-	char buf[1024];
-	sys_pread(fd, buf, 1024, 12);
-	buf[0] = 0xDE;
-	buf[1] = 0xAD;
-	buf[2] = 0xBE;
-	buf[3] = 0xEF;
-	sys_pwrite(fd, buf, 1024, 12);
-	monitor_write_hex((u32int)buf);
+	printf("%04d\n", 1);
 
 	halt();
+}
+
+void print_time(struct tm *time) {
+	printf("%s, ", (char *[]){"Sunday", "Monday", "Tuesday", "Wednesday", 
+			"Thursday", "Friday", "Saturday"}[time->tm_wday]);
+	printf("%s ", (char *[]){"Jan", "Feb", "March", "April", "May", "June",
+			"July", "Aug", "Sep", "Oct", "Nov", "Dec"}[time->tm_mon]);
+	printf("%i %02i:%02i:%02i %i\n", time->tm_mday, time->tm_hour,
+			time->tm_min, time->tm_sec, time->tm_year + 1900);
 }

@@ -23,7 +23,7 @@
 #include <string.h>
 #include <kmalloc.h>
 #include <ordered_array.h>
-#include <monitor.h>
+#include <printf.h>
 
 fs_node_t dev_root;
 struct dev_file *files = NULL;
@@ -226,9 +226,7 @@ s32int register_chrdev(u32int major, const char *name, struct file_ops fops) {
 	char_drivers[major - 1].name = name;
 	char_drivers[major - 1].ops = fops;
 
-	monitor_write("Chardev driver ");
-	monitor_write(name);
-	monitor_write(" added\n");
+	printf("Chardev driver %s added\n", name);
 
 	return major;
 }
@@ -240,11 +238,8 @@ s32int detect_partitions(struct blockdev *dev) {
 		return -1;
 
 	if (mbr.magic[0] != 0x55 || mbr.magic[1] != 0xAA) {			// Valid?
-		monitor_write("Warning: invalid partition table driver ");
-		monitor_write(dev->driver->name);
-		monitor_write(" device ");
-		monitor_write_udec(dev->minor/16);
-		monitor_put('\n');
+		printf("Warning: invalid partition table driver %s device %u\n",
+				dev->driver->name, dev->minor/16);
 		return 0;
 	}
 
@@ -291,9 +286,7 @@ s32int register_blkdev(u32int major, const char *name,
 	blk_drivers[major - 1].nreal = nreal;
 	blk_drivers[major - 1].devs = create_ordered_array(nreal * 16, lessthan_blkdev);
 
-	monitor_write("Blockdev driver ");
-	monitor_write(name);
-	monitor_write(" added\n");
+	printf("Blockdev driver %s added\n", name);
 
 	u32int i;
 	for (i = 0; i < nreal; i++) {											// Add 

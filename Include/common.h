@@ -55,7 +55,7 @@ u32int inl(u16int port);
 void insw(u16int port, void *buf, int count);
 void outsw(u16int port, void *src, int count);
 extern inline void halt(void) {while(1){};}
-//extern inline void halt() {__asm__("hlt");}
+//extern inline void halt(void) {__asm__("hlt");}
 void panic(u32int line, char *file, char *msg);
 
 #endif

@@ -19,7 +19,7 @@
 
 #include <common.h>
 #include <ide.h>
-#include <monitor.h>
+#include <printf.h>
 #include <timer.h>
 #include <idt.h>
 #include <dev.h>
@@ -114,27 +114,24 @@ u8int ide_print_err(u8int drive, u8int err) {
 	if (!err)
 		return err;
 
-	monitor_write("IDE:\n\t");
-	if (err == 1) {monitor_write("- Device fault\n\t"); err = 19;}
+	printf("IDE:\n\t");
+	if (err == 1) {printf("- Device fault\n\t"); err = 19;}
 	else if (err == 2) {
 		u8int st = ide_read(ide_devices[drive].channel, ATA_REG_ERROR);
-		if (st & ATA_ER_AMNF) {monitor_write("- Address mark not found\n\t"); err = 7;}
-		if (st & ATA_ER_TK0NF) {monitor_write("- No media or media error\n\t"); err = 3;}
-		if (st & ATA_ER_ABRT) {monitor_write("- Command aborted\n\t"); err = 20;}
-		if (st & ATA_ER_MCR) {monitor_write("- No media or media error\n\t"); err = 3;}
-		if (st & ATA_ER_IDNF) {monitor_write("- ID mark not found\n\t"); err = 21;}
-		if (st & ATA_ER_MC) {monitor_write("- No media or media error\n\t"); err = 3;}
-		if (st & ATA_ER_UNC) {monitor_write("- Uncorrectable data error\n\t"); err = 22;}
-		if (st & ATA_ER_BBK) {monitor_write("- Bad sectors\n\t"); err = 13;}
-	} else if (err == 3) {monitor_write("- Reads nothing\n\t"); err = 23;}
-	else if (err == 4) {monitor_write("- Write protected\n\t"); err = 8;}
-	monitor_write("- [");
-	monitor_write((char *[]){"Primary", "Secondary"}[ide_devices[drive].channel]); // Channel is index into the array
-	monitor_put(' ');
-	monitor_write((char *[]){"master", "slave"}[ide_devices[drive].drive]); // Drive mode is index
-	monitor_write("] ");
-	monitor_write(ide_devices[drive].model);
-	monitor_put('\n');
+		if (st & ATA_ER_AMNF) {printf("- Address mark not found\n\t"); err = 7;}
+		if (st & ATA_ER_TK0NF) {printf("- No media or media error\n\t"); err = 3;}
+		if (st & ATA_ER_ABRT) {printf("- Command aborted\n\t"); err = 20;}
+		if (st & ATA_ER_MCR) {printf("- No media or media error\n\t"); err = 3;}
+		if (st & ATA_ER_IDNF) {printf("- ID mark not found\n\t"); err = 21;}
+		if (st & ATA_ER_MC) {printf("- No media or media error\n\t"); err = 3;}
+		if (st & ATA_ER_UNC) {printf("- Uncorrectable data error\n\t"); err = 22;}
+		if (st & ATA_ER_BBK) {printf("- Bad sectors\n\t"); err = 13;}
+	} else if (err == 3) {printf("- Reads nothing\n\t"); err = 23;}
+	else if (err == 4) {printf("- Write protected\n\t"); err = 8;}
+	printf("- [%s %s] %s\n",
+			(char *[]){"Primary", "Secondary"}[ide_devices[drive].channel],
+			(char *[]){"master", "slave"}[ide_devices[drive].drive],
+			ide_devices[drive].model);
 
 	return err;
 }
@@ -225,24 +222,17 @@ void init_ide(u32int BAR0, u32int BAR1, u32int BAR2, u32int BAR3, u32int BAR4) {
 		}
 
 	for (i = 0; i < 4; i++)
-		if (ide_devices[i].reserved) {
-			monitor_write("Found ");
-			monitor_write((char *[]){"ATA", "ATAPI"}[ide_devices[i].type]);
-			monitor_write_udec(i / 2);
-			monitor_put('-');
-			monitor_write_udec(i % 2);
-			monitor_put(' ');
-			monitor_write_udec(ide_devices[i].size / 1024 / 2);
-			monitor_write("MB - ");
-			monitor_write(ide_devices[i].model);
-			monitor_put('\n');
-		}
+		if (ide_devices[i].reserved)
+			printf("Found %s%i-%i %iMB - %s\n",
+					(char *[]){"ATA", "ATAPI"}[ide_devices[i].type],
+					i / 2, i % 2, ide_devices[i].size / 1024 / 2,
+					ide_devices[i].model);
 
 	int major = register_blkdev(IDE_MAJOR, "IDE", ide_read_sectors, ide_write_sectors,
 							NULL, count, 512, sizes);
 
 	if (major < 0)
-		monitor_write("IDE: Error registering blkdev driver\n");
+		printf("IDE: Error registering blkdev driver\n");
 }
 
 /* ATA/ATAPI Read/Write Modes:

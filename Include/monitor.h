@@ -41,10 +41,6 @@
 
 void monitor_put(char c);
 void monitor_clear(void);
-void monitor_write(const char *s);
-void monitor_write_hex(u32int n);
-void monitor_write_udec(u32int n);
-void monitor_write_sdec(s32int n);
 void setcolor(u8int bg, u8int fg);
 
 #endif

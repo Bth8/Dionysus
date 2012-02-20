@@ -1,4 +1,4 @@
-/* time.h - Header for time data types/functions */
+/* printf.h - printf and sprintf delcarations */
 /* Copyright (C) 2011 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
@@ -17,29 +17,10 @@
  *  along with Dionysus.  If not, see <http://www.gnu.org/licenses/>
  */
 
-#ifndef TIME_H
-#define TIME_H
+#ifndef PRINTF_H
+#define PRINTF_H
 
-#ifndef TIME_T
-#define TIME_T
-typedef unsigned int time_t;
-#endif
-
-struct tm {
-	int tm_sec;
-	int tm_min;
-	int tm_hour;
-	int tm_mday;
-	int tm_mon;
-	int tm_year;
-	int tm_wday;
-	int tm_yday;
-	int tm_isdst;
-};
-
-time_t mktime(struct tm *tp);
-struct tm *gmtime(const time_t *timer);
-time_t time(time_t *timer);
-void init_time(void);
+int printf(const char *format, ...);
+int sprintf(char *out, const char *format, ...);
 
 #endif

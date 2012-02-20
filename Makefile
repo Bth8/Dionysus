@@ -1,7 +1,7 @@
 SOURCES_MAIN=boot.o main.o common.o monitor.o string.o gdt.o \
 		descriptor_tables.o idt.o interrupt.o kmalloc.o paging.o \
 		ordered_array.o kheap.o process.o task.o timer.o syscall.o time.o \
-		port.o ide.o vfs.o pci.o dev.o
+		port.o ide.o vfs.o pci.o dev.o printf.o
 
 SOURCES_FS=rootfs.o
 
