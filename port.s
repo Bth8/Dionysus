@@ -1,5 +1,5 @@
 ; port.s - functions for reading from ports
-; Copyright (C) 2011 Bth8 <bth8fwd@gmail.com>
+; Copyright (C) 2011, 2012 Bth8 <bth8fwd@gmail.com>
 ;
 ;  This file is part of Dionysus.
 ;
