@@ -167,7 +167,9 @@ s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name, u32int flags)
 	return -1;
 }
 
-fs_node_t *kopen(const char *path, u32int flags) {
+// Traverses the path to get the correct file
+fs_node_t *get_path(const char *path) {
+	// Sanity check
 	if (!path || path[0] != '/')
 		return NULL;
 
@@ -203,7 +205,6 @@ fs_node_t *kopen(const char *path, u32int flags) {
 			kfree(path_cpy);
 			return NULL;
 		} else if (i == depth - 1) {
-			open_vfs(cur_node, flags);
 			kfree(path_cpy);
 			return cur_node;
 		}
@@ -213,4 +214,43 @@ fs_node_t *kopen(const char *path, u32int flags) {
 	// Shouldn't be reached
 	kfree(path_cpy);
 	return NULL;
+}
+
+fs_node_t *create_vfs(const char *path, u32int uid, u32int gid, u32int mode) {
+	if (!path || path[0] != '/')
+		return NULL;
+
+	int i = strlen(path);
+	// Just passed '/'
+	if (i == 1)
+		return NULL;
+
+	// Ensure no trailing '/'
+	if (path[i - 1] == '/')
+		return NULL;
+
+	char *parent_path = kmalloc(i + 1);
+	strcpy(parent_path, path);
+
+	// Create the parent directory
+	for ( i -= 1; i >= 0; i--)
+		if (parent_path[i] == '/') {
+			parent_path[i] = '\0';
+			break;
+		}
+
+	fs_node_t *parent;
+	if (i >= 0)
+		parent = get_path(parent_path);
+	else
+		parent = get_path("/");
+
+	kfree(parent_path);
+
+	fs_node_t *node = NULL;
+	if (parent && (parent->flags & VFS_DIR) && parent->ops.create)
+		node = parent->ops.create(parent, path + i + 1, uid, gid, mode);
+
+	kfree(parent);
+	return node;
 }

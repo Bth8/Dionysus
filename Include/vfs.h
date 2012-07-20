@@ -33,10 +33,13 @@
 #define VFS_SYM			0x40
 #define VFS_UNKNOWN		0x80
 
-#define O_RDONLY		0x1
-#define O_WRONLY		0x2
+#define O_RDONLY		0x01
+#define O_WRONLY		0x02
 #define O_RDWR			(O_RDONLY | O_WRONLY)
-#define O_APPEND		0x4
+#define O_APPEND		0x04
+#define O_CREAT			0x08
+#define O_EXCL			0x10
+#define O_TRUNC			0x20
 
 #define VFS_O_EXEC		00001
 #define VFS_O_WRITE		00002
@@ -66,6 +69,7 @@ struct file_ops {
 	u32int(*write)(struct fs_node*, const void*, u32int, u32int);
 	void(*open)(struct fs_node*, u32int);
 	void(*close)(struct fs_node*);
+	struct fs_node*(*create)(struct fs_node*, const char*, u32int, u32int, u32int);
 	struct dirent*(*readdir)(struct fs_node*, u32int);
 	struct fs_node*(*finddir)(struct fs_node*, const char*);
 	s32int (*ioctl)(struct fs_node*, u32int, void*);
@@ -110,7 +114,8 @@ void close_vfs(fs_node_t *node);
 struct dirent *readdir_vfs(fs_node_t *node, u32int index);
 fs_node_t *finddir_vfs(fs_node_t *node, const char *name);
 s32int ioctl_vfs(fs_node_t *node, u32int, void *);
-fs_node_t *kopen(const char *path, u32int flags);
+fs_node_t *get_path(const char *path);
+fs_node_t *create_vfs(const char *path, u32int uid, u32int gid, u32int mode);
 s32int register_fs(struct file_system_type *fs);
 s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name, u32int flags);
 

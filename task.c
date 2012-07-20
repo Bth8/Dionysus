@@ -539,7 +539,7 @@ int user_write(int fd, const char *buf, u32int nbytes) {
 	return ret;
 }
 
-int user_open(const char *path, u32int flags) {
+int user_open(const char *path, u32int flags, u32int mode) {
 	if (!path)
 		return -1;
 
@@ -551,13 +551,20 @@ int user_open(const char *path, u32int flags) {
 	if (i == MAX_OF)
 		return -1;
 
-	fs_node_t *file = kopen(path, flags);
-	if (file) {
+	fs_node_t *file = get_path(path);
+	if (file && !(file->flags & O_EXCL)) {
+		open_vfs(file, flags);
+		current_task->files[i].file = file;
+		current_task->files[i].off = 0;
+		return i;
+	} else if (!file && (file->flags & O_CREAT)) {
+		file = create_vfs(path, current_task->euid, current_task->egid, mode);
 		current_task->files[i].file = file;
 		current_task->files[i].off = 0;
 		return i;
 	}
 
+	kfree(file);
 	return -1;
 }
 
@@ -567,6 +574,7 @@ int user_close(int fd) {
 
 	close_vfs(current_task->files[fd].file);
 	kfree(current_task->files[fd].file);
+	current_task->files[fd].file = NULL;
 	return 0;
 }
 

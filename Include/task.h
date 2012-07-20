@@ -71,7 +71,7 @@ int user_pread(int fd, char *buf, u32int nbytes, u32int off);
 int user_read(int fd, char *buf, u32int nbytes);
 int user_pwrite(int fd, const char *buf, u32int nbytes, u32int off);
 int user_write(int fd, const char *buf, u32int nbytes);
-int user_open(const char *path, u32int flags);
+int user_open(const char *path, u32int flags, u32int mode);
 int user_close(int fd);
 int user_ioctl(int fd, u32int request, void *ptr);
 
