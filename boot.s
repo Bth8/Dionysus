@@ -60,13 +60,16 @@ start:
 
 	mov ecx, cr4
 	bts ecx, 4										; Allow 4MiB pages
-	bts ecx, 7										; and go ahead and enable global pages
 	mov cr4, ecx
 
 	mov ecx, cr0
 	bts ecx, 31										; Enable paging
 	btr ecx, 16										; Make sure write protection is off
 	mov cr0, ecx
+
+	mov ecx, cr4
+	bts ecx, 7										; Allow global pages
+	mov cr4, ecx
 
 	; Jump to kernel space
 	lea ecx, [higherHalfBegin]
