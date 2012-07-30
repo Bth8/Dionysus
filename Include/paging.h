@@ -44,9 +44,9 @@ typedef struct page_directory_entry {
 	u32int user		: 1;	// User-accessible
 	u32int unused	: 2;
 	u32int accessed	: 1;	// Accessed since last refresh?
-	u32int zero		: 1;
-	u32int size		: 1;	// 4kb if unset, 4Mb if set
-	u32int unused2	: 1;
+	u32int dirty	: 1;	// Written to since last refresh (4Mb only)
+	u32int size		: 1;	// 4kB if unset, 4MB if set
+	u32int global	: 1;	// Global (4MB only)
 	u32int avail	: 3;	// Available for kernel use
 	u32int table	: 20;	// Table address >> 12
 } page_directory_entry_t;
