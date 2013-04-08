@@ -31,7 +31,6 @@
 #include <time.h>
 #include <pci.h>
 #include <fs/rootfs.h>
-//#include <fs/ext2.h>
 #include <dev.h>
 #include <vfs.h>
 #include <ide.h>
@@ -101,6 +100,7 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	init_tasking();
 	init_syscalls();
 
+	init_pci();
 	dump_pci();
 	init_rootfs();
 	init_devfs();

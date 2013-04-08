@@ -13,7 +13,7 @@ CC=gcc
 CFLAGS=-Wall -Wextra -Werror -nostdlib -nostartfiles -fomit-frame-pointer \
 		-nodefaultlibs -I./Include -fno-leading-underscore -m32 -O -fno-builtin
 LD=ld
-LDFLAGS=-Tlink.ld
+LDFLAGS=-Tlink.ld -melf_i386
 AS=nasm
 ASFLAGS=-felf32
 
