@@ -65,8 +65,8 @@ struct dirent {
 };
 
 struct file_ops {
-	u32int(*read)(struct fs_node*, void*, u32int, u32int);
-	u32int(*write)(struct fs_node*, const void*, u32int, u32int);
+	u32int(*read)(struct fs_node*, void*, size_t, off_t);
+	u32int(*write)(struct fs_node*, const void*, size_t, off_t);
 	void(*open)(struct fs_node*, u32int);
 	void(*close)(struct fs_node*);
 	struct fs_node*(*create)(struct fs_node*, const char*, u32int, u32int, u32int);
@@ -107,8 +107,8 @@ struct file_system_type {
 
 extern fs_node_t *vfs_root;
 
-u32int read_vfs(fs_node_t *node, void *buf, u32int count, u32int off);
-u32int write_vfs(fs_node_t *node, const void *buf, u32int count, u32int off);
+u32int read_vfs(fs_node_t *node, void *buf, size_t count, off_t off);
+u32int write_vfs(fs_node_t *node, const void *buf, size_t count, off_t off);
 void open_vfs(fs_node_t *node, u32int flags);
 void close_vfs(fs_node_t *node);
 struct dirent *readdir_vfs(fs_node_t *node, u32int index);

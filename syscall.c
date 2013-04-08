@@ -42,12 +42,12 @@ DEFN_SYSCALL0(getegid, 16);
 DEFN_SYSCALL3(getresgid, 17, int*, int*, int*);
 DEFN_SYSCALL2(open, 18, char*, u32int);
 DEFN_SYSCALL1(close, 19, int);
-DEFN_SYSCALL4(pread, 20, int, char*, u32int, u32int);
-DEFN_SYSCALL3(read, 21, int, char*, u32int);
-DEFN_SYSCALL4(pwrite, 22, int, char*, u32int, u32int);
-DEFN_SYSCALL3(write, 23, int, char*, u32int);
+DEFN_SYSCALL4(pread, 20, int, char*, size_t, off_t);
+DEFN_SYSCALL3(read, 21, int, char*, size_t);
+DEFN_SYSCALL4(pwrite, 22, int, char*, size_t, off_t);
+DEFN_SYSCALL3(write, 23, int, char*, size_t);
 DEFN_SYSCALL3(ioctl, 24, int, u32int, void*);
-DEFN_SYSCALL3(lseek, 25, int, int, int);
+DEFN_SYSCALL3(lseek, 25, int, off_t, int);
 
 static void *syscalls[] = {
 	fork,		// Defined in task.c

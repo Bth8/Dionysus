@@ -85,12 +85,12 @@ DECL_SYSCALL0(getegid);
 DECL_SYSCALL3(getresgid, int*, int*, int*);
 DECL_SYSCALL2(open, char*, u32int);
 DECL_SYSCALL1(close, int);
-DECL_SYSCALL4(pread, int, char*, u32int, u32int);
-DECL_SYSCALL3(read, int, char*, u32int);
-DECL_SYSCALL4(pwrite, int, char*, u32int, u32int);
-DECL_SYSCALL3(write, int, char*, u32int);
+DECL_SYSCALL4(pread, int, char*, size_t, off_t);
+DECL_SYSCALL3(read, int, char*, size_t);
+DECL_SYSCALL4(pwrite, int, char*, size_t, off_t);
+DECL_SYSCALL3(write, int, char*, size_t);
 DECL_SYSCALL3(ioctl, int, u32int, void*);
-DECL_SYSCALL3(lseek, int, int, int);
+DECL_SYSCALL3(lseek, int, off_t, int);
 
 void init_syscalls(void);
 

@@ -128,7 +128,7 @@ static void kbd_isr(registers_t *regs) {
 		update_leds(leds);
 }
 
-static u32int read(struct fs_node *node, void *dest, u32int count, u32int off) {
+static u32int read(struct fs_node *node, void *dest, size_t count, off_t off) {
 	node = node;						// Compiler complains otherwise
 	off = off;
 	while (readbufpos == writebufpos)	// No characters have yet to be read
@@ -145,7 +145,7 @@ static u32int read(struct fs_node *node, void *dest, u32int count, u32int off) {
 	return i;
 }
 
-static u32int write(struct fs_node *node, const void *src, u32int count, u32int off) {
+static u32int write(struct fs_node *node, const void *src, size_t count, off_t off) {
 	node = node;
 	off = off;
 	u32int i;

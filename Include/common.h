@@ -35,13 +35,17 @@ outb(0x70, 0x80 | addr); \
 outb(0x71, val); \
 })
 
-typedef signed char		s8int;
-typedef unsigned char	u8int;
-typedef signed short	s16int;
-typedef unsigned short	u16int;
-typedef signed int		s32int;
-typedef unsigned int	u32int;
+typedef signed char			s8int;
+typedef unsigned char		u8int;
+typedef signed short		s16int;
+typedef unsigned short		u16int;
+typedef signed int			s32int;
+typedef unsigned int		u32int;
+typedef signed long long	s64int;
+typedef unsigned long long	u64int;
 
+typedef u64int size_t;
+typedef u64int off_t;
 
 // Bochs magic breakpoint. Doesn't actually do anything on a real system
 extern inline void magic_break(void) { asm volatile("xchg %%bx, %%bx"::); }

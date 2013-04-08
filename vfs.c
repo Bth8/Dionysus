@@ -30,7 +30,7 @@ struct file_system_type *fs_types = NULL;
 fs_node_t mnt_pts[MAX_MNT_PTS];
 u32int nmnts = 0;
 
-u32int read_vfs(fs_node_t *node, void *buf, u32int count, u32int off) {
+u32int read_vfs(fs_node_t *node, void *buf, size_t count, off_t off) {
 	if (!node)
 		return 0;
 	if (node->ops.read)
@@ -39,7 +39,7 @@ u32int read_vfs(fs_node_t *node, void *buf, u32int count, u32int off) {
 		return 0;
 }
 
-u32int write_vfs(fs_node_t *node, const void *buf, u32int count, u32int off) {
+u32int write_vfs(fs_node_t *node, const void *buf, size_t count, off_t off) {
 	if (!node)
 		return 0;
 	if (node->ops.write)

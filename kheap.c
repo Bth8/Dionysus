@@ -28,7 +28,7 @@ extern page_directory_t *current_dir;
 
 kheap_t *kheap = NULL;
 
-static s32int find_smallest_hole(u32int size, u8int align, kheap_t *heap) {
+static s32int find_smallest_hole(size_t size, u8int align, kheap_t *heap) {
 	u32int i;
 	for (i = 0; i < heap->index.size; i++) {
 		kheap_header_t *header = (kheap_header_t *)lookup_ordered_array(i, &heap->index);

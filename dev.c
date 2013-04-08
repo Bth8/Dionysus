@@ -76,10 +76,10 @@ static struct superblock *return_sb(u32int flags, fs_node_t *dev) {
 	return &dev_sb;
 }
 
-s32int read_blkdev(u32int major, u32int minor, u32int count, u32int off, char *buf);
-s32int write_blkdev(u32int major, u32int minor, u32int count, u32int off, const char *buf);
+s32int read_blkdev(u32int major, u32int minor, size_t count, off_t off, char *buf);
+s32int write_blkdev(u32int major, u32int minor, size_t count, off_t off, const char *buf);
 
-static u32int read(fs_node_t *node, void *buf, u32int count, u32int off) {
+static u32int read(fs_node_t *node, void *buf, size_t count, off_t off) {
 	if (node->flags & VFS_CHARDEV) {
 		if (char_drivers[MAJOR(node->impl) - 1].ops.read)
 			return char_drivers[MAJOR(node->impl) - 1].ops.read(node, buf, count, off);
@@ -91,7 +91,7 @@ static u32int read(fs_node_t *node, void *buf, u32int count, u32int off) {
 	return 0;
 }
 
-static u32int write(fs_node_t *node, const void *buf, u32int count, u32int off) {
+static u32int write(fs_node_t *node, const void *buf, size_t count, off_t off) {
 	if (node->flags & VFS_CHARDEV) {
 		if (char_drivers[MAJOR(node->impl) - 1].ops.write)
 			return char_drivers[MAJOR(node->impl) - 1].ops.write(node, buf, count, off);
@@ -303,7 +303,7 @@ s32int register_blkdev(u32int major, const char *name,
 	return major;
 }
 
-s32int read_blkdev(u32int major, u32int minor, u32int count, u32int off, char *buf) {
+s32int read_blkdev(u32int major, u32int minor, size_t count, off_t off, char *buf) {
 	struct blockdev *dev = NULL;
 	u32int i;
 	for (i = 0; i < blk_drivers[major - 1].devs.size; i++)
@@ -352,7 +352,7 @@ s32int read_blkdev(u32int major, u32int minor, u32int count, u32int off, char *b
 	return 0;
 }
 
-s32int write_blkdev(u32int major, u32int minor, u32int count, u32int off, const char *buf) {
+s32int write_blkdev(u32int major, u32int minor, size_t count, off_t off, const char *buf) {
 	struct blockdev *dev = NULL;
 	u32int i;
 	for (i = 0; i < blk_drivers[major - 1].devs.size; i++)

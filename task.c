@@ -56,7 +56,7 @@ void move_stack(void *new_stack_start, u32int size) {
 	asm volatile("mov %%esp, %0" : "=r" (old_esp));
 	asm volatile("mov %%ebp, %0" : "=r" (old_ebp));
 
-	u32int offset = (u32int)new_stack_start - initial_esp;
+	off_t offset = (u32int)new_stack_start - initial_esp;
 	u32int new_esp = old_esp + offset;
 	u32int new_ebp = old_ebp + offset;
 
@@ -462,7 +462,7 @@ static int valid_fd(int fd) {
 	return 1;
 }
 
-int lseek(int fd, u32int off, int whence) {
+int lseek(int fd, off_t off, int whence) {
 	if (!valid_fd(fd))
 		return -1;
 
@@ -483,7 +483,7 @@ int lseek(int fd, u32int off, int whence) {
 	return current_task->files[fd].off;
 }
 
-int user_pread(int fd, char *buf, u32int nbytes, u32int off) {
+int user_pread(int fd, char *buf, size_t nbytes, off_t off) {
 	if (!valid_fd(fd))
 		return -1;
 
@@ -496,7 +496,7 @@ int user_pread(int fd, char *buf, u32int nbytes, u32int off) {
 	return read_vfs(current_task->files[fd].file, buf, nbytes, off);
 }
 
-int user_read(int fd, char *buf, u32int nbytes) {
+int user_read(int fd, char *buf, size_t nbytes) {
 	if (!valid_fd(fd))
 		return -1;
 
@@ -511,7 +511,7 @@ int user_read(int fd, char *buf, u32int nbytes) {
 	return ret;
 }
 
-int user_pwrite(int fd, const char *buf, u32int nbytes, u32int off) {
+int user_pwrite(int fd, const char *buf, size_t nbytes, off_t off) {
 	if (!valid_fd(fd))
 		return -1;
 
@@ -524,7 +524,7 @@ int user_pwrite(int fd, const char *buf, u32int nbytes, u32int off) {
 	return write_vfs(current_task->files[fd].file, buf, nbytes, off);
 }
 
-int user_write(int fd, const char *buf, u32int nbytes) {
+int user_write(int fd, const char *buf, size_t nbytes) {
 	if (!valid_fd(fd))
 		return -1;
 
