@@ -6,12 +6,10 @@ Further work on process switching and management.
 Work needs to be done on improving hard disk operations. Need to be able to
 write to ATAPI, need to implement DMA, etc.
 
-The VFS needs eventual improvement, though it works alright for now.
-
 Race conditions need to be brought into consideration, and error reporting
 needs to consist of something more than just returning -1.
 
-Some actual filesystems need to be implemented.
+FAT32 needs to be finished. It would be nice if we could get EXT2, too.
 
 Loading ELFs and perhaps other executable formats.
 
