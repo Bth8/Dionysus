@@ -35,8 +35,7 @@
 #include <vfs.h>
 #include <ide.h>
 #include <printf.h>
-
-#include <string.h>
+#include <fs/fat32.h>
 
 extern void switch_user_mode(void);
 
@@ -106,7 +105,22 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	init_devfs();
 	init_ide(0, 0, 0, 0, 0);
 
-	printf("%04d\n", 1);
+	mount(NULL, vfs_root, "rootfs", 0);
+	user_mount(NULL, "/dev", "dev", 0);
+
+	init_fat32();
+
+	devfs_register("hda", VFS_BLOCKDEV, IDE_MAJOR, 0, 0, 0, 0);
+	devfs_register("hda1", VFS_BLOCKDEV, IDE_MAJOR, 1, 0, 0, 0);
+	devfs_register("hda2", VFS_BLOCKDEV, IDE_MAJOR, 2, 0, 0, 0);
+
+	user_mount("/dev/hda2", "/real_root", "fat32", 0);
+
+	u32int fd = user_open("/real_root", O_RDONLY, 2);
+	printf("%d\n", fd);
+	struct dirent dir;
+	printf("%d\n", user_readdir(fd, &dir, 2));
+	printf("name: %s\ninode: %X\n", dir.d_name, dir.d_ino);
 
 	halt();
 }
