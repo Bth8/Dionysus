@@ -43,6 +43,8 @@ struct superblock dev_sb = {
 
 static int readdir(fs_node_t *node, struct dirent *dirp, u32int index);
 static struct fs_node *finddir(fs_node_t *node, const char *name);
+static int root_open(fs_node_t *file, u32int flags) {file = file; flags = flags; return 0;}
+static int root_close(fs_node_t *file) { file = file; return 0;}
 
 void init_devfs(void) {
 	strcpy(dev_root.name, "dev");
@@ -55,6 +57,8 @@ void init_devfs(void) {
 	dev_root.impl = 0;
 	dev_root.ops.readdir = readdir;
 	dev_root.ops.finddir = finddir;
+	dev_root.ops.open = root_open;
+	dev_root.ops.close = root_close;
 	dev_root.fs_sb = &dev_sb;
 
 	u32int i;

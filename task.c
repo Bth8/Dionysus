@@ -588,7 +588,8 @@ int user_open(const char *path, u32int flags, u32int mode) {
 		if ((ret = open_vfs(file, flags)) == 0) {
 			current_task->files[i].file = file;
 			current_task->files[i].off = 0;
-			if (flags & O_APPEND) lseek(i, 0, SEEK_END);
+			if (flags & O_APPEND)
+				lseek(i, 0, SEEK_END);
 			return i;
 		}
 	} else if (!file && (flags & O_CREAT)) {

@@ -212,10 +212,12 @@ fs_node_t *get_path(const char *path) {
 	off = path_cpy + 1;
 	fs_node_t *cur_node = (fs_node_t *)kmalloc(sizeof(fs_node_t));
 	memcpy(cur_node, vfs_root, sizeof(fs_node_t));
+	u32int opened = open_vfs(cur_node, O_RDONLY);
 	fs_node_t *next_node;
 	int i;
 	for (i = 0; i < depth; i++) {
 		next_node = finddir_vfs(cur_node, off);
+		close_vfs(cur_node);
 		kfree(cur_node);
 		cur_node = next_node;
 		if (!cur_node) {
@@ -224,7 +226,12 @@ fs_node_t *get_path(const char *path) {
 		} else if (i == depth - 1) {
 			kfree(path_cpy);
 			return cur_node;
+		} else if (opened != 0) {
+			kfree(path_cpy);
+			kfree(cur_node);
+			return NULL;
 		}
+		opened = open_vfs(cur_node, O_RDONLY);
 		off += strlen(off) + 1;
 	}
 

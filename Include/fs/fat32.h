@@ -22,7 +22,7 @@
 
 #include <common.h>
 
-#define FAT32_RONLY		0x01
+#define FAT32_RDONLY	0x01
 #define FAT32_HIDDEN	0x02
 #define FAT32_SYS		0x04
 #define FAT32_VOL_ID	0x08
