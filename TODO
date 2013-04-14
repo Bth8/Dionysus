@@ -6,6 +6,8 @@ Further work on process switching and management.
 Work needs to be done on improving hard disk operations. Need to be able to
 write to ATAPI, need to implement DMA, etc.
 
+Serious overhaul on the whole memory allocation thing needs to take place. Oh my god it's bad.
+
 Race conditions need to be brought into consideration, and error reporting
 needs to consist of something more than just returning -1.
 

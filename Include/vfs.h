@@ -30,7 +30,7 @@
 #define VFS_BLOCKDEV	0x08
 #define VFS_PIPE		0x10
 #define VFS_MOUNT		0x20
-#define VFS_SYM			0x40
+#define VFS_LINK		0x40
 #define VFS_UNKNOWN		0x80
 
 #define O_RDONLY		0x01
