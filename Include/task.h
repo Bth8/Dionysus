@@ -26,9 +26,13 @@
 #define KERNEL_STACK_SIZE 2048
 #define MAX_OF 32
 
+#define SEEK_SET 0
+#define SEEK_CUR 1
+#define SEEK_END 2
+
 struct filep {
 	fs_node_t *file;
-	u32int off;
+	off_t off;
 };
 
 typedef struct task {
@@ -74,5 +78,7 @@ int user_write(int fd, const char *buf, size_t nbytes);
 int user_open(const char *path, u32int flags, u32int mode);
 int user_close(int fd);
 int user_ioctl(int fd, u32int request, void *ptr);
+int user_mount(const char *src, const char *target, const char *fs_name, u32int flags);
+int user_readdir(int fd, struct dirent *dirp, u32int index);
 
 #endif

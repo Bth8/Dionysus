@@ -24,7 +24,7 @@
 #include <kmalloc.h>
 
 fs_node_t rootfs_root;
-char *names[] = {"real", "dev"};
+char *names[] = {"real_root", "dev"};
 fs_node_t subdirs[sizeof(names)/sizeof(char *)];
 
 static struct superblock *return_sb(u32int flags, fs_node_t *dev);
@@ -38,7 +38,7 @@ struct superblock rootfs_sb = {
 	.root = &rootfs_root
 };
 
-static struct dirent *readdir(fs_node_t *node, u32int index);
+static int readdir(fs_node_t *node, struct dirent *dirp, u32int index);
 static fs_node_t *finddir(fs_node_t *node, const char *name);
 
 void init_rootfs(void) {
@@ -76,14 +76,13 @@ static struct superblock *return_sb(u32int flags, fs_node_t *dev) {
 	return &rootfs_sb;
 }
 
-static struct dirent *readdir(fs_node_t *node, u32int index) {
+static int readdir(fs_node_t *node, struct dirent *dirp, u32int index) {
 	node = node;
 	if (index >= sizeof(names)/sizeof(char *))
-		return NULL;
-	static struct dirent ret;
-	ret.d_ino = index;
-	strcpy(ret.d_name, names[index]);
-	return &ret;
+		return -1;
+	dirp->d_ino = index;
+	strcpy(dirp->d_name, names[index]);
+	return 0;
 }
 
 static fs_node_t *finddir(fs_node_t *node, const char *name) {

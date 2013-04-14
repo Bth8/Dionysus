@@ -467,13 +467,13 @@ int lseek(int fd, off_t off, int whence) {
 		return -1;
 
 	switch (whence) {
-		case 0:
+		case SEEK_SET:
 			current_task->files[fd].off = off;
 			break;
-		case 1:
+		case SEEK_CUR:
 			current_task->files[fd].off += off;
 			break;
-		case 2:
+		case SEEK_END:
 			current_task->files[fd].off = current_task->files[fd].file->len + off;
 			break;
 		default:
@@ -539,6 +539,37 @@ int user_write(int fd, const char *buf, size_t nbytes) {
 	return ret;
 }
 
+static int check_flags(fs_node_t *file, u32int flags) {
+	int acceptable = 1;
+
+	// Root is all powerful
+	if (current_task->euid == 0)
+		return acceptable;
+
+	if (flags & O_RDONLY) {
+		if (!(file->mask & VFS_O_READ)) {
+			acceptable = 0;
+			if (current_task->euid == file->uid && file->mask & VFS_U_READ)
+				acceptable = 1;
+			else if (current_task->egid == file->gid && file->mask & VFS_G_READ)
+				acceptable = 1;
+		}
+	}
+
+	if (flags & O_WRONLY && acceptable == 1) {
+		if (!(file->mask & VFS_O_WRITE)) {
+			acceptable = 0;
+			if (current_task->euid == file->uid && file->mask & VFS_U_WRITE)
+				acceptable = 1;
+			else if (current_task->egid == file->gid && file->mask & VFS_G_WRITE)
+				acceptable = 1;
+		}
+	}
+
+	return acceptable;
+}
+		
+
 int user_open(const char *path, u32int flags, u32int mode) {
 	if (!path)
 		return -1;
@@ -551,31 +582,38 @@ int user_open(const char *path, u32int flags, u32int mode) {
 	if (i == MAX_OF)
 		return -1;
 
+	int ret = -1;
 	fs_node_t *file = get_path(path);
-	if (file && !(file->flags & O_EXCL)) {
-		open_vfs(file, flags);
-		current_task->files[i].file = file;
-		current_task->files[i].off = 0;
-		return i;
-	} else if (!file && (file->flags & O_CREAT)) {
+	if (file && !(flags & O_EXCL) && check_flags(file, flags)) {
+		if ((ret = open_vfs(file, flags)) == 0) {
+			current_task->files[i].file = file;
+			current_task->files[i].off = 0;
+			if (flags & O_APPEND) lseek(i, 0, SEEK_END);
+			return i;
+		}
+	} else if (!file && (flags & O_CREAT)) {
 		file = create_vfs(path, current_task->euid, current_task->egid, mode);
-		current_task->files[i].file = file;
-		current_task->files[i].off = 0;
-		return i;
+		if (file != NULL) {
+			current_task->files[i].file = file;
+			current_task->files[i].off = 0;
+			return i;
+		}
 	}
 
 	kfree(file);
-	return -1;
+	return ret;
 }
 
 int user_close(int fd) {
 	if (!valid_fd(fd))
 		return -1;
 
-	close_vfs(current_task->files[fd].file);
-	kfree(current_task->files[fd].file);
-	current_task->files[fd].file = NULL;
-	return 0;
+	u32int ret = close_vfs(current_task->files[fd].file);
+	if (ret == 0) {
+		kfree(current_task->files[fd].file);
+		current_task->files[fd].file = NULL;
+	}
+	return ret;
 }
 
 int user_ioctl(int fd, u32int request, void *ptr) {
@@ -583,4 +621,35 @@ int user_ioctl(int fd, u32int request, void *ptr) {
 		return -1;
 
 	return ioctl_vfs(current_task->files[fd].file, request, ptr);
+}
+
+int user_mount(const char *src, const char *target, const char *fs_name, u32int flags) {
+	if (!target || !fs_name)
+		return -1;
+
+	fs_node_t *src_node = get_path(src);
+	if (src && !src_node)
+		return -1;
+
+	fs_node_t *dest_node = get_path(target);
+	if (!dest_node) {
+		kfree(src_node);
+		return -1;
+	}
+
+	u32int ret = mount(src_node, dest_node, fs_name, flags);
+
+	kfree(src_node);
+	kfree(dest_node);
+	return ret;
+}
+
+int user_readdir(int fd, struct dirent *dirp, u32int index) {
+	if (!valid_fd(fd))
+		return -1;
+
+	if (!dirp)
+		return -1;
+
+	return readdir_vfs(current_task->files[fd].file, dirp, index);
 }

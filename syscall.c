@@ -21,6 +21,7 @@
 #include <common.h>
 #include <idt.h>
 #include <task.h>
+#include <vfs.h>
 
 DEFN_SYSCALL0(fork, 0);
 DEFN_SYSCALL0(exit, 1);
@@ -40,14 +41,16 @@ DEFN_SYSCALL3(setresgid, 14, int, int, int);
 DEFN_SYSCALL0(getgid, 15);
 DEFN_SYSCALL0(getegid, 16);
 DEFN_SYSCALL3(getresgid, 17, int*, int*, int*);
-DEFN_SYSCALL2(open, 18, char*, u32int);
+DEFN_SYSCALL2(open, 18, const char*, u32int);
 DEFN_SYSCALL1(close, 19, int);
 DEFN_SYSCALL4(pread, 20, int, char*, size_t, off_t);
 DEFN_SYSCALL3(read, 21, int, char*, size_t);
-DEFN_SYSCALL4(pwrite, 22, int, char*, size_t, off_t);
-DEFN_SYSCALL3(write, 23, int, char*, size_t);
+DEFN_SYSCALL4(pwrite, 22, int, const char*, size_t, off_t);
+DEFN_SYSCALL3(write, 23, int, const char*, size_t);
 DEFN_SYSCALL3(ioctl, 24, int, u32int, void*);
 DEFN_SYSCALL3(lseek, 25, int, off_t, int);
+DEFN_SYSCALL4(mount, 26, const char*, const char*, const char*, u32int);
+DEFN_SYSCALL3(readdir, 27, int, struct dirent*, u32int);
 
 static void *syscalls[] = {
 	fork,		// Defined in task.c
@@ -75,7 +78,9 @@ static void *syscalls[] = {
 	user_pwrite,
 	user_write,
 	user_ioctl,
-	lseek
+	lseek,
+	user_mount,
+	user_readdir
 };
 u32int num_syscalls;
 

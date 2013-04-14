@@ -33,6 +33,8 @@ u32int nmnts = 0;
 u32int read_vfs(fs_node_t *node, void *buf, size_t count, off_t off) {
 	if (!node)
 		return 0;
+	if (node->flags & VFS_DIR)
+		return 0;
 	if (node->ops.read)
 		return node->ops.read(node, buf, count, off);
 	else
@@ -42,27 +44,12 @@ u32int read_vfs(fs_node_t *node, void *buf, size_t count, off_t off) {
 u32int write_vfs(fs_node_t *node, const void *buf, size_t count, off_t off) {
 	if (!node)
 		return 0;
+	if (node->flags & VFS_DIR)
+		return 0;
 	if (node->ops.write)
 		return node->ops.write(node, buf, count, off);
 	else
 		return 0;
-}
-
-void open_vfs(fs_node_t *node, u32int flags) {
-	if (!node)
-		return;
-	if (node->ops.open)
-		node->ops.open(node, flags);
-}
-
-void close_vfs(fs_node_t *node) {
-	if (!node)
-		return;
-	if (node == vfs_root)
-		PANIC("Tried closing root");
-
-	if (node->ops.close)
-		node->ops.close(node);
 }
 
 // Determines if the fs node passed to it is a mountpoint, returns the root if it is
@@ -81,15 +68,38 @@ static fs_node_t *get_mnt(fs_node_t *node) {
 	return node;
 }
 
-struct dirent *readdir_vfs(fs_node_t *node, u32int index) {
+int open_vfs(fs_node_t *node, u32int flags) {
 	if (!node)
-		return NULL;
+		return -1;
+	fs_node_t *mnt = get_mnt(node);
+	if (mnt->ops.open)
+		return mnt->ops.open(mnt, flags);
+	else
+		return -1;
+}
+
+int close_vfs(fs_node_t *node) {
+	if (!node)
+		return -1;
+	if (node == vfs_root)
+		PANIC("Tried closing root");
+
+	fs_node_t *mnt = get_mnt(node);
+	if (mnt->ops.close)
+		return mnt->ops.close(mnt);
+
+	return 0;
+}
+
+int readdir_vfs(fs_node_t *node, struct dirent *dirp, u32int index) {
+	if (!node)
+		return -1;
 	if (!(node->flags & VFS_DIR))
-		return NULL;
+		return -1;
 	fs_node_t *mnt = get_mnt(node);
 	if (mnt->ops.readdir)
-		return mnt->ops.readdir(mnt, index);
-	return NULL;
+		return mnt->ops.readdir(mnt, dirp, index);
+	return -1;
 }
 
 fs_node_t *finddir_vfs(fs_node_t *node, const char *name) {
@@ -109,6 +119,8 @@ s32int ioctl_vfs(fs_node_t *node, u32int request, void *ptr) {
 		return -1;
 	if (!(node->flags & VFS_CHARDEV) && !(node->flags & VFS_BLOCKDEV))
 		return -1;
+	if (node->flags & VFS_DIR)
+		return -1;
 	if (node->ops.ioctl)
 		return node->ops.ioctl(node, request, ptr);
 	return -1;
@@ -116,6 +128,7 @@ s32int ioctl_vfs(fs_node_t *node, u32int request, void *ptr) {
 
 s32int register_fs(struct file_system_type *fs) {
 	struct file_system_type *fsi = fs_types;
+	fs->next = NULL;
 	if (fsi == NULL) {
 		fs_types = fs;
 		return 0;
@@ -132,11 +145,15 @@ s32int register_fs(struct file_system_type *fs) {
 s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name, u32int flags) {
 	struct file_system_type *fsi = fs_types;
 	struct superblock *sb = NULL;
+	if (dest == NULL) {
+		if (vfs_root != NULL)
+			return -1;
+	} else {
+		if (!(dest->flags & VFS_DIR))
+			return -1;
+	}
+
 	if (nmnts >= MAX_MNT_PTS)
-		return -1;
-	if (!(dest->flags & VFS_DIR))
-		return -1;
-	if (dest == NULL && vfs_root != NULL)
 		return -1;
 	if (fsi == NULL)
 		return -1;
@@ -186,7 +203,7 @@ fs_node_t *get_path(const char *path) {
 	int depth = 0;
 
 	// Breaks the path into several strings with / as its delimiter
-	for (off = path_cpy; off < path_cpy + path_len; off++)
+	for (off = path_cpy; off < path_cpy + path_len + 1; off++)
 		if (*off == '/') {
 			*off = '\0';
 			depth++;

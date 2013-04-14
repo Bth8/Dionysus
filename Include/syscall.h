@@ -20,6 +20,7 @@
 #ifndef SYSCALL_H
 #define SYSCALL_H
 #include <common.h>
+#include <vfs.h>
 
 #define DECL_SYSCALL0(fn) int sys_##fn(void);
 #define DECL_SYSCALL1(fn,p1) int sys_##fn(p1);
@@ -83,14 +84,16 @@ DECL_SYSCALL3(setresgid, int, int, int);
 DECL_SYSCALL0(getgid);
 DECL_SYSCALL0(getegid);
 DECL_SYSCALL3(getresgid, int*, int*, int*);
-DECL_SYSCALL2(open, char*, u32int);
+DECL_SYSCALL2(open, const char*, u32int);
 DECL_SYSCALL1(close, int);
 DECL_SYSCALL4(pread, int, char*, size_t, off_t);
 DECL_SYSCALL3(read, int, char*, size_t);
-DECL_SYSCALL4(pwrite, int, char*, size_t, off_t);
-DECL_SYSCALL3(write, int, char*, size_t);
+DECL_SYSCALL4(pwrite, int, const char*, size_t, off_t);
+DECL_SYSCALL3(write, int, const char*, size_t);
 DECL_SYSCALL3(ioctl, int, u32int, void*);
 DECL_SYSCALL3(lseek, int, off_t, int);
+DECL_SYSCALL4(mount, const char*, const char*, const char*, u32int);
+DECL_SYSCALL3(readdir, int, struct dirent*, u32int);
 
 void init_syscalls(void);
 

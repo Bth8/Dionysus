@@ -155,8 +155,9 @@ static u32int write(struct fs_node *node, const void *src, size_t count, off_t o
 	return i;
 }
 
-static void open(struct fs_node *node, u32int flags) {
+static s32int open(struct fs_node *node, u32int flags) {
 	node->flags = (flags & O_RDWR);		// Protection from bogus flags
+	return 0;
 }
 
 static s32int ioctl(struct fs_node *node, u32int req, void *ptr) {

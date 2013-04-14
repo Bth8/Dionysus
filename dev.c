@@ -41,7 +41,7 @@ struct superblock dev_sb = {
 	.root = &dev_root,
 };
 
-static struct dirent *readdir(fs_node_t *node, u32int index);
+static int readdir(fs_node_t *node, struct dirent *dirp, u32int index);
 static struct fs_node *finddir(fs_node_t *node, const char *name);
 
 void init_devfs(void) {
@@ -103,7 +103,7 @@ static u32int write(fs_node_t *node, const void *buf, size_t count, off_t off) {
 	return 0;
 }
 
-static void open(fs_node_t *node, u32int flags) {
+static int open(fs_node_t *node, u32int flags) {
 	if (node->flags & VFS_CHARDEV) {
 		if (char_drivers[MAJOR(node->impl) - 1].ops.open)
 			return char_drivers[MAJOR(node->impl) - 1].ops.open(node, flags);
@@ -114,7 +114,7 @@ static void open(fs_node_t *node, u32int flags) {
 			if ((dev = lookup_ordered_array(i, &blk_drivers[major - 1].devs))->minor == minor)
 				break;
 		if (dev == NULL || dev->minor != minor)
-			return;
+			return -1;
 
 		if (dev->driver->write)
 			node->mask = (flags & O_RDWR);
@@ -122,30 +122,38 @@ static void open(fs_node_t *node, u32int flags) {
 			node->mask = (flags & O_RDONLY);
 
 		node->len = dev->capacity * dev->block_size;
+		return 0;
 	}
-		
+
+	// can't be reached
+	return -1;
 }
 
-static void close(fs_node_t *node) {
-	if (node->flags & VFS_CHARDEV)
+static int close(fs_node_t *node) {
+	if (node->flags & VFS_CHARDEV) {
 		if (char_drivers[MAJOR(node->impl) - 1].ops.close)
 			return char_drivers[MAJOR(node->impl) - 1].ops.close(node);
+	} else {
+		return 0;
+	}
+
+	// Can't be reached
+	return -1;
 }
 
-static struct dirent *readdir(fs_node_t *node, u32int index) {
+static int readdir(fs_node_t *node, struct dirent *dirp, u32int index) {
 	node = node;
-	static struct dirent ret;
 	u32int i;
 	struct dev_file *filep = files;
 	for (i = 0; i < index; filep = filep->next) {
 		if (filep == NULL)
-			return NULL;
+			return -1;
 		else
 			++i;
 	}
-	ret.d_ino = index;
-	strcpy(ret.d_name, filep->node.name);
-	return &ret;
+	dirp->d_ino = index;
+	strcpy(dirp->d_name, filep->node.name);
+	return 0;
 }
 
 static struct fs_node *finddir(fs_node_t *node, const char *name) {
@@ -238,7 +246,7 @@ s32int detect_partitions(struct blockdev *dev) {
 		return -1;
 
 	if (mbr.magic[0] != 0x55 || mbr.magic[1] != 0xAA) {			// Valid?
-		printf("Warning: invalid partition table driver %s device %u\n",
+		printf("Warning: invalid partition table\n\tDriver: %s Device: %u\n",
 				dev->driver->name, dev->minor/16);
 		return 0;
 	}
