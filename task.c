@@ -38,7 +38,7 @@ extern u32int read_eip(void);
 extern page_directory_t *current_dir;
 extern page_directory_t *kernel_dir;
 
-volatile task_t *current_task;
+volatile task_t *current_task = NULL;
 volatile task_t *ready_queue;
 u32int next_pid = 1;
 

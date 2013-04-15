@@ -61,5 +61,7 @@ void outsw(u16int port, void *src, int count);
 extern inline void halt(void) {while(1){};}
 //extern inline void halt(void) {__asm__("hlt");}
 void panic(u32int line, char *file, char *msg);
+void spin_lock(volatile u8int *lock);
+void spin_unlock(volatile u8int *lock);
 
 #endif

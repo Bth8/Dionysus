@@ -82,7 +82,7 @@ typedef struct fs_node {
 	int uid;
 	u32int flags;				// Includes node type
 	u32int inode;				// Way for individual FSs to differentiate between files
-	u32int len;
+	size_t len;
 	u32int impl;				// Implementation-defined
 	struct file_ops ops;
 	struct superblock *fs_sb;	// Parent fs
