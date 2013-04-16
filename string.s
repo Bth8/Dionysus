@@ -75,6 +75,7 @@ strcpy:
 	push esi
 	call strlen
 	pop esi
+	inc eax
 
 	push eax
 	push esi
