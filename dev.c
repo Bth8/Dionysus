@@ -338,6 +338,7 @@ u32int read_blkdev(u32int major, u32int minor, size_t count, off_t off, char *bu
 		memcpy(buf, tmp + off, dev->block_size - off);
 		count -= dev->block_size - off;
 		read += dev->block_size - off;
+		off = 0;
 		block++;
 		kfree(tmp);
 	}
@@ -359,7 +360,7 @@ u32int read_blkdev(u32int major, u32int minor, size_t count, off_t off, char *bu
 			kfree(tmp);
 			return read;
 		}
-		memcpy(buf + read, tmp, count);
+		memcpy(buf + read, tmp + off, count);
 		read += count;
 		kfree(tmp);
 	}
@@ -398,6 +399,7 @@ u32int write_blkdev(u32int major, u32int minor, size_t count, off_t off, const c
 		}
 		count -= dev->block_size - off;
 		written += dev->block_size - off;
+		off = 0;
 		block++;
 		kfree(tmp);
 	}
@@ -419,7 +421,7 @@ u32int write_blkdev(u32int major, u32int minor, size_t count, off_t off, const c
 			kfree(tmp);
 			return written;
 		}
-		memcpy(tmp, buf + written, count);
+		memcpy(tmp + off, buf + written, count);
 		if (dev->driver->write(dev->minor / 16, block, 1, tmp)) {
 			kfree(tmp);
 			return written;

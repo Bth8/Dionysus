@@ -86,6 +86,10 @@ struct fat32_boot_record {
 	u8int code[420];
 	u8int bootable[2];			// 0x55, 0xAA
 */
+
+	// We add these in
+	struct fat32_inode *inode_list;
+	u8int lock;
 } __attribute__((packed));
 
 struct fat32_dirent {
@@ -113,6 +117,15 @@ struct fat32_long_name {
 	u16int zero;
 	char name2[4];
 } __attribute__((packed));
+
+struct fat32_inode {
+	u32int first_cluster;
+	u32int parent_first_cluster;
+	off_t disk_off;
+	u16int dirent_cluster;
+	u16int dirent_index;
+	struct fat32_inode *next;
+};
 
 void init_fat32(void);
 

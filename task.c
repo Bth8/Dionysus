@@ -640,7 +640,9 @@ int user_mount(const char *src, const char *target, const char *fs_name, u32int 
 
 	u32int ret = mount(src_node, dest_node, fs_name, flags);
 
-	kfree(src_node);
+	if (ret != 0)
+		kfree(src_node);
+
 	kfree(dest_node);
 	return ret;
 }
