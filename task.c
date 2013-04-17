@@ -656,3 +656,13 @@ int user_readdir(int fd, struct dirent *dirp, u32int index) {
 
 	return readdir_vfs(current_task->files[fd].file, dirp, index);
 }
+
+int user_fstat(int fd, struct stat *buff) {
+	if (!valid_fd(fd))
+		return -1;
+
+	if (!buff)
+		return -1;
+
+	return stat_vfs(current_task->files[fd].file, buff);
+}

@@ -101,7 +101,7 @@ void free_frame(page_t *page) {
 	if (!(frame = page->frame))
 		return;
 
-	clear_frame(frame);
+	clear_frame(frame*0x1000);
 	page->present = 0;
 	page->frame = 0;
 }

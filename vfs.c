@@ -114,6 +114,18 @@ fs_node_t *finddir_vfs(fs_node_t *node, const char *name) {
 		return NULL;
 }
 
+int stat_vfs(fs_node_t *node, struct stat *buff) {
+	ASSERT(buff);
+	if (!node)
+		return -1;
+
+	fs_node_t *mnt = get_mnt(node);
+	if (mnt->ops.stat)
+		return mnt->ops.stat(mnt, buff);
+	else
+		return -1;
+}
+
 s32int ioctl_vfs(fs_node_t *node, u32int request, void *ptr) {
 	if (!node)
 		return -1;

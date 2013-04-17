@@ -34,6 +34,7 @@
 #include <kmalloc.h>
 #include <string.h>
 #include <time.h>
+#include <dev.h>
 
 static struct superblock *return_sb(u32int flags, fs_node_t *dev);
 struct file_system_type fat32 = {
@@ -49,6 +50,7 @@ static u32int read(fs_node_t *file, void *buff, size_t count, off_t off);
 static u32int write(fs_node_t *file, const void *buff, size_t count, off_t off);
 static int readdir(fs_node_t *file, struct dirent *dirp, u32int index);
 static fs_node_t *finddir(fs_node_t *file, const char *name);
+static int stat(fs_node_t *file, struct stat *buff);
 struct file_ops fat32_ops = {
 	.open = open,
 	.close = close,
@@ -56,6 +58,7 @@ struct file_ops fat32_ops = {
 	.write = write,
 	.readdir = readdir,
 	.finddir = finddir,
+	.stat = stat,
 };
 
 static u32int fat32_attr_to_vfs(u32int attr) {
@@ -569,6 +572,57 @@ static fs_node_t *finddir(fs_node_t *file, const char *name) {
 	ret->impl = (offset << 16) | FAT32_DIR_GET_CL(file->impl);
 
 	return ret;
+}
+
+static int stat(fs_node_t *file, struct stat *buff) {
+	struct fat32_boot_record *bpb = (struct fat32_boot_record*)(file->fs_sb->private_data);
+	buff->st_dev = get_dev(file->fs_sb->dev);
+	buff->st_ino = file->inode;
+	buff->st_mode = file->mask;
+	buff->st_nlink = 1;
+	buff->uid = file->uid;
+	buff->gid = file->gid;
+	buff->st_size = file->len;
+	buff->st_blksize = bpb->spc * bpb->bps;
+	buff->st_blocks = file->len / 512;
+	if (file->inode != 2) {
+		struct fat32_inode *inode = bpb->inode_list;
+		ASSERT(inode != NULL);
+		while (inode->first_cluster != file->inode)
+			inode = inode->next;
+
+		struct fat32_dirent *our_entry = kmalloc(sizeof(struct fat32_dirent));
+		if (our_entry == NULL)
+			return -1;
+
+		read_vfs(file->fs_sb->dev, our_entry, sizeof(struct fat32_dirent), inode->disk_off);
+
+		struct tm temp;
+		temp.tm_sec = 0;
+		temp.tm_min = 0;
+		temp.tm_hour = 0;
+		temp.tm_mday = our_entry->last_access & 0x1F;
+		temp.tm_mon = ((our_entry->last_access >> 5) & 0x3F) - 1;
+		temp.tm_year = ((our_entry->last_access >> 9) + 80);
+		buff->st_atime = mktime(&temp);
+
+		temp.tm_sec = our_entry->mod_time & 0x1F;
+		temp.tm_min = (our_entry->mod_time >> 5) & 0x3F;
+		temp.tm_hour = our_entry->mod_time >> 11;
+		temp.tm_mday = our_entry->mod_date & 0x1F;
+		temp.tm_mon = ((our_entry->mod_date >> 5) & 0x3F) - 1;
+		temp.tm_year = ((our_entry->mod_date >> 9) + 80);
+		buff->st_mtime = mktime(&temp);
+
+		temp.tm_sec = our_entry->create_time & 0x1F;
+		temp.tm_min = (our_entry->create_time >> 5) & 0x3F;
+		temp.tm_hour = our_entry->create_time >> 11;
+		temp.tm_mday = our_entry->create_date & 0x1F;
+		temp.tm_mon = ((our_entry->create_date >> 5) & 0x3F) - 1;
+		temp.tm_year = ((our_entry->create_date >> 9) + 80);
+		buff->st_ctime = mktime(&temp);
+	}
+	return 0;
 }
 
 void init_fat32(void) {

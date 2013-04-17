@@ -20,6 +20,7 @@
 #ifndef VFS_H
 #define VFS_H
 #include <common.h>
+#include <time.h>
 
 #define NAME_MAX		256
 #define MAX_MNT_PTS		32
@@ -59,6 +60,7 @@
 #define EOF				-1
 
 struct fs_node;
+struct stat;
 struct dirent {
 	u32int d_ino;
 	char d_name[NAME_MAX];
@@ -72,6 +74,7 @@ struct file_ops {
 	struct fs_node*(*create)(struct fs_node*, const char*, u32int, u32int, u32int);
 	int(*readdir)(struct fs_node*, struct dirent*, u32int);
 	struct fs_node*(*finddir)(struct fs_node*, const char*);
+	int (*stat)(struct fs_node*, struct stat*);
 	s32int (*ioctl)(struct fs_node*, u32int, void*);
 };
 
@@ -105,6 +108,22 @@ struct file_system_type {
 	struct file_system_type *next;
 };
 
+struct stat {
+	u32int st_dev;
+	u32int st_ino;
+	u32int st_mode;
+	u32int st_nlink;
+	u32int uid;
+	u32int gid;
+	u32int st_rdev;
+	size_t st_size;
+	size_t st_blksize;
+	u32int st_blocks;
+	time_t st_atime;
+	time_t st_mtime;
+	time_t st_ctime;
+};
+
 extern fs_node_t *vfs_root;
 
 u32int read_vfs(fs_node_t *node, void *buf, size_t count, off_t off);
@@ -113,6 +132,7 @@ int open_vfs(fs_node_t *node, u32int flags);
 int close_vfs(fs_node_t *node);
 int readdir_vfs(fs_node_t *node, struct dirent *dirp, u32int index);
 fs_node_t *finddir_vfs(fs_node_t *node, const char *name);
+int stat_vfs(struct fs_node *node, struct stat *buff);
 s32int ioctl_vfs(fs_node_t *node, u32int, void *);
 fs_node_t *get_path(const char *path);
 fs_node_t *create_vfs(const char *path, u32int uid, u32int gid, u32int mode);
