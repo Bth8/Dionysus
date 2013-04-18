@@ -263,10 +263,12 @@ static u32int write(fs_node_t *file, const void *buff, size_t count, off_t off) 
 	if (count == 0)
 		return 0;
 
-	if (count + off >= file->len)
-		count = file->len - off;
-
 	struct fat32_boot_record *bpb = (struct fat32_boot_record*)(file->fs_sb->private_data);
+
+	if (count + off >= file->len) {
+		count = file->len - off;
+	}
+
 	u32int cluster = 0;
 
 	// Offset not in the cached cluster

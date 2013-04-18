@@ -666,3 +666,16 @@ int user_fstat(int fd, struct stat *buff) {
 
 	return stat_vfs(current_task->files[fd].file, buff);
 }
+
+int user_unlink(const char *path) {
+	if (!path)
+		return -1;
+
+	fs_node_t *file = get_path(path);
+	if (!file)
+		return -1;
+
+	int ret = unlink_vfs(file);
+	kfree(file);
+	return ret;
+}

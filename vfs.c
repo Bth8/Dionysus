@@ -138,6 +138,17 @@ s32int ioctl_vfs(fs_node_t *node, u32int request, void *ptr) {
 	return -1;
 }
 
+int unlink_vfs(struct fs_node *node) {
+	if (!node)
+		return -1;
+	if (node->flags & VFS_DIR)
+		return -1;
+
+	if (node->ops.unlink)
+		return node->ops.unlink(node);
+	return -1;
+}
+
 s32int register_fs(struct file_system_type *fs) {
 	struct file_system_type *fsi = fs_types;
 	fs->next = NULL;

@@ -64,7 +64,7 @@ void init_devfs(void) {
 	u32int i;
 	for (i = 0; i < 256; i++) {
 		char_drivers[i].name = "Default";
-		char_drivers[i].ops = (struct file_ops){NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
+		char_drivers[i].ops = (struct file_ops){NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 		blk_drivers[i].name = "Default";
 		blk_drivers[i].read = NULL;
 		blk_drivers[i].write = NULL;

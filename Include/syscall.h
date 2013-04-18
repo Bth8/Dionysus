@@ -95,6 +95,7 @@ DECL_SYSCALL3(lseek, int, off_t, int);
 DECL_SYSCALL4(mount, const char*, const char*, const char*, u32int);
 DECL_SYSCALL3(readdir, int, struct dirent*, u32int);
 DECL_SYSCALL2(fstat, int, struct stat*);
+DECL_SYSCALL1(unlink, const char*);
 
 void init_syscalls(void);
 

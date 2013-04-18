@@ -81,5 +81,6 @@ int user_ioctl(int fd, u32int request, void *ptr);
 int user_mount(const char *src, const char *target, const char *fs_name, u32int flags);
 int user_readdir(int fd, struct dirent *dirp, u32int index);
 int user_fstat(int fd, struct stat *buff);
+int user_unlink(const char *path);
 
 #endif

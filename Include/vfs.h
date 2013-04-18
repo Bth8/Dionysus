@@ -75,6 +75,7 @@ struct file_ops {
 	int(*readdir)(struct fs_node*, struct dirent*, u32int);
 	struct fs_node*(*finddir)(struct fs_node*, const char*);
 	int (*stat)(struct fs_node*, struct stat*);
+	int (*unlink)(struct fs_node*);
 	s32int (*ioctl)(struct fs_node*, u32int, void*);
 };
 
@@ -136,6 +137,7 @@ int stat_vfs(struct fs_node *node, struct stat *buff);
 s32int ioctl_vfs(fs_node_t *node, u32int, void *);
 fs_node_t *get_path(const char *path);
 fs_node_t *create_vfs(const char *path, u32int uid, u32int gid, u32int mode);
+int unlink_vfs(struct fs_node *node);
 s32int register_fs(struct file_system_type *fs);
 s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name, u32int flags);
 

@@ -52,6 +52,7 @@ DEFN_SYSCALL3(lseek, 25, int, off_t, int);
 DEFN_SYSCALL4(mount, 26, const char*, const char*, const char*, u32int);
 DEFN_SYSCALL3(readdir, 27, int, struct dirent*, u32int);
 DEFN_SYSCALL2(fstat, 28, int, struct stat*);
+DEFN_SYSCALL1(unlink, 29, const char*);
 
 static void *syscalls[] = {
 	fork,		// Defined in task.c
@@ -82,7 +83,8 @@ static void *syscalls[] = {
 	lseek,
 	user_mount,
 	user_readdir,
-	user_fstat
+	user_fstat,
+	user_unlink
 };
 u32int num_syscalls;
 
