@@ -36,7 +36,6 @@ extern u32int read_eip(void);
 
 // Defined in paging.c
 extern page_directory_t *current_dir;
-extern page_directory_t *kernel_dir;
 
 volatile task_t *current_task = NULL;
 volatile task_t *ready_queue;
@@ -86,7 +85,7 @@ void init_tasking(void) {
 
 	// Init first task (kernel task)
 	current_task = ready_queue = (task_t *)kmalloc(sizeof(task_t));
-	current_task->id = next_pid++;
+	current_task->id = ++next_pid;
 	current_task->esp = current_task->ebp = 0;
 	current_task->eip = 0;
 	current_task->page_dir = current_dir;
@@ -110,7 +109,7 @@ int fork(void) {
 
 	// Create a new process
 	task_t *new_task = (task_t *)kmalloc(sizeof(task_t));
-	new_task->id = next_pid++;
+	new_task->id = ++next_pid;
 	new_task->esp = new_task->ebp = 0;
 	new_task->eip = 0;
 	new_task->page_dir = directory;

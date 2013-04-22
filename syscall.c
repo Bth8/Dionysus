@@ -41,17 +41,17 @@ DEFN_SYSCALL3(setresgid, 14, int, int, int);
 DEFN_SYSCALL0(getgid, 15);
 DEFN_SYSCALL0(getegid, 16);
 DEFN_SYSCALL3(getresgid, 17, int*, int*, int*);
-DEFN_SYSCALL2(open, 18, const char*, u32int);
+DEFN_SYSCALL3(open, 18, const char*, unsigned int, unsigned int);
 DEFN_SYSCALL1(close, 19, int);
 DEFN_SYSCALL4(pread, 20, int, char*, size_t, off_t);
 DEFN_SYSCALL3(read, 21, int, char*, size_t);
 DEFN_SYSCALL4(pwrite, 22, int, const char*, size_t, off_t);
 DEFN_SYSCALL3(write, 23, int, const char*, size_t);
-DEFN_SYSCALL3(ioctl, 24, int, u32int, void*);
+DEFN_SYSCALL3(ioctl, 24, int, unsigned int, void*);
 DEFN_SYSCALL3(lseek, 25, int, off_t, int);
-DEFN_SYSCALL4(mount, 26, const char*, const char*, const char*, u32int);
-DEFN_SYSCALL3(readdir, 27, int, struct dirent*, u32int);
-DEFN_SYSCALL2(fstat, 28, int, struct stat*);
+DEFN_SYSCALL4(mount, 26, const char*, const char*, const char*, unsigned int);
+DEFN_SYSCALL3(readdir, 27, int, void*, unsigned int);
+DEFN_SYSCALL2(fstat, 28, int, void*);
 DEFN_SYSCALL1(unlink, 29, const char*);
 
 static void *syscalls[] = {
