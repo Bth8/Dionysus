@@ -156,7 +156,7 @@ static u32int write(struct fs_node *node, const void *src, size_t count, off_t o
 }
 
 static s32int open(struct fs_node *node, u32int flags) {
-	node->flags = (flags & O_RDWR);		// Protection from bogus flags
+	node->mask = (flags & O_RDWR);		// Protection from bogus flags
 	return 0;
 }
 

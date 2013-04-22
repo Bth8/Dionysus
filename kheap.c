@@ -22,9 +22,11 @@
 #include <kmalloc.h>
 #include <ordered_array.h>
 #include <paging.h>
+#include <string.h>
 
 // Defined in paging.c
 extern page_directory_t *current_dir;
+extern page_directory_t *kernel_dir;
 
 kheap_t *kheap = NULL;
 
@@ -104,10 +106,14 @@ static void expand(u32int new_size, kheap_t *heap) {
 	// Assert we stay within the bounds of the heap
 	ASSERT(heap->start_address + new_size <= heap->max_address);
 	u32int i;
-	for (i = heap->end_address - heap->start_address; i < new_size; i += 0x1000)
-		alloc_frame(get_page(heap->start_address + i, 1, current_dir),
-					(heap->supervisor) ? 1 : 0, (heap->rw) ? 1 : 0, 1);
+	for (i = heap->end_address - heap->start_address; i < new_size; i += 0x1000) {
+		page_t *cur_page = get_page(heap->start_address + i, 1, current_dir);
+		alloc_frame(cur_page, (heap->supervisor) ? 1 : 0, (heap->rw) ? 1 : 0, 1);
+		page_t *kernel_page = get_page(heap->start_address + i, 1, kernel_dir);
+		memcpy(kernel_page, cur_page, sizeof(page_t));
+	}
 	heap->end_address = heap->start_address+new_size;
+	switch_page_dir(current_dir);
 }
 
 static u32int contract(u32int new_size, kheap_t *heap) {

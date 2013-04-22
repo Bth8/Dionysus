@@ -27,7 +27,7 @@
 extern time_t current_time;
 
 u32int tick = 0;
-u32int task_tick = 20;
+s32int task_tick = 20;
 u32int rtc_tick = 1024;
 
 static void pit_callback(registers_t *regs) {

@@ -30,6 +30,9 @@
 #define SEEK_CUR 1
 #define SEEK_END 2
 
+#define USER_STACK_BOTTOM	0x10000000
+#define USER_STACK_TOP		0X10010000
+
 struct filep {
 	fs_node_t *file;
 	off_t off;
@@ -40,7 +43,9 @@ typedef struct task {
 	u32int esp, ebp;			// Stack and base pointers
 	u32int eip;					// Instruction pointer
 	page_directory_t *page_dir;
-	u32int kernel_stack;
+	u32int brk;					// Heap end
+	u32int brk_actual;			// Actual end of the memory allocated for the heap
+	u32int start;				// Image start
 	s8int nice;
 	int ruid, euid, suid;
 	int rgid, egid, sgid;
@@ -55,7 +60,7 @@ int fork(void);
 int nice(int inc);
 void move_stack(void *new_stack_start, u32int size);
 int getpid(void);
-void switch_user_mode(void);
+void switch_user_mode(u32int entry, int argc, char **argv, char **envp, u32int stack);
 int setuid(int uid);
 int seteuid(int new_euid);
 int setreuid(int new_ruid, int new_euid);

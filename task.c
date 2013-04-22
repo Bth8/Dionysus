@@ -85,15 +85,23 @@ void init_tasking(void) {
 
 	// Init first task (kernel task)
 	current_task = ready_queue = (task_t *)kmalloc(sizeof(task_t));
-	current_task->id = ++next_pid;
+	current_task->id = next_pid++;
 	current_task->esp = current_task->ebp = 0;
 	current_task->eip = 0;
 	current_task->page_dir = current_dir;
-	current_task->kernel_stack = (u32int)kmalloc_a(KERNEL_STACK_SIZE);
+	current_task->brk = 0;
+	current_task->brk_actual = 0;
+	current_task->start = 0;
 	current_task->nice = 0;
-	current_task->euid, current_task->suid, current_task->ruid = 0;
-	current_task->egid, current_task->rgid, current_task->sgid = 0;
+	current_task->euid = current_task->suid = current_task->ruid = 0;
+	current_task->egid = current_task->rgid = current_task->sgid = 0;
 	current_task->next = NULL;
+
+	// Create a user stack
+	for (i = USER_STACK_BOTTOM; i < USER_STACK_TOP; i += 0x1000)
+		alloc_frame(get_page(i, 1, current_dir), 0, 1, 0);
+
+	switch_page_dir(current_dir);
 
 	// No open files yet
 	for (i = 0; i < MAX_OF; i++)
@@ -109,11 +117,13 @@ int fork(void) {
 
 	// Create a new process
 	task_t *new_task = (task_t *)kmalloc(sizeof(task_t));
-	new_task->id = ++next_pid;
+	new_task->id = next_pid++;
 	new_task->esp = new_task->ebp = 0;
 	new_task->eip = 0;
 	new_task->page_dir = directory;
-	new_task->kernel_stack = (u32int)kmalloc_a(KERNEL_STACK_SIZE);
+	new_task->brk = current_task->brk;
+	new_task->brk_actual = current_task->brk_actual;
+	new_task->start = current_task->start;
 	// Inherit niceness and ids of parent
 	new_task->nice = current_task->nice;
 	new_task->euid = current_task->euid;
@@ -151,7 +161,6 @@ int fork(void) {
 		new_task->esp = esp;
 		new_task->ebp = ebp;
 		new_task->eip = eip;
-		asm volatile("sti");
 		return new_task->id;
 	} else {
 		// Send EOI to PIC. Otherwise, PIT won't fire again.
@@ -184,7 +193,6 @@ int switch_task(void) {
 		current_task->ebp = ebp;
 
 		current_task = current_task->next;
-
 		// Make sure we didn't fall off the end
 		if (!current_task)
 			current_task = ready_queue;
@@ -194,7 +202,7 @@ int switch_task(void) {
 		eip = current_task->eip;
 
 		current_dir = current_task->page_dir;
-		set_kernel_stack(current_task->kernel_stack + KERNEL_STACK_SIZE);
+		set_kernel_stack(esp);
 
 		// Put new eip in ecx, load stack/base pointers, change page dir, put dummy value int eax, restart interrupts, jump to [ecx]
 		asm volatile("mov %0, %%ecx;\
@@ -202,7 +210,6 @@ int switch_task(void) {
 					mov %2, %%ebp;\
 					mov %3, %%cr3;\
 					mov $0x12345, %%eax;\
-					sti;\
 					jmp *%%ecx" : : "r"(eip), "r"(esp), "r"(ebp), "r"(current_dir->physical_address) : "ecx", "esp", "ebp", "eax");
 	}
 	return 0;
@@ -231,7 +238,7 @@ void exit_task(void) {
 	// Prepare for a context switch
 	current_task = task_i;
 	current_dir = current_task->page_dir;
-	set_kernel_stack(current_task->kernel_stack + KERNEL_STACK_SIZE);
+	set_kernel_stack(current_task->esp);
 	// Use new current_task's paging dir, because we're about to trash ours
 	asm volatile("mov %0, %%cr3":: "r"(current_dir->physical_address));
 
@@ -240,7 +247,6 @@ void exit_task(void) {
 		if (current_cache->files[i].file != NULL)
 			kfree(current_cache->files[i].file);
 	free_dir(current_cache->page_dir);
-	kfree((void *)current_cache->kernel_stack);
 	kfree((void *)current_cache);
 
 	// Context switching time
@@ -252,10 +258,14 @@ void exit_task(void) {
 				jmp *%%ecx" :: "r"(current_task->eip), "r"(current_task->esp), "r"(current_task->ebp) : "ecx", "esp", "ebp", "eax");
 }	
 
-void switch_user_mode(void) {
-	set_kernel_stack(current_task->kernel_stack + KERNEL_STACK_SIZE);
+void switch_user_mode(u32int entry, int argc, char **argv, char **envp, u32int stack) {
+	set_kernel_stack(current_task->esp);
 
 	asm volatile("cli;\
+				mov %4, %%esp;\
+				pushl %3;\
+				pushl %2;\
+				pushl %1;\
 				mov $0x23, %%ax;\
 				mov %%ax, %%ds;\
 				mov %%ax, %%es;\
@@ -271,7 +281,7 @@ void switch_user_mode(void) {
 				pushl $0x1B;\
 				push $1f;\
 				iret;\
-			1:"::);
+			1:":: "m"(entry), "r"(argc), "r"(argv), "r"(envp), "r"(stack): "esp", "eax");
 }
 
 int nice(int inc) {
