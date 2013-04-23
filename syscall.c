@@ -43,12 +43,12 @@ DEFN_SYSCALL0(getegid, 16);
 DEFN_SYSCALL3(getresgid, 17, int*, int*, int*);
 DEFN_SYSCALL3(open, 18, const char*, unsigned int, unsigned int);
 DEFN_SYSCALL1(close, 19, int);
-DEFN_SYSCALL4(pread, 20, int, char*, size_t, off_t);
-DEFN_SYSCALL3(read, 21, int, char*, size_t);
-DEFN_SYSCALL4(pwrite, 22, int, const char*, size_t, off_t);
-DEFN_SYSCALL3(write, 23, int, const char*, size_t);
+DEFN_SYSCALL6(pread, 20, int, char*, unsigned int, unsigned int, unsigned int, unsigned int);
+DEFN_SYSCALL4(read, 21, int, char*, unsigned int, unsigned int);
+DEFN_SYSCALL6(pwrite, 22, int, const char*, unsigned int, unsigned int, unsigned int, unsigned int);
+DEFN_SYSCALL4(write, 23, int, const char*, unsigned int, unsigned int);
 DEFN_SYSCALL3(ioctl, 24, int, unsigned int, void*);
-DEFN_SYSCALL3(lseek, 25, int, off_t, int);
+DEFN_SYSCALL4(lseek, 25, int, unsigned int, unsigned int, int);
 DEFN_SYSCALL4(mount, 26, const char*, const char*, const char*, unsigned int);
 DEFN_SYSCALL3(readdir, 27, int, void*, unsigned int);
 DEFN_SYSCALL2(fstat, 28, int, void*);
@@ -98,12 +98,16 @@ void syscall_handler(registers_t *regs) {
 					push %3;\
 					push %4;\
 					push %5;\
-					call *%6;\
+					push %6;\
+					call *%7;\
 					pop %%ebx;\
 					pop %%ebx;\
 					pop %%ebx;\
 					pop %%ebx;\
-					pop %%ebx;": "=a"(regs->eax) : "r"(regs->edi), "r"(regs->esi), "r"(regs->edx), "r"(regs->ecx), "r"(regs->ebx), "r"(location) : "ebx");
+					pop %%ebx;\
+					pop %%ebx;": "=a"(regs->eax) : "g"(regs->ebp), "g"(regs->edi),
+								"g"(regs->esi),"g"(regs->edx), "g"(regs->ecx),
+								"g"(regs->ebx), "g"(location) : "ebx");
 	}
 }
 

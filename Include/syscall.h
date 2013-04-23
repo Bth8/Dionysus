@@ -28,6 +28,7 @@
 #define DECL_SYSCALL3(fn,p1,p2,p3) int sys_##fn(p1,p2,p3);
 #define DECL_SYSCALL4(fn,p1,p2,p3,p4) int sys_##fn(p1,p2,p3,p4);
 #define DECL_SYSCALL5(fn,p1,p2,p3,p4,p5) int sys_##fn(p1,p2,p3,p4,p5);
+#define DECL_SYSCALL6(fn,p1,p2,p3,p4,p5,p6) int sys_##fn(p1,p2,p3,p4,p5,p6);
 
 #define DEFN_SYSCALL0(fn, num) \
 int sys_##fn(void) { \
@@ -65,6 +66,13 @@ int sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) { \
 	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), "c"((int)p2), "d"((int)p3), "S"((int)p4), "D"((int)p5)); \
 	return a; \
 }
+#define DEFN_SYSCALL6(fn, num, P1, P2, P3, P4, P5, P6) \
+int sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5, P6 p6) { \
+	int a; \
+	asm volatile("pushl %%ebp; movl %7, %%ebp ; int $0x80; popl %%ebp;" : "=a"(a) : \
+		 "0"(num), "b"((int)p1), "c"((int)p2), "d"((int)p3), "S"((int)p4), "D"((int)p5), "g"((int)p6)); \
+	return a; \
+}
 
 DECL_SYSCALL0(fork);
 DECL_SYSCALL0(exit);
@@ -86,12 +94,12 @@ DECL_SYSCALL0(getegid);
 DECL_SYSCALL3(getresgid, int*, int*, int*);
 DECL_SYSCALL3(open, const char*, unsigned int, unsigned int);
 DECL_SYSCALL1(close, int);
-DECL_SYSCALL4(pread, int, char*, size_t, off_t);
-DECL_SYSCALL3(read, int, char*, size_t);
-DECL_SYSCALL4(pwrite, int, const char*, size_t, off_t);
-DECL_SYSCALL3(write, int, const char*, size_t);
+DECL_SYSCALL6(pread, int, char*, unsigned int, unsigned int, unsigned int, unsigned int);
+DECL_SYSCALL4(read, int, char*, unsigned int, unsigned int);
+DECL_SYSCALL6(pwrite, int, const char*, unsigned int, unsigned int, unsigned int, unsigned int);
+DECL_SYSCALL4(write, int, const char*, unsigned int, unsigned int);
 DECL_SYSCALL3(ioctl, int, unsigned int, void*);
-DECL_SYSCALL3(lseek, int, off_t, int);
+DECL_SYSCALL4(lseek, int, unsigned int, unsigned int, int);
 DECL_SYSCALL4(mount, const char*, const char*, const char*, unsigned int);
 DECL_SYSCALL3(readdir, int, void*, unsigned int);
 DECL_SYSCALL2(fstat, int, void*);
