@@ -261,6 +261,9 @@ void exit_task(void) {
 void switch_user_mode(u32int entry, int argc, char **argv, char **envp, u32int stack) {
 	set_kernel_stack(current_task->esp);
 
+	// First entry on stack will be 0. Protects from page fault.
+	stack -= 4;
+
 	asm volatile("cli;\
 				mov %4, %%esp;\
 				pushl %3;\
@@ -279,9 +282,8 @@ void switch_user_mode(u32int entry, int argc, char **argv, char **envp, u32int s
 				or $0x200, %%eax;\
 				pushl %%eax;\
 				pushl $0x1B;\
-				push $1f;\
-				iret;\
-			1:":: "m"(entry), "r"(argc), "r"(argv), "r"(envp), "r"(stack): "esp", "eax");
+				pushl %0;\
+				iret;": : "r"(entry), "r"(argc), "r"(argv), "r"(envp), "r"(stack): "esp", "eax");
 }
 
 int nice(int inc) {

@@ -89,7 +89,6 @@ static void *syscalls[] = {
 u32int num_syscalls;
 
 void syscall_handler(registers_t *regs) {
-	asm volatile("mov %bx, %bx");
 	if (regs->eax < num_syscalls) {
 		void *location = syscalls[regs->eax];
 
