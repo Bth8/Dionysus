@@ -690,3 +690,13 @@ int user_unlink(const char *path) {
 	kfree(file);
 	return ret;
 }
+
+int sbrk(u32int inc) {
+	u32int ret = current_task->brk;
+	while (current_task->brk_actual < current_task->brk + inc) {
+		current_task->brk_actual += 0x1000;
+		alloc_frame(get_page(current_task->brk_actual, 1, current_dir), 0, 1, 0);
+	}
+
+	return ret;
+}

@@ -22,6 +22,7 @@
 #include <idt.h>
 #include <task.h>
 #include <vfs.h>
+#include <elf.h>
 
 DEFN_SYSCALL0(fork, 0);
 DEFN_SYSCALL0(exit, 1);
@@ -53,6 +54,8 @@ DEFN_SYSCALL4(mount, 26, const char*, const char*, const char*, unsigned int);
 DEFN_SYSCALL3(readdir, 27, int, void*, unsigned int);
 DEFN_SYSCALL2(fstat, 28, int, void*);
 DEFN_SYSCALL1(unlink, 29, const char*);
+DEFN_SYSCALL1(sbrk, 30, unsigned int);
+DEFN_SYSCALL3(execve, 31, const char*, const char**, const char**);
 
 static void *syscalls[] = {
 	fork,		// Defined in task.c
@@ -84,7 +87,8 @@ static void *syscalls[] = {
 	user_mount,
 	user_readdir,
 	user_fstat,
-	user_unlink
+	user_unlink,
+	sbrk
 };
 u32int num_syscalls;
 

@@ -69,7 +69,7 @@ int sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) { \
 #define DEFN_SYSCALL6(fn, num, P1, P2, P3, P4, P5, P6) \
 int sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5, P6 p6) { \
 	int a; \
-	asm volatile("pushl %%ebp; movl %7, %%ebp ; int $0x80; popl %%ebp;" : "=a"(a) : \
+	asm volatile("pushl %%ebp; movl %7, %%ebp; int $0x80; popl %%ebp;" : "=a"(a) : \
 		 "0"(num), "b"((int)p1), "c"((int)p2), "d"((int)p3), "S"((int)p4), "D"((int)p5), "g"((int)p6)); \
 	return a; \
 }
@@ -104,6 +104,8 @@ DECL_SYSCALL4(mount, const char*, const char*, const char*, unsigned int);
 DECL_SYSCALL3(readdir, int, void*, unsigned int);
 DECL_SYSCALL2(fstat, int, void*);
 DECL_SYSCALL1(unlink, const char*);
+DECL_SYSCALL1(sbrk, unsigned int);
+DECL_SYSCALL3(execve, const char*, const char**, const char**);
 
 void init_syscalls(void);
 
