@@ -1,19 +1,26 @@
 Practically everything. Very little's actually been implemented.
 
 Immediate concerns:
-Further work on process switching and management.
+Processes need to have children and parents.
+
+IPC would be nice.
+
+Need an init program.
+
+Need a shell.
 
 Work needs to be done on improving hard disk operations. Need to be able to
 write to ATAPI, need to implement DMA, etc.
 
-Serious overhaul on the whole memory allocation thing needs to take place. Oh my god it's bad.
+Race conditions need to be brought into consideration.
 
-Race conditions need to be brought into consideration, and error reporting
-needs to consist of something more than just returning -1.
+Better error reporting.
 
 FAT32 needs to be finished. It would be nice if we could get EXT2, too.
 
-Loading ELFs and perhaps other executable formats.
+Improvements with ELF. Relocatable code, dynamic linking, etc.
+
+Modules, which goes hand in hand with relocatable code.
 
 Later, other features such as USB support and the like may be implemented, but
 we'll cross those bridges when we get to them.
