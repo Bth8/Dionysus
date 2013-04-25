@@ -105,7 +105,7 @@ DECL_SYSCALL3(readdir, int, void*, unsigned int);
 DECL_SYSCALL2(fstat, int, void*);
 DECL_SYSCALL1(unlink, const char*);
 DECL_SYSCALL1(sbrk, unsigned int);
-DECL_SYSCALL3(execve, const char*, const char**, const char**);
+DECL_SYSCALL3(execve, const char*, char *const*, char *const*);
 
 void init_syscalls(void);
 

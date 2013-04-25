@@ -36,6 +36,7 @@ extern u32int read_eip(void);
 
 // Defined in paging.c
 extern page_directory_t *current_dir;
+extern page_directory_t *kernel_dir;
 
 volatile task_t *current_task = NULL;
 volatile task_t *ready_queue;
@@ -45,7 +46,7 @@ void move_stack(void *new_stack_start, u32int size) {
 	u32int i;
 	// Allocate space
 	for (i = (u32int)new_stack_start; i >= (u32int)new_stack_start - size; i -= 0x1000)
-		alloc_frame(get_page(i, 1, current_dir), 0, 1, 0);
+		alloc_frame(get_page(i, 1, 0, current_dir), 1, 1, 0);
 
 	switch_page_dir(current_dir);	// Flush TLB
 
@@ -99,7 +100,7 @@ void init_tasking(void) {
 
 	// Create a user stack
 	for (i = USER_STACK_BOTTOM; i < USER_STACK_TOP; i += 0x1000)
-		alloc_frame(get_page(i, 1, current_dir), 0, 1, 0);
+		alloc_frame(get_page(i, 1, 0, current_dir), 0, 1, 0);
 
 	switch_page_dir(current_dir);
 
@@ -169,6 +170,20 @@ int fork(void) {
 	}
 }
 
+void globalize_table(u32int i, page_table_t *table) {
+	u32int flags;
+	asm volatile("pushf; popl %%eax": "=a"(flags));
+	asm volatile("cli");
+	ASSERT(!(kernel_dir->tables[i]) || kernel_dir->tables[i] == table);
+	kernel_dir->tables[i] = table;
+	if (current_task) {
+		task_t *task_i;
+		for (task_i = (task_t*)ready_queue; task_i != NULL; task_i = task_i->next)
+			task_i->page_dir->tables[i] = table;
+	}
+	asm volatile("pushl %%eax; popf":: "a"(flags));
+}
+
 int getpid(void) {
 	return current_task->id;
 }
@@ -210,7 +225,7 @@ int switch_task(void) {
 					mov %2, %%ebp;\
 					mov %3, %%cr3;\
 					mov $0x12345, %%eax;\
-					jmp *%%ecx" : : "r"(eip), "r"(esp), "r"(ebp), "r"(current_dir->physical_address) : "ecx", "esp", "ebp", "eax");
+					jmp *%%ecx" : : "r"(eip), "r"(esp), "r"(ebp), "r"(current_dir->physical_address));
 	}
 	return 0;
 }
@@ -695,7 +710,7 @@ int sbrk(u32int inc) {
 	u32int ret = current_task->brk;
 	while (current_task->brk_actual < current_task->brk + inc) {
 		current_task->brk_actual += 0x1000;
-		alloc_frame(get_page(current_task->brk_actual, 1, current_dir), 0, 1, 0);
+		alloc_frame(get_page(current_task->brk_actual, 1, 0, current_dir), 0, 1, 0);
 	}
 
 	return ret;

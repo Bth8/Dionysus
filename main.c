@@ -36,8 +36,8 @@
 #include <ide.h>
 #include <printf.h>
 #include <fs/fat32.h>
-
-extern void switch_user_mode(void);
+#include <string.h>
+#include <elf.h>
 
 // Defined in linker script
 extern u32int kend;
@@ -103,6 +103,7 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	dump_pci();
 	init_rootfs();
 	init_devfs();
+	init_term();
 	init_ide(0, 0, 0, 0, 0);
 
 	mount(NULL, vfs_root, "rootfs", 0);
@@ -113,17 +114,25 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	devfs_register("hda", VFS_BLOCKDEV, IDE_MAJOR, 0, 0, 0, 0);
 	devfs_register("hda1", VFS_BLOCKDEV, IDE_MAJOR, 1, 0, 0, 0);
 	devfs_register("hda2", VFS_BLOCKDEV, IDE_MAJOR, 2, 0, 0, 0);
+	devfs_register("tty", VFS_CHARDEV, 1, 0, VFS_O_READ | VFS_O_WRITE, 0, 0);
 
 	user_mount("/dev/hda2", "/real_root", "fat32", 0);
 
-	u32int fd = user_open("/real_root", O_RDONLY, 2);
-	printf("%d\n", fd);
-	struct dirent dir;
-	printf("%d\n", user_readdir(fd, &dir, 2));
-	printf("name: %s\ninode: %X\n", dir.d_name, dir.d_ino);
+	user_open("/dev/tty", O_RDWR, 0);
+	user_open("/dev/tty", O_RDWR, 0);
+	user_open("/dev/tty", O_RDWR, 0);
+
+	int pid = sys_fork();
+	char *argv[] = {NULL};
+	char *envp[] = {NULL};
+	printf("%d\n", pid);
+	if (pid == 0)
+		sys_execve("/real_root/hello", argv, envp);
 
 	halt();
 }
+
+int debug = 0;
 
 void print_time(struct tm *time) {
 	printf("%s, ", (char *[]){"Sunday", "Monday", "Tuesday", "Wednesday", 

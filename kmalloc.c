@@ -36,7 +36,7 @@ static void *kmalloc_internal(u32int sz, int align, u32int *phys) {
 	if (kheap) {
 		void *addr = alloc(sz, align, kheap);
 		if (phys) {
-			page_t *pg = get_page((u32int) addr, 0, kernel_dir);
+			page_t *pg = get_page((u32int) addr, 0, 0, kernel_dir);
 			*phys = pg->frame * 0x1000 + (u32int)addr % 0x1000;
 		}
 		return addr;

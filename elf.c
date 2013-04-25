@@ -31,14 +31,7 @@ extern page_directory_t *current_dir;
 // Defined in task.c
 extern task_t *current_task;
 
-#include <printf.h>
-
-int execve(const char *filename, char *const argv[], char *const envp[]) {
-	u32int argc;
-	u32int envc;
-	for (argc = 0; argv[argc] != NULL; argc++);
-	for (envc = 0; envp[envc] != NULL; envc++);
-
+static int int_exec(const char *filename, u32int argc, char *argv[], u32int envc, char *envp[]) {
 	fs_node_t *file = get_path(filename);
 	if (!file)
 		return -1;
@@ -78,21 +71,17 @@ int execve(const char *filename, char *const argv[], char *const envp[]) {
 
 	read_vfs(file, prog_headers, header->e_phnum * header->e_phentsize, header->e_phoff);
 
-	printf("Freeing memory\n");
-
 	// Deallocate memory of old process (not stack, we reuse it)
 	u32int i;
 	for (i = current_task->start; i < current_task->brk_actual; i += 0x1000)
-		free_frame(get_page(i, 0, current_dir));
+		free_frame(get_page(i, 0, 0, current_dir));
 
 	// Allocate memory for new process
 	u32int start = 0xFFFFFFFF;
 	u32int size = 0;
-
-	printf("Allocating fresh memory\n");
+	u32int entry = header->e_entry;
 
 	for (i = 0; i < header->e_phnum; i++) {
-		printf("0x%X\n", prog_headers[i].p_vaddr);
 		if (prog_headers[i].p_type != PT_LOAD)
 			continue;
 
@@ -101,7 +90,7 @@ int execve(const char *filename, char *const argv[], char *const envp[]) {
 
 		u32int j;
 		for (j = prog_headers[i].p_vaddr; j < prog_headers[i].p_vaddr + prog_headers[i].p_memsz; j += 0x1000)
-			alloc_frame(get_page(j, 1, current_dir), 0, (prog_headers[i].p_flags & PF_W) ? 1 : 0, 0);
+			alloc_frame(get_page(j, 1, 0, current_dir), 0, (prog_headers[i].p_flags & PF_W) ? 1 : 0, 0);
 
 		switch_page_dir(current_dir);
 
@@ -112,14 +101,19 @@ int execve(const char *filename, char *const argv[], char *const envp[]) {
 	}
 
 	close_vfs(file);
+	kfree(file);
+	kfree(header);
+	kfree(prog_headers);
 
 	current_task->start = start;
 
 	u32int heap = start + size;
-	alloc_frame(get_page(heap, 1, current_dir), 0, 1, 0);
+	alloc_frame(get_page(heap, 1, 0, current_dir), 0, 1, 0);
 	u32int heap_actual = heap + 0x1000;
 	switch_page_dir(current_dir);
 
+
+	// Move everything to user space
 	char **argv_ = (char**)heap;
 	heap += sizeof(char*) * (argc + 1);
 	char **envp_ = (char**)heap;
@@ -128,31 +122,63 @@ int execve(const char *filename, char *const argv[], char *const envp[]) {
 		argv_[i] = (char*)heap;
 		memcpy((void*)heap, argv[i], strlen(argv[i]) + 1);
 		heap += strlen(argv[i]) + 1;
+		kfree(argv[i]);
 	}
 	argv_[i] = NULL;
 	heap += 1;
+	kfree(argv);
 
 	for (i = 0; i < envc; i++) {
 		envp_[i] = (char*)heap;
 		memcpy((void*)heap, envp[i], strlen(envp[i]) + 1);
 		heap += strlen(argv[i]) + 1;
+		kfree(envp[i]);
 	}
 	envp_[i] = NULL;
 	heap += 1;
+	kfree(envp);
 
 	current_task->brk = (u32int)heap;
 	current_task->brk_actual = (u32int)heap_actual;
 
-	u32int entry = header->e_entry;
-
-	kfree(file);
-	kfree(header);
-	kfree(prog_headers);
-	printf("Making jump to userland. Here we go!\n");
 	switch_user_mode(entry, argc, argv_, envp_, USER_STACK_TOP);
 error2:
 	kfree(header);
 error:
 	kfree(file);
 	return -1;
+}
+
+int execve(const char *filename, char *const argv[], char *const envp[]) {
+	if (!filename)
+		return -1;
+
+	if (!argv)
+		return -1;
+
+	if (!envp)
+		return -1;
+
+	u32int argc;
+	u32int envc;
+	for (argc = 0; argv[argc]; argc++);
+	for (envc = 0; envp[envc]; envc++);
+
+	// Move everything to kernel space
+	char **argv_ = (char**)kmalloc(sizeof(char*) * (argc + 1));
+	char **envp_ = (char**)kmalloc(sizeof(char*) * (envc + 1));
+
+	u32int i;
+	for (i = 0; i < argc; i++) {
+		argv_[i] = (char *)kmalloc(strlen(argv[i]) + 1);
+		memcpy(argv_[i], argv[i], strlen(argv[i]) + 1);
+	}
+	argv_[argc] = NULL;
+	for (i = 0; i < envc; i++) {
+		envp_[i] = (char *)kmalloc(strlen(envp[i]) + 1);
+		memcpy(envp_[i], envp[i], strlen(envp[i]) + 1);
+	}
+	envp_[envc] = NULL;
+
+	return int_exec(filename, argc, argv_, envc, envp_);
 }

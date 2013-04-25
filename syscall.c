@@ -55,7 +55,7 @@ DEFN_SYSCALL3(readdir, 27, int, void*, unsigned int);
 DEFN_SYSCALL2(fstat, 28, int, void*);
 DEFN_SYSCALL1(unlink, 29, const char*);
 DEFN_SYSCALL1(sbrk, 30, unsigned int);
-DEFN_SYSCALL3(execve, 31, const char*, const char**, const char**);
+DEFN_SYSCALL3(execve, 31, const char*, char *const*, char *const*);
 
 static void *syscalls[] = {
 	fork,		// Defined in task.c
@@ -88,13 +88,15 @@ static void *syscalls[] = {
 	user_readdir,
 	user_fstat,
 	user_unlink,
-	sbrk
+	sbrk,
+	execve
 };
 u32int num_syscalls;
 
 void syscall_handler(registers_t *regs) {
 	if (regs->eax < num_syscalls) {
 		void *location = syscalls[regs->eax];
+		int ret;
 
 		// Push all of the parameters
 		asm volatile("push %1;\
@@ -109,9 +111,12 @@ void syscall_handler(registers_t *regs) {
 					pop %%ebx;\
 					pop %%ebx;\
 					pop %%ebx;\
-					pop %%ebx;": "=a"(regs->eax) : "g"(regs->ebp), "g"(regs->edi),
+					pop %%ebx;": "=a"(ret) : "g"(regs->ebp), "g"(regs->edi),
 								"g"(regs->esi),"g"(regs->edx), "g"(regs->ecx),
-								"g"(regs->ebx), "g"(location) : "ebx");
+								"g"(regs->ebx), "g"(location) : "ebx", "edx", "ecx");
+													// cdecl states that eax, edx and ecx have to be callee saved
+													// eax is covered in the "=a", we have to tell gcc about the rest
+		regs->eax = ret;
 	}
 }
 

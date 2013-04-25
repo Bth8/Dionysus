@@ -24,6 +24,7 @@
 #include <printf.h>
 #include <string.h>
 #include <kheap.h>
+#include <task.h>
 
 // Defined in kmalloc.c
 extern u32int placement_address;
@@ -133,23 +134,23 @@ void init_paging(u32int mem_end) {
 	kernel_dir->physical_address = i;
 
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INIT_SIZE; i += 0x1000)
-		get_page(i, 1, kernel_dir);
+		get_page(i, 1, 1, kernel_dir);
 
 	// Identity page lowest MB
 	for (i = 0; i < 0x100000; i += 0x1000)
-		alloc_frame(get_page(i, 1, kernel_dir), 0, 0, 0);
+		alloc_frame(get_page(i, 1, 1, kernel_dir), 1, 1, 1);
 
 	//Map kernel space to 0xC0000000
 	for (i = 0xC0100000; i < placement_address + 0x1000; i += 0x1000)
-		alloc_frame(get_page(i, 1, kernel_dir), 0, 0, 1);
+		alloc_frame(get_page(i, 1, 1, kernel_dir), 1, 1, 1);
 
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INIT_SIZE; i += 0x1000)
-		alloc_frame(get_page(i, 1, kernel_dir), 0, 0, 1);
+		alloc_frame(get_page(i, 1, 1, kernel_dir), 1, 1, 1);
 
 	register_interrupt_handler(14, page_fault);
 	switch_page_dir(kernel_dir);
 
-	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INIT_SIZE, 0xDFFFF000, 0, 1);	
+	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INIT_SIZE, 0xDFFFF000, 1, 1);	
 	current_dir = clone_directory(kernel_dir);
 	switch_page_dir(current_dir);
 }
@@ -159,7 +160,13 @@ void switch_page_dir(page_directory_t *dir) {
 	asm volatile("mov %0, %%cr3":: "r"(dir->physical_address));
 }
 
-page_t *get_page(u32int address, int make, page_directory_t *dir) {
+// Flush the entire TLB, ensuring global page refresh
+void global_flush(void) {
+	asm volatile("mov %%cr4, %%eax; btr $7, %%eax; mov %%eax, %%cr4;"
+				"bts $7, %%eax; mov %%eax, %%cr4" : : : "eax");
+}
+
+page_t *get_page(u32int address, int make, int global, page_directory_t *dir) {
 	address /= 0x1000;
 	u32int i = address / 1024;
 	if (dir->tables[i]) // already assigned
@@ -167,6 +174,8 @@ page_t *get_page(u32int address, int make, page_directory_t *dir) {
 	else if (make) {
 		u32int tmp;
 		dir->tables[i] = (page_table_t*)kmalloc_ap(sizeof(page_table_t), &tmp);
+		if (global)
+			globalize_table(i, dir->tables[i]);
 		memset(dir->tables[i], 0, 0x1000);
 		dir->tables_phys[i].present = 1;
 		dir->tables_phys[i].rw = 1;

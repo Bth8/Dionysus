@@ -57,6 +57,7 @@ void init_tasking(void);
 int switch_task(void);
 void exit_task(void);
 int fork(void);
+void globalize_table(u32int i, page_table_t *table);
 int nice(int inc);
 void move_stack(void *new_stack_start, u32int size);
 int getpid(void);
