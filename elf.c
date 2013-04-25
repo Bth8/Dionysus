@@ -24,6 +24,7 @@
 #include <kmalloc.h>
 #include <task.h>
 #include <string.h>
+#include <errno.h>
 
 // Defined in paging.c
 extern page_directory_t *current_dir;
@@ -34,7 +35,7 @@ extern task_t *current_task;
 static int int_exec(const char *filename, u32int argc, char *argv[], u32int envc, char *envp[]) {
 	fs_node_t *file = get_path(filename);
 	if (!file)
-		return -1;
+		return -EACCES;
 
 	if (open_vfs(file, O_RDONLY))
 		goto error;
@@ -61,7 +62,7 @@ static int int_exec(const char *filename, u32int argc, char *argv[], u32int envc
 		close_vfs(file);
 		kfree(file);
 		kfree(header);
-		return -1;
+		return -ENOEXEC;
 	}
 
 	// Get program headers and load them into memory
@@ -112,7 +113,6 @@ static int int_exec(const char *filename, u32int argc, char *argv[], u32int envc
 	u32int heap_actual = heap + 0x1000;
 	switch_page_dir(current_dir);
 
-
 	// Move everything to user space
 	char **argv_ = (char**)heap;
 	heap += sizeof(char*) * (argc + 1);
@@ -146,18 +146,18 @@ error2:
 	kfree(header);
 error:
 	kfree(file);
-	return -1;
+	return -ENOMEM;
 }
 
 int execve(const char *filename, char *const argv[], char *const envp[]) {
 	if (!filename)
-		return -1;
+		return -EFAULT;
 
 	if (!argv)
-		return -1;
+		return -EFAULT;
 
 	if (!envp)
-		return -1;
+		return -EFAULT;
 
 	u32int argc;
 	u32int envc;

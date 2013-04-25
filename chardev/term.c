@@ -24,6 +24,7 @@
 #include <vfs.h>
 #include <timer.h>
 #include <dev.h>
+#include <errno.h>
 
 #define ESCAPE 0x01
 #define CTRL 0x1D
@@ -172,10 +173,10 @@ static s32int ioctl(struct fs_node *node, u32int req, void *ptr) {
 					echo = 0;
 				ret = 0;
 			} else
-				ret = -1;
+				ret = -EFAULT;
 			break;
 		default:
-			ret = -1;
+			ret = -EINVAL;
 			break;
 	}
 	return ret;

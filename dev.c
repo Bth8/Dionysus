@@ -24,6 +24,7 @@
 #include <kmalloc.h>
 #include <ordered_array.h>
 #include <printf.h>
+#include <errno.h>
 
 fs_node_t dev_root;
 struct dev_file *files = NULL;
@@ -176,6 +177,9 @@ static struct fs_node *finddir(fs_node_t *node, const char *name) {
 			return NULL;
 	}
 	fs_node_t *ret = (fs_node_t *)kmalloc(sizeof(fs_node_t));
+	if (!ret)
+		return NULL;
+
 	memcpy(ret, &filep->node, sizeof(fs_node_t));
 	return ret;
 }
@@ -189,14 +193,14 @@ static s32int ioctl(fs_node_t *node, u32int request, void *ptr) {
 			return blk_drivers[MAJOR(node->impl) - 1].ioctl(MINOR(node->impl) / 16, request, ptr);
 	}
 
-	return -1;
+	return -ENOTTY;
 }
 
 
 s32int devfs_register(const char *name, u32int flags, u32int major,
 					u32int minor, u32int mode, u32int uid, u32int gid) {
 	if (strlen(name) >= NAME_MAX)
-		return -1;
+		return -ENAMETOOLONG;
 	if (major < 1)
 		return -1;
 	u32int i = 0;
@@ -204,12 +208,15 @@ s32int devfs_register(const char *name, u32int flags, u32int major,
 	if (files) {
 		for (; filei->next != NULL; filei = filei->next) {			// Find last entry in files
 			if (strcmp(filei->node.name, name) == 0)				// Make sure there aren't any name collisions
-				return -1;
+				return -EEXIST;
 			i++;
 		}
 	}
 
 	newfile = (struct dev_file *)kmalloc(sizeof(struct dev_file));	// Create a new file
+	if (!newfile)
+		return -ENOMEM;
+
 	strcpy(newfile->node.name, name);
 	newfile->node.mask = mode;
 	newfile->node.gid = gid;
@@ -268,7 +275,7 @@ s32int detect_partitions(struct blockdev *dev) {
 		if (mbr.partitions[i].sys_id != 0) {	// We've got a partition!
 			struct blockdev *part = (struct blockdev *)kmalloc(sizeof(struct blockdev));
 			if (part == NULL)
-				return -1;
+				return -ENOMEM;
 			part->driver = dev->driver;
 			part->minor = dev->minor + i + 1;
 			part->block_size = dev->block_size;
@@ -313,6 +320,9 @@ s32int register_blkdev(u32int major, const char *name,
 	u32int i;
 	for (i = 0; i < nreal; i++) {											// Add 
 		struct blockdev *dev = (struct blockdev *)kmalloc(sizeof(struct blockdev));
+		if (!dev)
+			return -ENOMEM;
+
 		dev->driver = &blk_drivers[major - 1];
 		dev->minor = i*16;
 		dev->block_size = sectsize;

@@ -26,9 +26,7 @@
 #include <chardev/term.h>
 #include <timer.h>
 #include <task.h>
-#include <kmalloc.h>
 #include <syscall.h>
-#include <time.h>
 #include <pci.h>
 #include <fs/rootfs.h>
 #include <dev.h>
@@ -36,7 +34,6 @@
 #include <ide.h>
 #include <printf.h>
 #include <fs/fat32.h>
-#include <string.h>
 #include <elf.h>
 
 // Defined in linker script
@@ -125,7 +122,6 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	int pid = sys_fork();
 	char *argv[] = {NULL};
 	char *envp[] = {NULL};
-	printf("%d\n", pid);
 	if (pid == 0)
 		sys_execve("/real_root/hello", argv, envp);
 

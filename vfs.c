@@ -23,6 +23,7 @@
 #include <common.h>
 #include <string.h>
 #include <kmalloc.h>
+#include <errno.h>
 
 fs_node_t *vfs_root = NULL;
 struct file_system_type *fs_types = NULL;
@@ -75,7 +76,7 @@ int open_vfs(fs_node_t *node, u32int flags) {
 	if (mnt->ops.open)
 		return mnt->ops.open(mnt, flags);
 	else
-		return -1;
+		return -EACCES;
 }
 
 int close_vfs(fs_node_t *node) {
@@ -95,7 +96,7 @@ int readdir_vfs(fs_node_t *node, struct dirent *dirp, u32int index) {
 	if (!node)
 		return -1;
 	if (!(node->flags & VFS_DIR))
-		return -1;
+		return -ENOTDIR;
 	fs_node_t *mnt = get_mnt(node);
 	if (mnt->ops.readdir)
 		return mnt->ops.readdir(mnt, dirp, index);
@@ -123,30 +124,30 @@ int stat_vfs(fs_node_t *node, struct stat *buff) {
 	if (mnt->ops.stat)
 		return mnt->ops.stat(mnt, buff);
 	else
-		return -1;
+		return -EACCES;
 }
 
 s32int ioctl_vfs(fs_node_t *node, u32int request, void *ptr) {
 	if (!node)
 		return -1;
 	if (!(node->flags & VFS_CHARDEV) && !(node->flags & VFS_BLOCKDEV))
-		return -1;
+		return -ENOTTY;
 	if (node->flags & VFS_DIR)
 		return -1;
 	if (node->ops.ioctl)
 		return node->ops.ioctl(node, request, ptr);
-	return -1;
+	return -EINVAL;
 }
 
 int unlink_vfs(struct fs_node *node) {
 	if (!node)
 		return -1;
 	if (node->flags & VFS_DIR)
-		return -1;
+		return -EISDIR;
 
 	if (node->ops.unlink)
 		return node->ops.unlink(node);
-	return -1;
+	return -EACCES;
 }
 
 s32int register_fs(struct file_system_type *fs) {
@@ -170,27 +171,27 @@ s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name, u32int flags)
 	struct superblock *sb = NULL;
 	if (dest == NULL) {
 		if (vfs_root != NULL)
-			return -1;
+			return -ENOENT;
 	} else {
 		if (!(dest->flags & VFS_DIR))
-			return -1;
+			return -ENOTDIR;
 	}
 
 	if (nmnts >= MAX_MNT_PTS)
-		return -1;
+		return -ENOMEM;
 	if (fsi == NULL)
-		return -1;
+		return -ENODEV;
 	for (; fsi->next != NULL; fsi = fsi->next)
 		if (strcmp(fsi->name, fs_name) == 0)
 			break;
 	if (fsi == NULL)
-		return -1;
+		return -ENODEV;
 	if (fsi->flags & FS_NODEV) {
 		if (dev)
-			return -1;
+			return -ENODEV;
 	} else {
 		if (!dev)
-			return -1;
+			return -ENOTBLK;
 	}
 
 	if ((sb = fsi->get_super(flags, dev)) != NULL) {
@@ -204,7 +205,7 @@ s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name, u32int flags)
 		}
 		return 0;
 	}
-	return -1;
+	return -EINVAL;
 }
 
 // Traverses the path to get the correct file

@@ -22,6 +22,7 @@
 #include <pci_regs.h>
 #include <printf.h>
 #include <kmalloc.h>
+#include <errno.h>
 
 struct pci_bus bus0;
 struct pci_dev host;
@@ -66,7 +67,7 @@ static u8int check_func(struct pci_bus *bus, u8int slot, u8int func) {
 	if (vend != 0xFFFF) {
 		struct pci_dev *dev = (struct pci_dev*)kmalloc(sizeof(struct pci_dev));
 		if (dev == NULL)
-			return -1;
+			return -ENOMEM;
 
 		dev->bus = bus;
 		dev->sibling = NULL;
@@ -130,7 +131,7 @@ static u8int fill_bus(struct pci_bus *parent, struct pci_dev *busdev) {
 	struct pci_bus *iter = parent;
 	struct pci_bus *bus = (struct pci_bus *)kmalloc(sizeof(struct pci_bus));
 	if (bus == NULL)
-		return -1;
+		return -ENOMEM;
 
 	bus->parent = parent;
 	bus->children = NULL;
