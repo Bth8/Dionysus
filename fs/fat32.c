@@ -674,8 +674,8 @@ static int stat(fs_node_t *file, struct stat *buff) {
 	buff->st_ino = file->inode;
 	buff->st_mode = file->mask;
 	buff->st_nlink = 1;
-	buff->uid = file->uid;
-	buff->gid = file->gid;
+	buff->st_uid = file->uid;
+	buff->st_gid = file->gid;
 	buff->st_size = file->len;
 	buff->st_blksize = bpb->spc * bpb->bps;
 	buff->st_blocks = file->len / 512;

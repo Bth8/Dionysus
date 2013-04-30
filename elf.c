@@ -37,6 +37,12 @@ static int int_exec(const char *filename, u32int argc, char *argv[], u32int envc
 	if (!file)
 		return -EACCES;
 
+	if (file->mask & VFS_SETUID)
+		current_task->euid = file->uid;
+
+	if (file->mask & VFS_SETGID)
+		current_task->euid = file->gid;
+
 	if (open_vfs(file, O_RDONLY))
 		goto error;
 

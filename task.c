@@ -657,6 +657,9 @@ int user_ioctl(int fd, u32int request, void *ptr) {
 }
 
 int user_mount(const char *src, const char *target, const char *fs_name, u32int flags) {
+	if (current_task->euid != 0)
+		return -EPERM;
+
 	if (!target || !fs_name)
 		return -EFAULT;
 

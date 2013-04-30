@@ -196,6 +196,37 @@ static s32int ioctl(fs_node_t *node, u32int request, void *ptr) {
 	return -ENOTTY;
 }
 
+static s32int stat(fs_node_t *node, struct stat *buff) {
+	if (node->flags & VFS_CHARDEV) {
+		if (char_drivers[MAJOR(node->impl) - 1].ops.stat)
+			return char_drivers[MAJOR(node->impl) - 1].ops.stat(node, buff);
+	} else if (node->flags & VFS_BLOCKDEV) {
+		if (MINOR(node->impl))
+			buff->st_dev = MKDEV(MAJOR(node->impl), 0);
+		else
+			buff->st_dev = node->impl;
+
+		buff->st_ino = node->inode;
+		buff->st_mode = node->mask;
+		buff->st_nlink = 1;
+		buff->st_uid = node->uid;
+		buff->st_gid = node->gid;
+		buff->st_rdev = node->impl;
+		struct blockdev *dev = NULL;
+		u32int i;
+		for (i = 0; i < blk_drivers[MAJOR(node->impl) - 1].devs.size; i++)
+			if ((dev = lookup_ordered_array(i, &blk_drivers[MAJOR(node->impl) - 1].devs))->minor == MINOR(node->impl))
+				break;
+		if (dev == NULL || dev->minor != MINOR(node->impl))
+			return -ENOENT;
+		buff->st_size = dev->capacity * KERNEL_BLOCKSIZE;
+		buff->st_blksize = dev->block_size;
+		buff->st_blocks = dev->capacity;
+		return 0;
+	}
+
+	return -ENOENT;
+}
 
 s32int devfs_register(const char *name, u32int flags, u32int major,
 					u32int minor, u32int mode, u32int uid, u32int gid) {
@@ -230,6 +261,7 @@ s32int devfs_register(const char *name, u32int flags, u32int major,
 	newfile->node.ops.open = open;
 	newfile->node.ops.close = close;
 	newfile->node.ops.ioctl = ioctl;
+	newfile->node.ops.stat = stat;
 	newfile->node.fs_sb = &dev_sb;
 
 	newfile->next = NULL;

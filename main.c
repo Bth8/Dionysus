@@ -123,12 +123,10 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	char *argv[] = {NULL};
 	char *envp[] = {NULL};
 	if (pid == 0)
-		sys_execve("/real_root/hello", argv, envp);
+		sys_execve("/real_root/init", argv, envp);
 
 	halt();
 }
-
-int debug = 0;
 
 void print_time(struct tm *time) {
 	printf("%s, ", (char *[]){"Sunday", "Monday", "Tuesday", "Wednesday", 

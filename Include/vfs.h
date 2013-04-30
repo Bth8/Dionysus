@@ -109,20 +109,25 @@ struct file_system_type {
 	struct file_system_type *next;
 };
 
+// Spares are such that it matches newlib's definition
 struct stat {
 	u32int st_dev;
 	u32int st_ino;
 	u32int st_mode;
-	u32int st_nlink;
-	u32int uid;
-	u32int gid;
+	u16int st_nlink;
+	u32int st_uid;
+	u32int st_gid;
 	u32int st_rdev;
 	size_t st_size;
-	size_t st_blksize;
-	u32int st_blocks;
 	time_t st_atime;
+	long st_spare1;
 	time_t st_mtime;
+	long st_spare2;
 	time_t st_ctime;
+	long st_spare3;
+	u32int st_blksize;
+	u32int st_blocks;
+	long st_spare4[2];
 };
 
 extern fs_node_t *vfs_root;

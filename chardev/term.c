@@ -182,6 +182,24 @@ static s32int ioctl(struct fs_node *node, u32int req, void *ptr) {
 	return ret;
 }
 
+static s32int stat(struct fs_node *node, struct stat *buff) {
+	buff->st_dev = node->impl;
+	buff->st_ino = node->inode;
+	buff->st_mode = node->mask;
+	buff->st_nlink = 1;
+	buff->st_uid = node->uid;
+	buff->st_gid = node->gid;
+	buff->st_rdev = node->impl;
+	buff->st_size = 0;
+	buff->st_blksize = 512;
+	buff->st_blocks = 0;
+	buff->st_atime = 0;
+	buff->st_mtime = 0;
+	buff->st_ctime = 0;
+
+	return 0;
+}
+
 void init_term(void) {
 	register_interrupt_handler(IRQ1, kbd_isr);
 	update_leds(leds);							// Flush keyboard buffer
@@ -190,5 +208,6 @@ void init_term(void) {
 	fops.write = write;
 	fops.open = open;
 	fops.ioctl = ioctl;
+	fops.stat = stat;
 	register_chrdev(1, "tty", fops);
 }
