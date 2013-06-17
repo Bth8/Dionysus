@@ -123,10 +123,10 @@ static u32int contract(u32int new_size, kheap_t *heap) {
 	if (new_size < KHEAP_MIN_SIZE)
 		new_size = KHEAP_MIN_SIZE;
 	u32int i;
-	for (i = heap->end_address - heap->start_address - 0x1000; new_size < 1; i -= 0x1000)
+	for (i = heap->end_address - heap->start_address - 0x1000; new_size < i; i -= 0x1000)
 		free_frame(get_page(heap->start_address + i, 0, 1, current_dir));
 	global_flush();
-	heap->end_address = heap->start_address + i;
+	heap->end_address = heap->start_address + new_size;
 	return new_size;
 }
 

@@ -32,13 +32,17 @@ extern kheap_t *kheap;
 extern u32int placement_address;
 extern u32int phys_address;
 
+u8int lock = 0;
+
 static void *kmalloc_internal(u32int sz, int align, u32int *phys) {
 	if (kheap) {
+		spin_lock(&lock);
 		void *addr = alloc(sz, align, kheap);
 		if (phys) {
 			page_t *pg = get_page((u32int) addr, 0, 0, kernel_dir);
 			*phys = pg->frame * 0x1000 + (u32int)addr % 0x1000;
 		}
+		spin_unlock(&lock);
 		return addr;
 	}
 	if (align) {
@@ -57,7 +61,9 @@ static void *kmalloc_internal(u32int sz, int align, u32int *phys) {
 }
 
 void kfree(void *addr) {
+	spin_lock(&lock);
 	free(addr, kheap);
+	spin_unlock(&lock);
 }
 
 void *kmalloc(u32int sz) { return (void *)kmalloc_internal(sz, 0, NULL); }

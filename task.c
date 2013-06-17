@@ -600,7 +600,6 @@ static int check_flags(fs_node_t *file, u32int flags) {
 	return acceptable;
 }
 		
-
 int user_open(const char *path, u32int flags, u32int mode) {
 	if (!path)
 		return -EFAULT;
