@@ -1,5 +1,6 @@
 /* fat32.h - FAT32 driver */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -18,12 +19,12 @@
  */
 
 /* NOTE: we use private_data to store a cached copy of the cluster we've
- *  accessed most recently, inode contains the actual number of the first
- *  cluster, and the low 28 bits of impl contain the index of the cached
+ *  accessed most recently, inode to contain the actual number of the first
+ *  cluster, and the low 28 bits of impl to contain the index of the cached
  *  cluster (i.e., if impl is 0, private_data contains a copy of the cluster
- *  indicated by inode. if it's 1, we've cached the next cluster in the file,
- *  and so on). The highest nibble of impl is used to store whether or not
- *  the cached copy is dirty. For directories, low 16 bits of impl contain the
+ *  indicated by inode, if it's 1, we've cached the next cluster in the file,
+ *  etc). The highest nibble of impl is used to store whether or not the
+ *  cached copy is dirty. For directories, low 16 bits of impl contain the
  *  cluster number, high 16 contain the index number of the first valid file
  *  entry.
  */
@@ -47,7 +48,8 @@ struct file_system_type fat32 = {
 static int open(fs_node_t *file, u32int flags);
 static int close(fs_node_t *file);
 static u32int read(fs_node_t *file, void *buff, size_t count, off_t off);
-static u32int write(fs_node_t *file, const void *buff, size_t count, off_t off);
+static u32int write(fs_node_t *file, const void *buff, size_t count,
+		off_t off);
 static int readdir(fs_node_t *file, struct dirent *dirp, u32int index);
 static fs_node_t *finddir(fs_node_t *file, const char *name);
 static int stat(fs_node_t *file, struct stat *buff);
@@ -73,10 +75,12 @@ static u32int fat32_attr_to_vfs(u32int attr) {
 }
 
 static struct superblock *return_sb(u32int flags, fs_node_t *dev) {
-	struct fat32_boot_record *sb = (struct fat32_boot_record*)kmalloc(sizeof(struct fat32_boot_record));
+	struct fat32_boot_record *sb =
+		(struct fat32_boot_record*)kmalloc(sizeof(struct fat32_boot_record));
 	if (sb == NULL)
 		return NULL;
-	if (read_vfs(dev, sb, sizeof(struct fat32_boot_record), 0) < sizeof(struct fat32_boot_record))
+	if (read_vfs(dev, sb, sizeof(struct fat32_boot_record), 0) <
+			sizeof(struct fat32_boot_record))
 		goto error;
 	if (sb->sig != 0x28 && sb->sig != 0x29)
 		goto error;
@@ -102,7 +106,8 @@ static struct superblock *return_sb(u32int flags, fs_node_t *dev) {
 	root->inode = sb->root_cluster;
 	root->ops = fat32_ops;
 
-	struct superblock *ret = (struct superblock*)kmalloc(sizeof(struct superblock));
+	struct superblock *ret =
+		(struct superblock*)kmalloc(sizeof(struct superblock));
 	if (ret == NULL)
 		goto error2;
 
@@ -121,42 +126,52 @@ error:
 	return NULL;
 }
 
-static u32int read_cluster(struct superblock *sb, void *buff, u32int cluster) {
+static u32int read_cluster(struct superblock *sb, void *buff,
+		u32int cluster) {
 	// For the root dir
 	if (cluster == 0)
 		cluster = 2;
-	struct fat32_boot_record *bpb = (struct fat32_boot_record*)sb->private_data;
+	struct fat32_boot_record *bpb =
+		(struct fat32_boot_record*)sb->private_data;
 	u32int first_data_sect = bpb->nres + (bpb->nFAT * bpb->spf);
 	u32int cluster_sect = first_data_sect + ((cluster - 2) * bpb->spc);
 	off_t off = cluster_sect * bpb->bps;
 
-	return read_vfs(sb->dev, buff, bpb->spc * bpb->bps, off) == bpb->spc * bpb->bps;
+	return read_vfs(sb->dev, buff, bpb->spc * bpb->bps, off) ==
+		bpb->spc * bpb->bps;
 }
 
-static u32int write_cluster(struct superblock *sb, void *buff, u32int cluster) {
+static u32int write_cluster(struct superblock *sb, void *buff,
+		u32int cluster) {
 	if (cluster == 0)
 		cluster = 2;
-	struct fat32_boot_record *bpb = (struct fat32_boot_record*)sb->private_data;
+	struct fat32_boot_record *bpb =
+		(struct fat32_boot_record*)sb->private_data;
 	u32int first_data_sect = bpb->nres + (bpb->nFAT * bpb->spf);
 	u32int cluster_sect = first_data_sect + ((cluster - 2) * bpb->spc);
 	off_t off = cluster_sect * bpb->bps;
 
-	return write_vfs(sb->dev, buff, bpb->spc * bpb->bps, off) == bpb->spc * bpb->bps;
+	return write_vfs(sb->dev, buff, bpb->spc * bpb->bps, off) ==
+		bpb->spc * bpb->bps;
 }
 
-static u32int follow_cluster_chain(struct superblock *sb, u32int cluster0, u32int depth) {
+static u32int follow_cluster_chain(struct superblock *sb, u32int cluster0,
+		u32int depth) {
 	// Just expedite the process a bit
 	if (depth == 0)
 		return cluster0;
 
 	cluster0 &= 0x0FFFFFFF;
 
-	struct fat32_boot_record *bpb = (struct fat32_boot_record *)sb->private_data;
+	struct fat32_boot_record *bpb =
+		(struct fat32_boot_record *)sb->private_data;
 	u32int *FAT = (u32int *)kmalloc(bpb->spf * bpb->bps);
 	if (FAT == NULL)
 		return 0;
 
-	off_t off = (bpb->nres + (cluster0 / (bpb->spf * bpb->bps / sizeof(u32int))) * bpb->spf) * bpb->bps;
+	off_t off = (bpb->nres +
+			(cluster0 / (bpb->spf * bpb->bps / sizeof(u32int))) * bpb->spf) *
+		bpb->bps;
 	read_vfs(sb->dev, FAT, bpb->spf * bpb->bps, off);
 
 	u32int fat_index = cluster0 % (bpb->spf * bpb->bps / sizeof(u32int));
@@ -164,7 +179,8 @@ static u32int follow_cluster_chain(struct superblock *sb, u32int cluster0, u32in
 
 	for (; depth > 0; depth--) {
 		fat_index = (FAT[fat_index] & 0x0FFFFFFF) - fat_offset;
-		if (fat_index + fat_offset == 0 || fat_index + fat_offset >= FAT32_LAST_CLUSTER) {
+		if (fat_index + fat_offset == 0 ||
+				fat_index + fat_offset >= FAT32_LAST_CLUSTER) {
 			kfree(FAT);
 			return 0;
 		}
@@ -180,15 +196,19 @@ static u32int follow_cluster_chain(struct superblock *sb, u32int cluster0, u32in
 	return fat_index + fat_offset;
 }
 
-static u32int alloc_clusters(struct superblock *sb, u32int chain_start, u32int nclusters) {
+static u32int alloc_clusters(struct superblock *sb, u32int chain_start,
+		u32int nclusters) {
 	chain_start &= 0x0FFFFFFF;
 
-	struct fat32_boot_record *bpb = (struct fat32_boot_record*)sb->private_data;
+	struct fat32_boot_record *bpb =
+		(struct fat32_boot_record*)sb->private_data;
 	u32int *FAT = (u32int *)kmalloc(bpb->spf * bpb->bps);
 	if (FAT == NULL)
 		return 0;
 
-	off_t off = (bpb->nres + (chain_start / (bpb->spf * bpb->bps / sizeof(u32int))) * bpb->spf) * bpb->bps;
+	off_t off = (bpb->nres +
+			(chain_start / (bpb->spf * bpb->bps / sizeof(u32int))) *
+			bpb->spf) * bpb->bps;
 	read_vfs(sb->dev, FAT, bpb->spf * bpb->bps, off);
 
 	u32int fat_index = chain_start % (bpb->spf * bpb->bps / sizeof(u32int));
@@ -196,7 +216,8 @@ static u32int alloc_clusters(struct superblock *sb, u32int chain_start, u32int n
 
 	// Allocate a block without any parents
 	if (chain_start == 0) {
-		for (fat_index = 2; FAT[fat_index] != 0; fat_index = (FAT[fat_index] & 0x0FFFFFFF) - fat_offset) {
+		for (fat_index = 2; FAT[fat_index] != 0;
+				fat_index = (FAT[fat_index] & 0x0FFFFFFF) - fat_offset) {
 			if (fat_index * sizeof(u32int) >= bpb->spf * bpb->bps) {
 				if ((fat_index + fat_offset) * bpb->spc > bpb->nsect_long) {
 					kfree(FAT);
@@ -215,7 +236,8 @@ static u32int alloc_clusters(struct superblock *sb, u32int chain_start, u32int n
 	}
 
 	// Seek index to end of current chain
-	for (; FAT[fat_index] < FAT32_LAST_CLUSTER; fat_index = (FAT[fat_index] & 0x0FFFFFFF) - fat_offset) {
+	for (; FAT[fat_index] < FAT32_LAST_CLUSTER;
+			fat_index = (FAT[fat_index] & 0x0FFFFFFF) - fat_offset) {
 		if (fat_index * sizeof(u32int) >= bpb->spf * bpb->bps) {
 			off += bpb->spf * bpb->bps;
 			read_vfs(sb->dev, FAT, bpb->spf * bpb->bps, off);
@@ -254,7 +276,9 @@ static u32int alloc_clusters(struct superblock *sb, u32int chain_start, u32int n
 
 static int update_dirent(fs_node_t *file) {
 	if (file->inode != 2) {
-		struct fat32_inode *inode = ((struct fat32_boot_record*)file->fs_sb->private_data)->inode_list;
+		struct fat32_inode *inode =
+			((struct fat32_boot_record*)file->fs_sb->private_data)->
+				inode_list;
 		ASSERT(inode != NULL);
 		while (inode->first_cluster != file->inode)
 			inode = inode->next;
@@ -263,7 +287,8 @@ static int update_dirent(fs_node_t *file) {
 		if (our_entry == NULL)
 			return -1;
 
-		read_vfs(file->fs_sb->dev, our_entry, sizeof(struct fat32_dirent), inode->disk_off);
+		read_vfs(file->fs_sb->dev, our_entry, sizeof(struct fat32_dirent),
+				inode->disk_off);
 
 		time_t cur_time = time(NULL);
 		struct tm *time = gmtime(&cur_time);
@@ -278,7 +303,8 @@ static int update_dirent(fs_node_t *file) {
 
 		our_entry->size = (u32int)file->len;
 
-		write_vfs(file->fs_sb->dev, our_entry, sizeof(struct fat32_dirent), inode->disk_off);
+		write_vfs(file->fs_sb->dev, our_entry, sizeof(struct fat32_dirent),
+				inode->disk_off);
 		kfree(our_entry);
 	}
 	return 0;
@@ -291,20 +317,23 @@ static u32int read(fs_node_t *file, void *buff, size_t count, off_t off) {
 	if (count + off >= file->len)
 		count = file->len - off;
 
-	struct fat32_boot_record *bpb = (struct fat32_boot_record*)(file->fs_sb->private_data);
+	struct fat32_boot_record *bpb =
+		(struct fat32_boot_record*)(file->fs_sb->private_data);
 	u32int cluster = 0;
 
 	// Offset not in the cached cluster
 	if ((off / (bpb->spc * bpb->bps)) != FAT32_CLUSTER_NUM(file->impl)) {
 		if (FAT32_CHECK_DIRTY(file->impl)) {
-			cluster = follow_cluster_chain(file->fs_sb, file->inode, FAT32_CLUSTER_NUM(file->impl));
+			cluster = follow_cluster_chain(file->fs_sb, file->inode,
+					FAT32_CLUSTER_NUM(file->impl));
 			if (!write_cluster(file->fs_sb, file->private_data, cluster))
 				return 0;
 			update_dirent(file);
 		}
 
 		file->impl = off / (bpb->spc * bpb->bps);
-		cluster = follow_cluster_chain(file->fs_sb, file->inode, FAT32_CLUSTER_NUM(file->impl));
+		cluster = follow_cluster_chain(file->fs_sb, file->inode,
+				FAT32_CLUSTER_NUM(file->impl));
 		if (!read_cluster(file->fs_sb, file->private_data, cluster))
 			return 0;
 	}
@@ -319,7 +348,8 @@ static u32int read(fs_node_t *file, void *buff, size_t count, off_t off) {
 		read += bpb->spc * bpb->bps - off;
 		off = 0;
 		file->impl++;
-		cluster = follow_cluster_chain(file->fs_sb, file->inode, FAT32_CLUSTER_NUM(file->impl));
+		cluster = follow_cluster_chain(file->fs_sb, file->inode,
+				FAT32_CLUSTER_NUM(file->impl));
 		if (!read_cluster(file->fs_sb, file->private_data, cluster))
 			return read;
 	}
@@ -329,7 +359,8 @@ static u32int read(fs_node_t *file, void *buff, size_t count, off_t off) {
 		count -= bpb->spc * bpb->bps;
 		read += bpb->spc * bpb->bps;
 		file->impl++;
-		cluster = follow_cluster_chain(file->fs_sb, file->inode, FAT32_CLUSTER_NUM(file->impl));
+		cluster = follow_cluster_chain(file->fs_sb, file->inode,
+				FAT32_CLUSTER_NUM(file->impl));
 		if (!read_cluster(file->fs_sb, file->private_data, cluster))
 			return read;
 	}
@@ -340,11 +371,13 @@ static u32int read(fs_node_t *file, void *buff, size_t count, off_t off) {
 	return read;
 }
 
-static u32int write(fs_node_t *file, const void *buff, size_t count, off_t off) {
+static u32int write(fs_node_t *file, const void *buff, size_t count,
+		off_t off) {
 	if (count == 0)
 		return 0;
 
-	struct fat32_boot_record *bpb = (struct fat32_boot_record*)(file->fs_sb->private_data);
+	struct fat32_boot_record *bpb =
+		(struct fat32_boot_record*)(file->fs_sb->private_data);
 
 	if (count + off >= file->len) {
 		size_t delta = count + off - file->len;
@@ -352,7 +385,8 @@ static u32int write(fs_node_t *file, const void *buff, size_t count, off_t off) 
 		if (delta % (bpb->spc * bpb->bps) != 0)
 			nclusters++;
 		if (nclusters > 0) {
-			u32int nalloc = alloc_clusters(file->fs_sb, file->inode, nclusters);
+			u32int nalloc = alloc_clusters(file->fs_sb, file->inode,
+					nclusters);
 			if (nalloc < nclusters)
 				file->len += nclusters * bpb->spc * bpb->bps;
 			else
@@ -366,14 +400,16 @@ static u32int write(fs_node_t *file, const void *buff, size_t count, off_t off) 
 	// Offset not in the cached cluster
 	if ((off / (bpb->spc * bpb->bps)) != FAT32_CLUSTER_NUM(file->impl)) {
 		if (FAT32_CHECK_DIRTY(file->impl)) {
-			cluster = follow_cluster_chain(file->fs_sb, file->inode, FAT32_CLUSTER_NUM(file->impl));
+			cluster = follow_cluster_chain(file->fs_sb, file->inode,
+					FAT32_CLUSTER_NUM(file->impl));
 			if (!write_cluster(file->fs_sb, file->private_data, cluster))
 				return 0;
 			update_dirent(file);
 		}
 
 		file->impl = off / (bpb->spc * bpb->bps);
-		cluster = follow_cluster_chain(file->fs_sb, file->inode, FAT32_CLUSTER_NUM(file->impl));
+		cluster = follow_cluster_chain(file->fs_sb, file->inode,
+				FAT32_CLUSTER_NUM(file->impl));
 		if (!read_cluster(file->fs_sb, file->private_data, cluster))
 			return 0;
 	}
@@ -386,7 +422,8 @@ static u32int write(fs_node_t *file, const void *buff, size_t count, off_t off) 
 	// We straddle a cluster
 	if (off + count >= bpb->spc * bpb->bps) {
 		memcpy(file->private_data + off, buff, bpb->spc * bpb->bps - off);
-		cluster = follow_cluster_chain(file->fs_sb, file->inode, FAT32_CLUSTER_NUM(file->impl));
+		cluster = follow_cluster_chain(file->fs_sb, file->inode,
+				FAT32_CLUSTER_NUM(file->impl));
 		if (!write_cluster(file->fs_sb, file->private_data, cluster))
 			return written;
 		update_dirent(file);
@@ -394,7 +431,8 @@ static u32int write(fs_node_t *file, const void *buff, size_t count, off_t off) 
 		written += bpb->spc * bpb->bps - off;
 		off = 0;
 		file->impl++;
-		cluster = follow_cluster_chain(file->fs_sb, file->inode, FAT32_CLUSTER_NUM(file->impl));
+		cluster = follow_cluster_chain(file->fs_sb, file->inode,
+				FAT32_CLUSTER_NUM(file->impl));
 		if (!read_cluster(file->fs_sb, file->private_data, cluster))
 			return written;
 	}
@@ -402,13 +440,15 @@ static u32int write(fs_node_t *file, const void *buff, size_t count, off_t off) 
 	while (count >= bpb->spc * bpb->bps) {
 		memcpy(file->private_data, buff + written, bpb->spc * bpb->bps);
 		cluster = follow_cluster_chain(file->fs_sb, file->inode, FAT32_CLUSTER_NUM(file->impl));
-		// We don't need to update the mod time here, since we just did it in the previous check
+		// We don't need to update the mod time here, since we just did it
+		// in the previous check
 		if (!write_cluster(file->fs_sb, file->private_data, cluster))
 			return written;
 		count -= bpb->spc * bpb->bps;
 		written += bpb->spc * bpb->bps;
 		file->impl++;
-		cluster = follow_cluster_chain(file->fs_sb, file->inode, FAT32_CLUSTER_NUM(file->impl));
+		cluster = follow_cluster_chain(file->fs_sb, file->inode,
+				FAT32_CLUSTER_NUM(file->impl));
 		if (!read_cluster(file->fs_sb, file->private_data, cluster))
 			return written;
 	}
@@ -424,13 +464,15 @@ static int open(fs_node_t *file, u32int flags) {
 	if (!(flags & O_WRONLY))
 		file->mask &= ~(VFS_O_WRITE | VFS_G_WRITE | VFS_U_WRITE);
 
-	struct fat32_boot_record *bpb = (struct fat32_boot_record*)(file->fs_sb->private_data);
+	struct fat32_boot_record *bpb =
+		(struct fat32_boot_record*)(file->fs_sb->private_data);
 	void *cached_cluster = kmalloc(bpb->spc * bpb->bps);
 	if (cached_cluster == NULL)
 		return -1;
 
 	if (file->inode != 2) {
-		struct fat32_inode *inode = (struct fat32_inode*)kmalloc(sizeof(struct fat32_inode));
+		struct fat32_inode *inode =
+			(struct fat32_inode*)kmalloc(sizeof(struct fat32_inode));
 		if (inode == NULL) {
 			kfree(cached_cluster);
 			return -1;
@@ -442,21 +484,27 @@ static int open(fs_node_t *file, u32int flags) {
 		inode->dirent_index = file->impl >> 16;
 		inode->next = NULL;
 
-		u32int cluster = follow_cluster_chain(file->fs_sb, inode->parent_first_cluster, inode->dirent_cluster);
+		u32int cluster = follow_cluster_chain(file->fs_sb,
+				inode->parent_first_cluster, inode->dirent_cluster);
 		u32int first_data_sect = bpb->nres + (bpb->nFAT * bpb->spf);
 		u32int cluster_sect = first_data_sect + ((cluster - 2) * bpb->spc);
-		inode->disk_off = cluster_sect * bpb->bps + inode->dirent_index * sizeof(struct fat32_dirent);
+		inode->disk_off = cluster_sect * bpb->bps +
+			inode->dirent_index * sizeof(struct fat32_dirent);
 
-		spin_lock(&((struct fat32_boot_record*)file->fs_sb->private_data)->lock);
-		struct fat32_inode *iter = ((struct fat32_boot_record*)file->fs_sb->private_data)->inode_list;
+		spin_lock(&((struct fat32_boot_record*)file->fs_sb->private_data)->
+				lock);
+		struct fat32_inode *iter = ((struct fat32_boot_record*)file->
+				fs_sb->private_data)->inode_list;
 		if (iter == NULL) {
-			((struct fat32_boot_record*)file->fs_sb->private_data)->inode_list = inode;
+			((struct fat32_boot_record*)file->fs_sb->private_data)
+				->inode_list = inode;
 		} else {
 			while (iter->next != NULL)
 				iter = iter->next;
 			iter->next = inode;
 		}
-		spin_unlock(&((struct fat32_boot_record*)file->fs_sb->private_data)->lock);
+		spin_unlock(&((struct fat32_boot_record*)file->fs_sb->private_data)->
+				lock);
 	}
 
 	file->impl = 0;
@@ -470,19 +518,23 @@ static int open(fs_node_t *file, u32int flags) {
 
 static int close(fs_node_t *file) {
 	if (FAT32_CHECK_DIRTY(file->impl)) {
-		u32int cluster = follow_cluster_chain(file->fs_sb, file->inode, FAT32_CLUSTER_NUM(file->impl));
+		u32int cluster = follow_cluster_chain(file->fs_sb, file->inode,
+				FAT32_CLUSTER_NUM(file->impl));
 		write_cluster(file->fs_sb, file->private_data, cluster);
 		update_dirent(file);
 	}
 
 	if (file->inode != 2) {
-		spin_lock(&((struct fat32_boot_record*)file->fs_sb->private_data)->lock);
-		struct fat32_inode *inode = ((struct fat32_boot_record*)file->fs_sb->private_data)->inode_list;
+		spin_lock(&((struct fat32_boot_record*)file->fs_sb->private_data)->
+				lock);
+		struct fat32_inode *inode = ((struct fat32_boot_record*)file->fs_sb->
+				private_data)->inode_list;
 		ASSERT(inode != NULL);
 		void *our_inode;
 		if (inode->next == NULL) {
 			our_inode = inode;
-			((struct fat32_boot_record*)file->fs_sb->private_data)->inode_list = NULL;
+			((struct fat32_boot_record*)file->fs_sb->private_data)->
+				inode_list = NULL;
 		} else {
 			while (inode->next->first_cluster != file->inode)
 				inode = inode->next;
@@ -490,7 +542,8 @@ static int close(fs_node_t *file) {
 			inode->next = inode->next->next;
 		}
 		kfree(our_inode);
-		spin_unlock(&((struct fat32_boot_record*)file->fs_sb->private_data)->lock);
+		spin_unlock(&((struct fat32_boot_record*)file->fs_sb->private_data)->
+				lock);
 	}
 
 	kfree(file->private_data);
@@ -498,8 +551,10 @@ static int close(fs_node_t *file) {
 }
 
 static int get_name(fs_node_t *file, u32int entry, char *buff) {
-	struct fat32_long_name *entries = (struct fat32_long_name*)file->private_data;
-	struct fat32_boot_record *bpb = (struct fat32_boot_record*)(file->fs_sb->private_data);
+	struct fat32_long_name *entries =
+		(struct fat32_long_name*)file->private_data;
+	struct fat32_boot_record *bpb =
+		(struct fat32_boot_record*)(file->fs_sb->private_data);
 
 	if (entries[entry - 1].attr == FAT32_LONG_NAME) {
 			u32int i;
@@ -508,38 +563,51 @@ static int get_name(fs_node_t *file, u32int entry, char *buff) {
 
 			for (; !(entries[entry].seq & FAT32_LAST_LONG); entry--) {
 				for (i = 0; i < 5; i++)
-					buff[(entries[entry].seq - 1) * 13 + i] = entries[entry].name0[2 * i];
+					buff[(entries[entry].seq - 1) * 13 + i] =
+						entries[entry].name0[2 * i];
 				for (; i < 6; i++)
-					buff[(entries[entry].seq - 1) * 13 + i] = entries[entry].name1[2 * (i - 5)];
+					buff[(entries[entry].seq - 1) * 13 + i] =
+						entries[entry].name1[2 * (i - 5)];
 				for (; i < 2; i++)
-					buff[(entries[entry].seq - 1) * 13 + i] = entries[entry].name2[2 * (i - 11)];
+					buff[(entries[entry].seq - 1) * 13 + i] =
+						entries[entry].name2[2 * (i - 11)];
 				if (entry == 0) {
 					if (!cluster_old)
 						cluster_old = FAT32_DIR_GET_CL(file->impl);
 					u32int cluster;
 					if (FAT32_DIR_CHK_DIRTY(file->impl)) {
-						cluster = follow_cluster_chain(file->fs_sb, file->inode, FAT32_DIR_GET_CL(file->impl));
-						write_cluster(file->fs_sb, file->private_data, cluster);
+						cluster = follow_cluster_chain(file->fs_sb,
+								file->inode, FAT32_DIR_GET_CL(file->impl));
+						write_cluster(file->fs_sb, file->private_data,
+								cluster);
 						update_dirent(file);
 						FAT32_DIR_SET_CLEAN(file->impl);
 					}
-					FAT32_DIR_SET_CL(file->impl, FAT32_DIR_GET_CL(file->impl) - 1);
-					cluster = follow_cluster_chain(file->fs_sb, file->inode, FAT32_DIR_GET_CL(file->impl));
+					FAT32_DIR_SET_CL(file->impl,
+							FAT32_DIR_GET_CL(file->impl) - 1);
+					cluster = follow_cluster_chain(file->fs_sb, file->inode,
+							FAT32_DIR_GET_CL(file->impl));
 					read_cluster(file->fs_sb, file->private_data, cluster);
-					entry = bpb->spc * bpb->bps / sizeof(struct fat32_long_name) - 1;
+					entry = bpb->spc * bpb->bps /
+						sizeof(struct fat32_long_name) - 1;
 				}
 			}
 
 			for (i = 0; i < 5; i++)
-				buff[((entries[entry].seq & ~FAT32_LAST_LONG) - 1) * 13 + i] = entries[entry].name0[2 * i];
+				buff[((entries[entry].seq & ~FAT32_LAST_LONG) - 1) * 13 + i]
+					= entries[entry].name0[2 * i];
 			for (; i < 11; i++)
-				buff[((entries[entry].seq & ~FAT32_LAST_LONG) - 1) * 13 + i] = entries[entry].name1[2 * (i - 5)];
+				buff[((entries[entry].seq & ~FAT32_LAST_LONG) - 1) * 13 + i]
+					= entries[entry].name1[2 * (i - 5)];
 			for (; i < 13; i++)
-				buff[((entries[entry].seq & ~FAT32_LAST_LONG) - 1) * 13 + i] = entries[entry].name2[2 * (i - 11)];
+				buff[((entries[entry].seq & ~FAT32_LAST_LONG) - 1) * 13 + i]
+					= entries[entry].name2[2 * (i - 11)];
 
 			if (cluster_old) {
 				FAT32_DIR_SET_CL(file->impl, cluster_old);
-				u32int cluster = follow_cluster_chain(file->fs_sb, file->inode, cluster_old);
+				u32int cluster =
+					follow_cluster_chain(file->fs_sb, file->inode,
+							cluster_old);
 				read_cluster(file->fs_sb, file->private_data, cluster);
 			}
 	} else {
@@ -549,15 +617,22 @@ static int get_name(fs_node_t *file, u32int entry, char *buff) {
 			nameBuff++;
 		}
 		u32int nameEnt;
-		for (nameEnt = 0; nameEnt < 8 && ((struct fat32_dirent*)entries)[entry].name_short[nameEnt] != 0x20; nameEnt++) {
-			buff[nameBuff] = ((struct fat32_dirent*)entries)[entry].name_short[nameEnt];
+		for (nameEnt = 0; nameEnt < 8 &&
+				((struct fat32_dirent*)entries)[entry].name_short[nameEnt] !=
+				0x20; nameEnt++) {
+			buff[nameBuff] =
+				((struct fat32_dirent*)entries)[entry].name_short[nameEnt];
 			nameBuff++;
 		}
 		if (((struct fat32_dirent*)entries)[entry].name_short[8] != 0x20) {
 			buff[nameBuff] = '.';
 			nameBuff++;
-			for (nameEnt = 8; nameEnt < 11 && ((struct fat32_dirent*)entries)[entry].name_short[nameEnt] != 0x20; nameEnt++) {
-				buff[nameBuff] = ((struct fat32_dirent*)entries)[entry].name_short[nameEnt];
+			for (nameEnt = 8; nameEnt < 11 &&
+					((struct fat32_dirent *)entries)[entry].
+						name_short[nameEnt] != 0x20; nameEnt++) {
+				buff[nameBuff] =
+					((struct fat32_dirent *)entries)[entry].
+						name_short[nameEnt];
 				nameBuff++;
 			}
 		}
@@ -570,33 +645,38 @@ static int get_name(fs_node_t *file, u32int entry, char *buff) {
 }
 
 // Args are something of a kludge...
-// Offset automatically starts at the entry offset in the dir to make finddir easier
+// Offset automatically starts at the entry offset in the dir to make
+// finddir easier
 static int find_file_ent(fs_node_t *file, u32int index, int offset) {
 	struct fat32_dirent *entries = (struct fat32_dirent*)file->private_data;
-	struct fat32_boot_record *bpb = (struct fat32_boot_record*)(file->fs_sb->private_data);
+	struct fat32_boot_record *bpb =
+		(struct fat32_boot_record*)(file->fs_sb->private_data);
 	index -= FAT32_DIR_GET_ENT(file->impl);
 
 	u32int i = 0;
-	// Probably a simpler way to do this, but this is how imma roll. Locate the entry.
+	// Probably a simpler way to do this, but this is how imma roll
+	// Locate the entry.
 	while (1) {
 		// We've passed the end of the current cluster
 		if (offset * sizeof(struct fat32_dirent) > bpb->spc * bpb->bps) {
 			u32int cluster;
 			if (FAT32_DIR_CHK_DIRTY(file->impl)) {
-				cluster = follow_cluster_chain(file->fs_sb, file->inode, FAT32_DIR_GET_CL(file->impl));
+				cluster = follow_cluster_chain(file->fs_sb, file->inode,
+						FAT32_DIR_GET_CL(file->impl));
 				write_cluster(file->fs_sb, file->private_data, cluster);
 				update_dirent(file);
 				FAT32_DIR_SET_CLEAN(file->impl);
 			}
 			FAT32_DIR_SET_CL(file->impl, FAT32_DIR_GET_CL(file->impl) + 1);
-			cluster = follow_cluster_chain(file->fs_sb, file->inode, FAT32_DIR_GET_CL(file->impl));
+			cluster = follow_cluster_chain(file->fs_sb, file->inode,
+					FAT32_DIR_GET_CL(file->impl));
 			read_cluster(file->fs_sb, file->private_data, cluster);
 			FAT32_DIR_SET_ENT(file->impl, FAT32_DIR_GET_ENT(file->impl) + i);
 			index -= i;
 			i = offset = 0;
 		}
 
-		if (entries[offset].attr != FAT32_LONG_NAME && 
+		if (entries[offset].attr != FAT32_LONG_NAME &&
 			entries[offset].name_short[0] != FAT32_RESERVED &&
 			entries[offset].attr & ~FAT32_VOL_ID &&
 			i++ == index)
@@ -612,7 +692,8 @@ static int find_file_ent(fs_node_t *file, u32int index, int offset) {
 static int readdir(fs_node_t *file, struct dirent *dirp, u32int index) {
 	struct fat32_dirent *entries = (struct fat32_dirent*)file->private_data;
 
-	// Offset is always 0 since we want to start from the beginning of the directory
+	// Offset is always 0 since we want to start from the beginning of
+	// the directory
 	int i = find_file_ent(file, index, 0);
 	if (i < 0)
 		return i;
@@ -648,18 +729,22 @@ static fs_node_t *finddir(fs_node_t *file, const char *name) {
 				VFS_G_EXEC | VFS_G_READ |
 				VFS_U_EXEC | VFS_U_READ;
 
-	if (!(entries[offset].attr & FAT32_RDONLY) || !(file->fs_sb->flags & O_RDONLY))
+	if (!(entries[offset].attr & FAT32_RDONLY) ||
+			!(file->fs_sb->flags & O_RDONLY))
 		ret->mask |= VFS_O_WRITE | VFS_G_WRITE | VFS_U_WRITE;
 
 	ret->flags = fat32_attr_to_vfs(entries[offset].attr);
-	ret->inode = (entries[offset].cluster_high << 16) | entries[offset].cluster_low;
+	ret->inode = (entries[offset].cluster_high << 16) |
+		entries[offset].cluster_low;
 	ret->len = entries[offset].size;
 	ret->ops = fat32_ops;
 	ret->fs_sb = file->fs_sb;
 
-	/* Ugly little kludge going on here. Since we don't want to allocate memory for an inode
-	 * struct yet, we store the dirent_cluster and dirent_index in impl since we're not using it.
-	 * To store the parent's cluster, we use the uid since FAT32 doesn't support file ownership.
+	/* Ugly little kludge going on here. Since we don't want to allocate
+	 * memory for an inode struct yet, we store the dirent_cluster and
+	 * dirent_index in impl since we're not using it.
+	 * To store the parent's cluster, we use the uid since FAT32 doesn't
+	 * support file ownership.
 	 * All is rectified once the file is opened.
 	 */
 	ret->uid = file->inode;
@@ -669,7 +754,8 @@ static fs_node_t *finddir(fs_node_t *file, const char *name) {
 }
 
 static int stat(fs_node_t *file, struct stat *buff) {
-	struct fat32_boot_record *bpb = (struct fat32_boot_record*)(file->fs_sb->private_data);
+	struct fat32_boot_record *bpb =
+		(struct fat32_boot_record*)(file->fs_sb->private_data);
 	buff->st_dev = get_dev(file->fs_sb->dev);
 	buff->st_ino = file->inode;
 	buff->st_mode = file->mask;
@@ -689,7 +775,8 @@ static int stat(fs_node_t *file, struct stat *buff) {
 		if (our_entry == NULL)
 			return -1;
 
-		read_vfs(file->fs_sb->dev, our_entry, sizeof(struct fat32_dirent), inode->disk_off);
+		read_vfs(file->fs_sb->dev, our_entry, sizeof(struct fat32_dirent),
+				inode->disk_off);
 
 		struct tm temp;
 		temp.tm_sec = 0;

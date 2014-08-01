@@ -1,5 +1,6 @@
 /* term.h - declarations for terminal handling/initialization */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -25,4 +26,4 @@
 
 void init_term(void);
 
-#endif
+#endif /* TERM_H */

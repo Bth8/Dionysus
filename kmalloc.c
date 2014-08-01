@@ -1,5 +1,8 @@
-/* kmalloc.c - very basic allocation before kernel heap's setup, then redirects everything to kheap.c */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+/* kmalloc.c - very basic allocation before kernel heap's setup, then
+ * redirects everything to kheap.c
+ */
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -46,13 +49,15 @@ static void *kmalloc_internal(u32int sz, int align, u32int *phys) {
 		return addr;
 	}
 	if (align) {
-		placement_address &= 0xFFFFF000;	// Page align
+		// Page align
+		placement_address &= 0xFFFFF000;
 		phys_address &= 0xFFFFF000;
-		placement_address += 0x1000;		// Next page so we don't overwrite something
+		// Start at next page so we don't overwrite something
+		placement_address += 0x1000;
 		phys_address += 0x1000;
 	}
 	if (phys) {
-		*phys = phys_address;			// Physical address
+		*phys = phys_address;
 	}
 	u32int tmp = placement_address;
 	placement_address += sz;
@@ -66,7 +71,18 @@ void kfree(void *addr) {
 	spin_unlock(&lock);
 }
 
-void *kmalloc(u32int sz) { return (void *)kmalloc_internal(sz, 0, NULL); }
-void *kmalloc_a(u32int sz) { return (void *)kmalloc_internal(sz, 1, NULL); }
-void *kmalloc_p(u32int sz, u32int *phys) { return (void *)kmalloc_internal(sz, 0, phys); }
-void *kmalloc_ap(u32int sz, u32int *phys) { return (void *)kmalloc_internal(sz, 1, phys); }
+void *kmalloc(u32int sz) {
+	return (void *)kmalloc_internal(sz, 0, NULL);
+}
+
+void *kmalloc_a(u32int sz) {
+	return (void *)kmalloc_internal(sz, 1, NULL);
+}
+
+void *kmalloc_p(u32int sz, u32int *phys) {
+	return (void *)kmalloc_internal(sz, 0, phys);
+}
+
+void *kmalloc_ap(u32int sz, u32int *phys) {
+	return (void *)kmalloc_internal(sz, 1, phys);
+}

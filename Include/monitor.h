@@ -1,5 +1,6 @@
 /* monitor.h - function declarations for printing text */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -43,4 +44,4 @@ void monitor_put(char c);
 void monitor_clear(void);
 void setcolor(u8int bg, u8int fg);
 
-#endif
+#endif /* MONITOR_H */

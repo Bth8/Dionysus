@@ -1,5 +1,6 @@
 /* timer.h - declarations for initialization of timer */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -25,4 +26,4 @@ void init_timer(u32int freq);
 void wait(u32int ms);
 void sleep_thread(void);
 
-#endif
+#endif /* TIMER_H */

@@ -1,5 +1,6 @@
 /* paging.c - code for setting up and maintaining pages */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -62,7 +63,7 @@ static void clear_frame(u32int addr) {
 	frames[i] &= ~(0x01 << off);
 }
 
-// Not actually used as of yet. May be used later. Commented out because compiler complains otherwise
+// Not actually used as of yet. May be used later.
 /* static u32int test_frame(u32int addr) {
 	u32int frame = addr / 0x1000;
 	u32int i = INDEX_FROM_BIT(frame);
@@ -114,21 +115,22 @@ static void page_fault(registers_t *regs) {
 
 	// Output an error message.
 	printf("Page fault! ( ");
-	if (!(regs->err_code & 0x1)) {printf("present ");}	// Page not present
-	if (regs->err_code & 0x2) {printf("read-only ");}	// Write operation
-	if (regs->err_code & 0x4) {printf("user-mode ");}	// In user mode
-	if (regs->err_code & 0x8) {printf("reserved ");}		// Reserved bits overwritten
+	if (!(regs->err_code & 0x1)) {printf("present ");}
+	if (regs->err_code & 0x2) {printf("read-only ");}
+	if (regs->err_code & 0x4) {printf("user-mode ");}
+	if (regs->err_code & 0x8) {printf("reserved ");}
 	printf(") at 0x%X\n", fault_addr);
 	PANIC("Page fault");
 }
 
 void init_paging(u32int mem_end) {
-	mem_end &= 0xFFFFF000;		// Make sure it's page aligned. Shouldn't be a problem, but doesn't hurt
+	// Make sure it's page aligned. Shouldn't be a problem, but doesn't hurt
+	mem_end &= 0xFFFFF000;
 	nframes = mem_end / 0x1000;
 	frames = (u32int *)kmalloc(INDEX_FROM_BIT(nframes));
 	memset(frames, 0, INDEX_FROM_BIT(nframes));
 
-	u32int i;																			
+	u32int i;
 	kernel_dir = (page_directory_t *)kmalloc_ap(sizeof(page_directory_t), &i);
 	memset(kernel_dir, 0, sizeof(page_directory_t));
 	kernel_dir->physical_address = i;
@@ -150,7 +152,8 @@ void init_paging(u32int mem_end) {
 	register_interrupt_handler(14, page_fault);
 	switch_page_dir(kernel_dir);
 
-	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INIT_SIZE, 0xDFFFF000, 1, 1);	
+	kheap = create_heap(KHEAP_START, KHEAP_START + KHEAP_INIT_SIZE,
+			0xDFFFF000, 1, 1);
 	current_dir = clone_directory(kernel_dir);
 	switch_page_dir(current_dir);
 }
@@ -166,14 +169,16 @@ void global_flush(void) {
 				"bts $7, %%eax; mov %%eax, %%cr4" : : : "eax");
 }
 
-page_t *get_page(u32int address, int make, int global, page_directory_t *dir) {
+page_t *get_page(u32int address, int make, int global,
+		page_directory_t *dir) {
 	address /= 0x1000;
 	u32int i = address / 1024;
 	if (dir->tables[i]) // already assigned
 		return &dir->tables[i]->pages[address%1024];
 	else if (make) {
 		u32int tmp;
-		dir->tables[i] = (page_table_t*)kmalloc_ap(sizeof(page_table_t), &tmp);
+		dir->tables[i] =
+			(page_table_t*)kmalloc_ap(sizeof(page_table_t), &tmp);
 		if (global)
 			globalize_table(i, dir->tables[i]);
 		memset(dir->tables[i], 0, 0x1000);
@@ -187,7 +192,8 @@ page_t *get_page(u32int address, int make, int global, page_directory_t *dir) {
 }
 
 static page_table_t *clone_table(page_table_t *src, u32int *physAddr) {
-	page_table_t *table = (page_table_t *)kmalloc_ap(sizeof(page_table_t), physAddr);
+	page_table_t *table =
+		(page_table_t *)kmalloc_ap(sizeof(page_table_t), physAddr);
 	memset(table, 0, sizeof(page_table_t));
 	int i;
 	for (i = 0; i < 1024; i++) {
@@ -203,7 +209,8 @@ static page_table_t *clone_table(page_table_t *src, u32int *physAddr) {
 			table->pages[i].global = src->pages[i].global;
 			table->pages[i].avail = src->pages[i].avail;
 			// Copy the data in RAM across
-			copy_page_physical(src->pages[i].frame * 0x1000, table->pages[i].frame * 0x1000);
+			copy_page_physical(src->pages[i].frame * 0x1000,
+					table->pages[i].frame * 0x1000);
 		}
 	}
 	return table;
@@ -211,12 +218,16 @@ static page_table_t *clone_table(page_table_t *src, u32int *physAddr) {
 
 page_directory_t *clone_directory(page_directory_t *src) {
 	u32int phys;
-	page_directory_t *dir = (page_directory_t *)kmalloc_ap(sizeof(page_directory_t), &phys);
+	page_directory_t *dir =
+		(page_directory_t *)kmalloc_ap(sizeof(page_directory_t), &phys);
 	memset(dir, 0, sizeof(page_directory_t));
 	dir->physical_address = phys;
 	int i;
 	for (i = 0; i < 1024; i++) {
-		if (src->tables[i]) {	// If it's already in the kernel directory (the first MB), link rather than copy.
+		// TODO: Fix this shit
+		if (src->tables[i]) {
+			// If it's already in the kernel directory (the first MB),
+			// link rather than copy.
 			if (kernel_dir->tables[i] == src->tables[i]) {
 				dir->tables[i] = src->tables[i];
 				dir->tables_phys[i] = src->tables_phys[i];
@@ -247,4 +258,4 @@ void free_dir(page_directory_t *dir) {
 			free_table(dir->tables[i]);
 	kfree((void *)dir);
 }
-	
+

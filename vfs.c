@@ -1,5 +1,6 @@
 /* vfs.c - VFS function implementation */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -53,7 +54,8 @@ u32int write_vfs(fs_node_t *node, const void *buf, size_t count, off_t off) {
 		return 0;
 }
 
-// Determines if the fs node passed to it is a mountpoint, returns the root if it is
+// Determines if the fs node passed to it is a mountpoint
+// Returns the root if it is
 static fs_node_t *get_mnt(fs_node_t *node) {
 	u32int i;
 	for (i = 0; i < nmnts; i++) {
@@ -166,7 +168,8 @@ s32int register_fs(struct file_system_type *fs) {
 }
 
 // TODO: Return error codes slightly more useful than -1
-s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name, u32int flags) {
+s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name,
+		u32int flags) {
 	struct file_system_type *fsi = fs_types;
 	struct superblock *sb = NULL;
 	if (dest == NULL) {
@@ -215,7 +218,7 @@ fs_node_t *get_path(const char *path) {
 		return NULL;
 
 	int path_len = strlen(path);
-	if (path_len == 1) {								// It's just root
+	if (path_len == 1) { // It's just root
 		fs_node_t *ret = kmalloc(sizeof(fs_node_t));
 		memcpy(ret, vfs_root, sizeof(fs_node_t));
 		return ret;

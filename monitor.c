@@ -1,5 +1,6 @@
 /* monitor.c - code for writing to the monitor */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -30,9 +31,11 @@ void setcolor(u8int bg, u8int fg) {
 
 static void update_cursor(void) {
 	u16int cursorLocation = cursor_y * 80 + cursor_x;
-	outb(0x03D4, 14);					// Setting high cursor byte
+	// Setting high cursor byte
+	outb(0x03D4, 14);
 	outb(0x03D5, cursorLocation >> 8);
-	outb(0x03D4, 15);					// Setting low cursor byte
+	// Setting low cursor byte
+	outb(0x03D4, 15);
 	outb(0x03D5, cursorLocation);
 }
 

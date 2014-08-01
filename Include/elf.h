@@ -1,5 +1,6 @@
 /* elf.h - definitions for ELF files */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -152,4 +153,4 @@ typedef struct {
 
 int execve(const char *filename, char *const argv[], char *const envp[]);
 
-#endif
+#endif /* ELF_H */

@@ -1,5 +1,6 @@
 /* ide.h - Definitions and functions for IDE operations */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -103,7 +104,7 @@
 // Channels
 #define ATA_PRIMARY				0x00
 #define ATA_SECONDARY			0x01
- 
+
 // Directions
 #define ATA_READ				0x00
 #define ATA_WRITE				0x01
@@ -129,7 +130,8 @@ struct IDEDevice {
 	char model[41];		// Model string
 };
 
-void init_ide(u32int BAR0, u32int BAR1, u32int BAR2, u32int BAR3, u32int BAR4);
+void init_ide(u32int BAR0, u32int BAR1, u32int BAR2, u32int BAR3,
+		u32int BAR4);
 u8int ide_atapi_eject(u8int drive);
 
-#endif
+#endif /* IDE_H */

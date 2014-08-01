@@ -1,5 +1,6 @@
 /* syscall.c - initializes and handles syscalls */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -44,9 +45,11 @@ DEFN_SYSCALL0(getegid, 16);
 DEFN_SYSCALL3(getresgid, 17, int*, int*, int*);
 DEFN_SYSCALL3(open, 18, const char*, unsigned int, unsigned int);
 DEFN_SYSCALL1(close, 19, int);
-DEFN_SYSCALL6(pread, 20, int, char*, unsigned int, unsigned int, unsigned int, unsigned int);
+DEFN_SYSCALL6(pread, 20, int, char*, unsigned int, unsigned int,
+		unsigned int, unsigned int);
 DEFN_SYSCALL4(read, 21, int, char*, unsigned int, unsigned int);
-DEFN_SYSCALL6(pwrite, 22, int, const char*, unsigned int, unsigned int, unsigned int, unsigned int);
+DEFN_SYSCALL6(pwrite, 22, int, const char*, unsigned int,
+		unsigned int, unsigned int, unsigned int);
 DEFN_SYSCALL4(write, 23, int, const char*, unsigned int, unsigned int);
 DEFN_SYSCALL3(ioctl, 24, int, unsigned int, void*);
 DEFN_SYSCALL4(lseek, 25, int, unsigned int, unsigned int, int);
@@ -58,7 +61,8 @@ DEFN_SYSCALL1(sbrk, 30, unsigned int);
 DEFN_SYSCALL3(execve, 31, const char*, char *const*, char *const*);
 
 static void *syscalls[] = {
-	fork,		// Defined in task.c
+	// Defined in task.c
+	fork,
 	exit_task,
 	getpid,
 	nice,
@@ -99,23 +103,27 @@ void syscall_handler(registers_t *regs) {
 		int ret;
 
 		// Push all of the parameters
-		asm volatile("push %1;\
-					push %2;\
-					push %3;\
-					push %4;\
-					push %5;\
-					push %6;\
-					call *%7;\
-					pop %%ebx;\
-					pop %%ebx;\
-					pop %%ebx;\
-					pop %%ebx;\
-					pop %%ebx;\
-					pop %%ebx;": "=a"(ret) : "g"(regs->ebp), "g"(regs->edi),
-								"g"(regs->esi),"g"(regs->edx), "g"(regs->ecx),
-								"g"(regs->ebx), "g"(location) : "ebx", "edx", "ecx");
-													// cdecl states that eax, edx and ecx have to be callee saved
-													// eax is covered in the "=a", we have to tell gcc about the rest
+		asm volatile("push %1; \
+				push %2; \
+				push %3; \
+				push %4; \
+				push %5; \
+				push %6; \
+				call *%7; \
+				pop %%ebx; \
+				pop %%ebx; \
+				pop %%ebx; \
+				pop %%ebx; \
+				pop %%ebx; \
+				pop %%ebx;" :
+				"=a"(ret) :
+				"g"(regs->ebp), "g"(regs->edi), "g"(regs->esi),
+				"g"(regs->edx), "g"(regs->ecx), "g"(regs->ebx),
+				"g"(location) :
+				"ebx", "edx", "ecx");
+		// cdecl states that eax, edx and ecx have to be callee saved.
+		// eax is covered in the "=a". We have to tell gcc about the rest.
+
 		regs->eax = ret;
 	}
 }

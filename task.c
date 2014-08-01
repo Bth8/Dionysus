@@ -2,7 +2,8 @@
  * switches stack from the minimal one set up in boot.s and provides several
  * user functions
  */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -46,10 +47,12 @@ u32int next_pid = 1;
 void move_stack(void *new_stack_start, u32int size) {
 	u32int i;
 	// Allocate space
-	for (i = (u32int)new_stack_start; i >= (u32int)new_stack_start - size; i -= 0x1000)
+	for (i = (u32int)new_stack_start; i >= (u32int)new_stack_start - size;
+			i -= 0x1000)
 		alloc_frame(get_page(i, 1, 0, current_dir), 1, 1, 0);
 
-	switch_page_dir(current_dir);	// Flush TLB
+	// Flush TLB
+	switch_page_dir(current_dir);
 
 	u32int old_esp;
 	u32int old_ebp;
@@ -65,7 +68,8 @@ void move_stack(void *new_stack_start, u32int size) {
 	memcpy((void *)new_esp, (void *)old_esp, initial_esp - old_esp);
 
 	// Fix ebps (and hopefully not much else)
-	for (i = (u32int)new_stack_start; i > (u32int)new_stack_start - size; i -= 4) {
+	for (i = (u32int)new_stack_start; i > (u32int)new_stack_start - size;
+			i -= 4) {
 		u32int tmp = *(u32int *)i;
 		if (old_esp < tmp && tmp < initial_esp) {
 			tmp += offset;
@@ -143,8 +147,10 @@ int fork(void) {
 	// Copy open files
 	for (i = 0; i < MAX_OF; i++) {
 		if (current_task->files[i].file != NULL) {
-			new_task->files[i].file = (fs_node_t *)kmalloc(sizeof(fs_node_t));
-			memcpy(new_task->files[i].file, current_task->files[i].file, sizeof(fs_node_t));
+			new_task->files[i].file =
+				(fs_node_t *)kmalloc(sizeof(fs_node_t));
+			memcpy(new_task->files[i].file, current_task->files[i].file,
+					sizeof(fs_node_t));
 			new_task->files[i].off = current_task->files[i].off;
 		} else
 			new_task->files[i].file = NULL;
@@ -183,7 +189,8 @@ void globalize_table(u32int i, page_table_t *table) {
 	kernel_dir->tables[i] = table;
 	if (current_task) {
 		task_t *task_i;
-		for (task_i = (task_t*)ready_queue; task_i != NULL; task_i = task_i->next)
+		for (task_i = (task_t*)ready_queue; task_i != NULL;
+				task_i = task_i->next)
 			task_i->page_dir->tables[i] = table;
 	}
 	asm volatile("pushl %%eax; popf":: "a"(flags));
@@ -202,8 +209,10 @@ int switch_task(void) {
 
 		// Cunning logic time!
 		// We're going to be in one of 2 states after this call
-		// Either read_eip just returned, or we've just switched tasks and have come back here
-		// If it's the latter, we need to return. To detect it, the former will return 0x12345
+		// Either read_eip just returned, or we've just switched tasks and
+		// have come back here
+		// If it's the latter, we need to return. To detect it, the former
+		// will return 0x12345
 		eip = read_eip();
 		if (eip == 0x12345)
 			return current_task->nice;
@@ -224,21 +233,25 @@ int switch_task(void) {
 		current_dir = current_task->page_dir;
 		set_kernel_stack(esp);
 
-		// Put new eip in ecx, load stack/base pointers, change page dir, put dummy value int eax, restart interrupts, jump to [ecx]
-		asm volatile("mov %0, %%ecx;\
-					mov %1, %%esp;\
-					mov %2, %%ebp;\
-					mov %3, %%cr3;\
-					mov $0x12345, %%eax;\
-					jmp *%%ecx" : : "r"(eip), "r"(esp), "r"(ebp), "r"(current_dir->physical_address));
+		// Put new eip in ecx, load stack/base pointers, change page dir, put
+		// dummy value in eax, restart interrupts, jump to [ecx]
+		asm volatile("mov %0, %%ecx; \
+				mov %1, %%esp; \
+				mov %2, %%ebp; \
+				mov %3, %%cr3; \
+				mov $0x12345, %%eax; \
+				jmp *%%ecx" : : "r"(eip), "r"(esp), "r"(ebp),
+				"r"(current_dir->physical_address));
 	}
+
 	return 0;
 }
 
 void exit_task(void) {
 	asm volatile("cli");
 	int i;
-	task_t *task_i = (task_t *)ready_queue, *current_cache = (task_t *)current_task;
+	task_t *task_i = (task_t *)ready_queue, *current_cache =
+		(task_t *)current_task;
 
 	// Make sure we're not the only task
 	ASSERT(task_i->next != NULL);
@@ -270,40 +283,46 @@ void exit_task(void) {
 	kfree((void *)current_cache);
 
 	// Context switching time
-	asm volatile("mov %0, %%ecx;\
-				mov %1, %%esp;\
-				mov %2, %%ebp;\
-				mov $0x12345, %%eax;\
-				sti;\
-				jmp *%%ecx" :: "r"(current_task->eip), "r"(current_task->esp), "r"(current_task->ebp) : "ecx", "esp", "ebp", "eax");
-}	
+	asm volatile("mov %0, %%ecx; \
+			mov %1, %%esp; \
+			mov %2, %%ebp; \
+			mov $0x12345, %%eax; \
+			sti; \
+			jmp *%%ecx" ::
+			"r"(current_task->eip),"r"(current_task->esp),
+			"r"(current_task->ebp) :
+			"ecx", "esp", "ebp", "eax");
+}
 
-void switch_user_mode(u32int entry, int argc, char **argv, char **envp, u32int stack) {
+void switch_user_mode(u32int entry, int argc, char **argv, char **envp,
+		u32int stack) {
 	set_kernel_stack(current_task->esp);
 
 	// First entry on stack will be 0. Protects from page fault.
 	stack -= 4;
 
-	asm volatile("cli;\
-				mov %4, %%esp;\
-				pushl %3;\
-				pushl %2;\
-				pushl %1;\
-				mov $0x23, %%ax;\
-				mov %%ax, %%ds;\
-				mov %%ax, %%es;\
-				mov %%ax, %%fs;\
-				mov %%ax, %%gs;\
-				mov %%esp, %%eax;\
-				pushl $0x23;\
-				pushl %%eax;\
-				pushf;\
-				pop %%eax;\
-				or $0x200, %%eax;\
-				pushl %%eax;\
-				pushl $0x1B;\
-				pushl %0;\
-				iret;": : "r"(entry), "r"(argc), "r"(argv), "r"(envp), "r"(stack): "esp", "eax");
+	asm volatile("cli; \
+			mov %4, %%esp; \
+			pushl %3; \
+			pushl %2; \
+			pushl %1; \
+			mov $0x23, %%ax; \
+			mov %%ax, %%ds; \
+			mov %%ax, %%es; \
+			mov %%ax, %%fs; \
+			mov %%ax, %%gs; \
+			mov %%esp, %%eax; \
+			pushl $0x23; \
+			pushl %%eax; \
+			pushf; \
+			pop %%eax; \
+			or $0x200, %%eax; \
+			pushl %%eax; \
+			pushl $0x1B; \
+			pushl %0; \
+			iret;": :
+			"r"(entry), "r"(argc), "r"(argv), "r"(envp), "r"(stack) :
+			"esp", "eax");
 }
 
 int nice(int inc) {
@@ -321,7 +340,9 @@ int nice(int inc) {
 int seteuid(int new_euid) {
 	int suid = current_task->euid;
 	if (current_task->euid)
-		if (new_euid == current_task->suid || new_euid == current_task->ruid || new_euid == current_task->euid)
+		if (new_euid == current_task->suid ||
+				new_euid == current_task->ruid ||
+				new_euid == current_task->euid)
 			current_task->euid = new_euid;
 		else
 			return -EPERM;
@@ -336,7 +357,8 @@ int setreuid(int new_ruid, int new_euid) {
 	int suid = current_task->euid;
 	if (current_task->euid) {
 		if (new_ruid > -1) {
-			if (new_ruid == current_task->euid || new_ruid == current_task->ruid)
+			if (new_ruid == current_task->euid ||
+					new_ruid == current_task->ruid)
 				current_task->ruid = new_ruid;
 			else
 				return -EPERM;
@@ -352,12 +374,14 @@ int setreuid(int new_ruid, int new_euid) {
 
 	current_task->suid = suid;
 	return 0;
-}			
+}
 
 int setresuid(int new_ruid, int new_euid, int new_suid) {
 	if (current_task->euid) {
 		if (new_suid > -1) {
-			if (new_suid == current_task->euid || new_suid == current_task->ruid || new_suid == current_task->suid)
+			if (new_suid == current_task->euid ||
+					new_suid == current_task->ruid ||
+					new_suid == current_task->suid)
 				current_task->suid = new_suid;
 			else
 				return -EPERM;
@@ -403,7 +427,9 @@ int getresuid(int *ruid, int *euid, int *suid) {
 int setegid(int new_egid) {
 	int sgid = current_task->egid;
 	if (current_task->egid)
-		if (new_egid == current_task->sgid || new_egid == current_task->rgid || new_egid == current_task->egid)
+		if (new_egid == current_task->sgid ||
+				new_egid == current_task->rgid ||
+				new_egid == current_task->egid)
 			current_task->egid = new_egid;
 		else
 			return -EPERM;
@@ -418,7 +444,8 @@ int setregid(int new_rgid, int new_egid) {
 	int sgid = current_task->egid;
 	if (current_task->egid) {
 		if (new_rgid > -1) {
-			if (new_rgid == current_task->egid || new_rgid == current_task->rgid)
+			if (new_rgid == current_task->egid ||
+					new_rgid == current_task->rgid)
 				current_task->rgid = new_rgid;
 			else
 				return -EPERM;
@@ -434,12 +461,14 @@ int setregid(int new_rgid, int new_egid) {
 
 	current_task->sgid = sgid;
 	return 0;
-}			
+}
 
 int setresgid(int new_rgid, int new_egid, int new_sgid) {
 	if (current_task->egid) {
 		if (new_sgid > -1) {
-			if (new_sgid == current_task->egid || new_sgid == current_task->rgid || new_sgid == current_task->sgid)
+			if (new_sgid == current_task->egid ||
+					new_sgid == current_task->rgid ||
+					new_sgid == current_task->sgid)
 				current_task->sgid = new_sgid;
 			else
 				return -EPERM;
@@ -505,7 +534,8 @@ int lseek(int fd, off_t off, int whence) {
 			current_task->files[fd].off += off;
 			break;
 		case SEEK_END:
-			current_task->files[fd].off = current_task->files[fd].file->len + off;
+			current_task->files[fd].off =
+				current_task->files[fd].file->len + off;
 			break;
 		default:
 			return -EINVAL;
@@ -537,7 +567,8 @@ int user_read(int fd, char *buf, size_t nbytes) {
 	if (!(current_task->files[fd].file->mask & O_RDONLY))
 		return -EINVAL;
 
-	u32int ret = read_vfs(current_task->files[fd].file, buf, nbytes, current_task->files[fd].off);
+	u32int ret = read_vfs(current_task->files[fd].file, buf, nbytes,
+			current_task->files[fd].off);
 	current_task->files[fd].off += ret;
 	return ret;
 }
@@ -565,7 +596,8 @@ int user_write(int fd, const char *buf, size_t nbytes) {
 	if (!(current_task->files[fd].file->mask & O_WRONLY))
 		return -EINVAL;
 
-	u32int ret = write_vfs(current_task->files[fd].file, buf, nbytes, current_task->files[fd].off);
+	u32int ret = write_vfs(current_task->files[fd].file, buf, nbytes,
+			current_task->files[fd].off);
 	current_task->files[fd].off += ret;
 	return ret;
 }
@@ -582,7 +614,8 @@ static int check_flags(fs_node_t *file, u32int flags) {
 			acceptable = 0;
 			if (current_task->euid == file->uid && file->mask & VFS_U_READ)
 				acceptable = 1;
-			else if (current_task->egid == file->gid && file->mask & VFS_G_READ)
+			else if (current_task->egid == file->gid &&
+					file->mask & VFS_G_READ)
 				acceptable = 1;
 		}
 	}
@@ -592,14 +625,15 @@ static int check_flags(fs_node_t *file, u32int flags) {
 			acceptable = 0;
 			if (current_task->euid == file->uid && file->mask & VFS_U_WRITE)
 				acceptable = 1;
-			else if (current_task->egid == file->gid && file->mask & VFS_G_WRITE)
+			else if (current_task->egid == file->gid &&
+					file->mask & VFS_G_WRITE)
 				acceptable = 1;
 		}
 	}
 
 	return acceptable;
 }
-		
+
 int user_open(const char *path, u32int flags, u32int mode) {
 	if (!path)
 		return -EFAULT;
@@ -718,7 +752,8 @@ int sbrk(u32int inc) {
 	u32int ret = current_task->brk;
 	while (current_task->brk_actual < current_task->brk + inc) {
 		current_task->brk_actual += 0x1000;
-		alloc_frame(get_page(current_task->brk_actual, 1, 0, current_dir), 0, 1, 0);
+		alloc_frame(get_page(current_task->brk_actual, 1, 0, current_dir), 0,
+				1, 0);
 	}
 
 	return ret;

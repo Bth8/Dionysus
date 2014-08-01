@@ -1,5 +1,6 @@
 ; interrupt.s - Set up interrupts for proper handling
-; Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+; Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
 ;
 ;  This file is part of Dionysus.
 ;
@@ -71,7 +72,7 @@ ISR_NOERRORCODE 128
 ; In idt.c
 extern isr_handler
 
-; Saves everything, goes kernel mode, calls fault handler, restores everythin
+; Saves everything, goes kernel mode, calls fault handler, restores everything
 isr_common_stub:
 	pushad			; Push eax, ecx, edx, ebx, esp, ebp, esi, edi
 
@@ -128,7 +129,7 @@ extern irq_handler
 
 irq_common_stub:
 	pushad
-	
+
 	mov ax, ds
 	push eax
 

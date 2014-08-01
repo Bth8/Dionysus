@@ -1,5 +1,6 @@
 /* elf.c - load and execute ELF files */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -32,7 +33,8 @@ extern page_directory_t *current_dir;
 // Defined in task.c
 extern task_t *current_task;
 
-static int int_exec(const char *filename, u32int argc, char *argv[], u32int envc, char *envp[]) {
+static int int_exec(const char *filename, u32int argc, char *argv[],
+		u32int envc, char *envp[]) {
 	fs_node_t *file = get_path(filename);
 	if (!file)
 		return -EACCES;
@@ -57,14 +59,14 @@ static int int_exec(const char *filename, u32int argc, char *argv[], u32int envc
 	 * exact same way, might as well do it now.
 	 */
 	if (header->e_ident[0] != ELFMAG0 ||
-		header->e_ident[1] != ELFMAG1 ||
-		header->e_ident[2] != ELFMAG2 ||
-		header->e_ident[3] != ELFMAG3 ||
-		header->e_ident[EI_CLASS] != ELFCLASS32 ||
-		header->e_ident[EI_DATA] != ELFDATA2LSB ||
-		header->e_type != ET_EXEC ||
-		header->e_machine != EM_386 ||
-		header->e_version != EV_CURRENT) {
+			header->e_ident[1] != ELFMAG1 ||
+			header->e_ident[2] != ELFMAG2 ||
+			header->e_ident[3] != ELFMAG3 ||
+			header->e_ident[EI_CLASS] != ELFCLASS32 ||
+			header->e_ident[EI_DATA] != ELFDATA2LSB ||
+			header->e_type != ET_EXEC ||
+			header->e_machine != EM_386 ||
+			header->e_version != EV_CURRENT) {
 		close_vfs(file);
 		kfree(file);
 		kfree(header);
@@ -72,11 +74,13 @@ static int int_exec(const char *filename, u32int argc, char *argv[], u32int envc
 	}
 
 	// Get program headers and load them into memory
-	Elf32_Phdr *prog_headers = (Elf32_Phdr*)kmalloc(header->e_phnum * header->e_phentsize);
+	Elf32_Phdr *prog_headers =
+		(Elf32_Phdr*)kmalloc(header->e_phnum * header->e_phentsize);
 	if (!prog_headers)
 		goto error2;
 
-	read_vfs(file, prog_headers, header->e_phnum * header->e_phentsize, header->e_phoff);
+	read_vfs(file, prog_headers, header->e_phnum * header->e_phentsize,
+			header->e_phoff);
 
 	// Deallocate memory of old process (not stack, we reuse it)
 	u32int i;
@@ -96,15 +100,19 @@ static int int_exec(const char *filename, u32int argc, char *argv[], u32int envc
 			start = prog_headers[i].p_vaddr;
 
 		u32int j;
-		for (j = prog_headers[i].p_vaddr; j < prog_headers[i].p_vaddr + prog_headers[i].p_memsz; j += 0x1000)
-			alloc_frame(get_page(j, 1, 0, current_dir), 0, (prog_headers[i].p_flags & PF_W) ? 1 : 0, 0);
+		for (j = prog_headers[i].p_vaddr;
+				j < prog_headers[i].p_vaddr + prog_headers[i].p_memsz;
+				j += 0x1000)
+			alloc_frame(get_page(j, 1, 0, current_dir), 0,
+					(prog_headers[i].p_flags & PF_W) ? 1 : 0, 0);
 
 		switch_page_dir(current_dir);
 
 		size += prog_headers[i].p_memsz;
 
 		void *seg_start = (void*)prog_headers[i].p_vaddr;
-		read_vfs(file, seg_start, prog_headers[i].p_filesz, prog_headers[i].p_offset);
+		read_vfs(file, seg_start, prog_headers[i].p_filesz,
+				prog_headers[i].p_offset);
 	}
 
 	close_vfs(file);

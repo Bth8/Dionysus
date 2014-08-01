@@ -1,5 +1,6 @@
 /* paging.h - declarations and data types for paging */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -28,7 +29,7 @@ typedef struct page {
 	u32int unused	: 2;
 	u32int accessed	: 1;	// Has it been accessed since refresh?
 	u32int dirty	: 1;	// Has it been written to since refresh?
-	u32int zero		: 1;	
+	u32int zero		: 1;
 	u32int global	: 1;	// Not updated in TLB upon CR3 refresh
 	u32int avail	: 3;	// Available for kernel use
 	u32int frame	: 20;	// Frame pointer >> 12
@@ -71,4 +72,4 @@ page_t *get_page(u32int address, int make, int global, page_directory_t *dir);
 page_directory_t *clone_directory(page_directory_t *src);
 void free_dir(page_directory_t *dir);
 
-#endif
+#endif /* PAGING_H */

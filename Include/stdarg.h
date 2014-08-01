@@ -1,5 +1,6 @@
-/* stdargs.h - header for va_args */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+/* stdarg.h - header for va_args */
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -17,10 +18,6 @@
  *  along with Dionysus.  If not, see <http://www.gnu.org/licenses/>
  */
 
-/* If it isn't obvious yet, I'm assuming you're compiling with GCC because,
- * if you're not, fuck you. <3
- */
-
 #ifndef STDARG_H
 #define STDARG_H
 
@@ -30,4 +27,4 @@
 #define va_copy(v, l)	__builtin_va_copy(v, l)
 typedef __builtin_va_list va_list;
 
-#endif
+#endif /* STDARG_H */

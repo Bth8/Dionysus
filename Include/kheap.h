@@ -1,5 +1,7 @@
-/* kheap.h - data types and declarations for kernel heap setup and management */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+/* kheap.h - data types and declarations for kernel heap setup and
+ * management */
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -41,17 +43,20 @@ typedef struct kheap_footer_struct {
 
 typedef struct kheap_struct {
 	ordered_array_t index;
-	u32int start_address;	// Start of allocated space
-	u32int end_address;		// End of allocated space
-	u32int max_address;		// Highest possible address to which heap can expand
-	u8int supervisor;		// Should requested pages be in kernel mode
-	u8int rw;				// Should requested pages be rw
+	u32int start_address; // Start of allocated space
+	u32int end_address; // End of allocated space
+	u32int max_address; // Highest possible address to which heap can expand
+	u8int supervisor; // Should requested pages be in kernel mode
+	u8int rw; // Should requested pages be rw
 } kheap_t;
 
-kheap_t *create_heap(u32int start, u32int end, u32int max, u8int supervisor, u8int rw);
+kheap_t *create_heap(u32int start, u32int end, u32int max, u8int supervisor,
+		u8int rw);
+
 // Allocates coniguous memory within heap
 void *alloc(u32int size, u8int align, kheap_t *heap);
+
 // Releases block allocated with alloc
 void free(void *p, kheap_t *heap);
 
-#endif
+#endif /* KHEAP_H */

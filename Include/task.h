@@ -1,5 +1,7 @@
-/* task.h - task data types and declarations for initialization, creation and management */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+/* task.h - task data types and declarations for initialization, creation
+ * and management */
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -19,6 +21,7 @@
 
 #ifndef TASK_H
 #define TASK_H
+
 #include <common.h>
 #include <paging.h>
 #include <vfs.h>
@@ -44,7 +47,8 @@ typedef struct task {
 	u32int eip;					// Instruction pointer
 	page_directory_t *page_dir;
 	u32int brk;					// Heap end
-	u32int brk_actual;			// Actual end of the memory allocated for the heap
+	u32int brk_actual;			// Actual end of the memory allocated for
+								// the heap
 	u32int start;				// Image start
 	s8int nice;
 	int ruid, euid, suid;
@@ -61,7 +65,8 @@ void globalize_table(u32int i, page_table_t *table);
 int nice(int inc);
 void move_stack(void *new_stack_start, u32int size);
 int getpid(void);
-void switch_user_mode(u32int entry, int argc, char **argv, char **envp, u32int stack);
+void switch_user_mode(u32int entry, int argc, char **argv, char **envp,
+		u32int stack);
 int setuid(int uid);
 int seteuid(int new_euid);
 int setreuid(int new_ruid, int new_euid);
@@ -84,10 +89,11 @@ int user_write(int fd, const char *buf, size_t nbytes);
 int user_open(const char *path, u32int flags, u32int mode);
 int user_close(int fd);
 int user_ioctl(int fd, u32int request, void *ptr);
-int user_mount(const char *src, const char *target, const char *fs_name, u32int flags);
+int user_mount(const char *src, const char *target, const char *fs_name,
+		u32int flags);
 int user_readdir(int fd, struct dirent *dirp, u32int index);
 int user_fstat(int fd, struct stat *buff);
 int user_unlink(const char *path);
 int sbrk(unsigned int inc);
 
-#endif
+#endif /* TASK_H */

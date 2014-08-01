@@ -1,5 +1,7 @@
-; boot.s - initial start code. Sets up multiboot options, jumps to higher half and loads kmain
-; Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+; boot.s - initial start code. Sets up multiboot options, jumps to higher
+; half and loads kmain
+
+; Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
 ;
 ;  This file is part of Dionysus.
 ;
@@ -27,7 +29,8 @@ MBOOT_FLAGS			equ MBOOT_PAGE_ALIGN | MBOOT_MEM_INFO
 MBOOT_CHECKSUM		equ -(MBOOT_MAGIC_HEADER + MBOOT_FLAGS)
 
 ; Other constants
-STACKSIZE			equ 0x0400		; Temporary stack until we set up multitasking
+STACKSIZE			equ 0x0400		; Temporary stack until we set up
+									; multitasking
 KERNEL_VIRTUAL_BASE	equ 0xC0000000
 KERNEL_PAGE_NUMBER	equ (KERNEL_VIRTUAL_BASE >> 22)
 
@@ -35,7 +38,9 @@ KERNEL_PAGE_NUMBER	equ (KERNEL_VIRTUAL_BASE >> 22)
 
 section .data
 align 4096
-; Used to set us up in the higher half. Temporary. Real paging implemented later
+; Used to set us up in the higher half. Temporary.
+; Real paging implemented later
+
 global BootPageDir
 BootPageDir:
 	; Identity map first 4MB. Required for now, okay to unmap later
@@ -54,21 +59,26 @@ global start
 extern kmain
 
 start:
-	cli												; Disable interrupts until we get the IDT going
-	mov ecx, (BootPageDir - KERNEL_VIRTUAL_BASE)	; Addresses must be physical until paging enabled
+	; Disable interrupts until we get the IDT going
+	cli
+	; Addresses must be physical until paging enabled
+	mov ecx, (BootPageDir - KERNEL_VIRTUAL_BASE)
 	mov cr3, ecx
 
+	; Allow 4MiB pages
 	mov ecx, cr4
-	bts ecx, 4										; Allow 4MiB pages
+	bts ecx, 4
 	mov cr4, ecx
 
+	; Enable paging and turn off write protection
 	mov ecx, cr0
-	bts ecx, 31										; Enable paging
-	btr ecx, 16										; Make sure write protection is off
+	bts ecx, 31
+	btr ecx, 16
 	mov cr0, ecx
 
+	; Allow global pages
 	mov ecx, cr4
-	bts ecx, 7										; Allow global pages
+	bts ecx, 7
 	mov cr4, ecx
 
 	; Jump to kernel space
@@ -76,15 +86,19 @@ start:
 	jmp ecx
 
 higherHalfBegin:
-	mov esp, stack_top								; Setup stack
+	mov esp, stack_top
 	push esp
 	push ebx
-	push eax										; Multiboot's magic
+	push eax
 
 	call kmain
-	hlt												; C code should never return, but if it does, halt
+
+	; C code should never return, but if it does, halt
+	hlt
 
 section .bss
+
+; reserve memory for stack
 stack_bottom:
-	resb STACKSIZE									; reserve memory for stack
+	resb STACKSIZE
 stack_top:

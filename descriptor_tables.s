@@ -1,5 +1,6 @@
 ; descriptor_tables.s - a couple of functions to flush GDT, IDT and TSS
-; Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+; Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
 ;
 ;  This file is part of Dionysus.
 ;
@@ -21,16 +22,21 @@
 global gdt_flush
 
 gdt_flush:
-	mov eax, [esp+4]	; Move GDT descriptor pointer into EAX
-	lgdt [eax]			; Load new GDT
+	; Move GDT descriptor pointer into EAX and load
+	mov eax, [esp+4]
+	lgdt [eax]
 
-	mov ax, 0x10		; 0x10 is the GDT offset to our data segment. we use ax because we can't directly modify segment registers
+	; 0x10 is the GDT offset to our data segment. we use ax because we can't
+	;  directly modify segment registers
+	mov ax, 0x10
 	mov ds, ax
 	mov es, ax
 	mov fs, ax
 	mov gs, ax
 	mov ss, ax
-	jmp 0x08:.flush		; 0x08 is the GDT offset to our code segment: far jump
+	; 0x08 is the GDT offset to our code segment: far jump
+	jmp 0x08:.flush
+
 .flush:
 	ret
 
@@ -43,7 +49,9 @@ idt_flush:
 	ret
 
 global tss_flush
+
 tss_flush:
-	mov ax, 0x2B		; TSS structure index in GDT. 5th selector (0x28) with RPL 3
+	; TSS structure index in GDT. 5th selector (0x28) with RPL 3
+	mov ax, 0x2B
 	ltr ax
 	ret

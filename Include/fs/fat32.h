@@ -1,5 +1,6 @@
 /* fat32.h - FAT32 driver header */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -59,7 +60,7 @@ struct fat32_boot_record {
 	u16int nres;				// Number of reserved sectors
 	u8int nFAT;					// Number of file allocation tables
 	u16int rootEntries;			// # of entries in root dir, ignored in FAT32
-	u16int nsect_short;			// Total sectors, if 0, real value in nsect_long
+	u16int nsect_short;			// If 0, real value in nsect_long
 	u8int desc;
 	u16int spf_old;				// Sectors per FAT in FAT12/16
 	u16int spt;					// Sectors per track
@@ -80,12 +81,12 @@ struct fat32_boot_record {
 	u32int serial;
 	char label[11];				// Padded with spaces
 	char id[8];					// Should be "FAT32   ", but don't trust it
-/*	These are both present in the actual structure, but aren't needed and
-	make our representation here way too big
+	/* These are both present in the actual structure, but aren't needed and
+	 * make our representation here way too big
 
 	u8int code[420];
 	u8int bootable[2];			// 0x55, 0xAA
-*/
+	*/
 
 	// We add these in
 	struct fat32_inode *inode_list;
@@ -97,8 +98,8 @@ struct fat32_dirent {
 	u8int attr;
 	u8int res_nt;				// Reserved for Windows NT use
 	u8int tenths;				// Creation time in tenths of second
-	u16int create_time;			// First 5 bits are hour, next 6 minute, next 5 second
-	u16int create_date;			// First 7 year (since 1980), next 4 month, next 5 day
+	u16int create_time;			// hhhhh mmmmmm sssss
+	u16int create_date;			// yyyyyyy mmmm ddddd
 	u16int last_access;			// Same format as create
 	u16int cluster_high;
 	u16int mod_time;
@@ -109,7 +110,7 @@ struct fat32_dirent {
 
 struct fat32_long_name {
 	u8int seq;
-	char name0[10];				// First 5 chars. Actually wchars, but we don't care
+	char name0[10];				// First 5 chars. Actually wchars
 	u8int attr;					// always FAT32_LONG_NAME
 	u8int type;					// zero for name entries
 	u8int checksum;
@@ -129,4 +130,4 @@ struct fat32_inode {
 
 void init_fat32(void);
 
-#endif
+#endif /* FAT32_H */

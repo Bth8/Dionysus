@@ -1,5 +1,6 @@
 /* printf.h - printf and sprintf delcarations */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -23,4 +24,4 @@
 int printf(const char *format, ...);
 int sprintf(char *out, const char *format, ...);
 
-#endif
+#endif /* PRINTF_H */

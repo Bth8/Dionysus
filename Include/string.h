@@ -29,4 +29,4 @@ void strncpy(char *dest, const char *src, u32int len);
 s32int strcmp(const char *str1, const char *str2);
 s32int strncmp(const char *str1, const char *str2, u32int len);
 
-#endif
+#endif /* STRING_H */

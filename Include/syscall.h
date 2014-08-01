@@ -1,5 +1,6 @@
 /* syscall.h - stubs and declarations for syscalls */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -19,6 +20,7 @@
 
 #ifndef SYSCALL_H
 #define SYSCALL_H
+
 #include <common.h>
 #include <vfs.h>
 
@@ -36,41 +38,53 @@ int sys_##fn(void) { \
 	asm volatile("int $0x80" : "=a"(a) : "0"(num)); \
 	return a; \
 }
+
 #define DEFN_SYSCALL1(fn, num, P1) \
 int sys_##fn(P1 p1) { \
 	int a; \
 	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1)); \
 	return a; \
 }
+
 #define DEFN_SYSCALL2(fn, num, P1, P2) \
 int sys_##fn(P1 p1, P2 p2) { \
 	int a; \
-	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), "c"((int)p2)); \
+	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), \
+			"c"((int)p2)); \
 	return a; \
 }
+
 #define DEFN_SYSCALL3(fn, num, P1, P2, P3) \
 int sys_##fn(P1 p1, P2 p2, P3 p3) { \
 	int a; \
-	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), "c"((int)p2), "d"((int)p3)); \
+	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), \
+			"c"((int)p2), "d"((int)p3)); \
 	return a; \
 }
+
 #define DEFN_SYSCALL4(fn, num, P1, P2, P3, P4) \
 int sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4) { \
 	int a; \
-	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), "c"((int)p2), "d"((int)p3), "S"((int)p4)); \
+	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), \
+			"c"((int)p2), "d"((int)p3), "S"((int)p4)); \
 	return a; \
 }
+
 #define DEFN_SYSCALL5(fn, num, P1, P2, P3, P4, P5) \
 int sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) { \
 	int a; \
-	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), "c"((int)p2), "d"((int)p3), "S"((int)p4), "D"((int)p5)); \
+	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), \
+			"c"((int)p2), "d"((int)p3), "S"((int)p4), "D"((int)p5)); \
 	return a; \
 }
+
 #define DEFN_SYSCALL6(fn, num, P1, P2, P3, P4, P5, P6) \
 int sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5, P6 p6) { \
 	int a; \
-	asm volatile("pushl %%ebp; movl %7, %%ebp; int $0x80; popl %%ebp;" : "=a"(a) : \
-		 "0"(num), "b"((int)p1), "c"((int)p2), "d"((int)p3), "S"((int)p4), "D"((int)p5), "g"((int)p6)); \
+	asm volatile("pushl %%ebp; movl %7, %%ebp; int $0x80; popl %%ebp;" :\
+			"=a"(a) : \
+			"0"(num), "b"((int)p1), "c"((int)p2), "d"((int)p3), \
+			"S"((int)p4), "D"((int)p5), "g"((int)p6)); \
 	return a; \
 }
 
@@ -94,9 +108,11 @@ DECL_SYSCALL0(getegid);
 DECL_SYSCALL3(getresgid, int*, int*, int*);
 DECL_SYSCALL3(open, const char*, unsigned int, unsigned int);
 DECL_SYSCALL1(close, int);
-DECL_SYSCALL6(pread, int, char*, unsigned int, unsigned int, unsigned int, unsigned int);
+DECL_SYSCALL6(pread, int, char*, unsigned int, unsigned int, unsigned int,
+		unsigned int);
 DECL_SYSCALL4(read, int, char*, unsigned int, unsigned int);
-DECL_SYSCALL6(pwrite, int, const char*, unsigned int, unsigned int, unsigned int, unsigned int);
+DECL_SYSCALL6(pwrite, int, const char*, unsigned int, unsigned int,
+		unsigned int, unsigned int);
 DECL_SYSCALL4(write, int, const char*, unsigned int, unsigned int);
 DECL_SYSCALL3(ioctl, int, unsigned int, void*);
 DECL_SYSCALL4(lseek, int, unsigned int, unsigned int, int);
@@ -109,4 +125,4 @@ DECL_SYSCALL3(execve, const char*, char *const*, char *const*);
 
 void init_syscalls(void);
 
-#endif
+#endif /* SYSCALL_H */

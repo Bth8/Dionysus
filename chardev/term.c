@@ -1,5 +1,6 @@
 /* term.c - initializes and handles terminal stuff */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -40,14 +41,17 @@
 
 #define BUFSIZE 1024
 
-char noshiftmap[128] = {0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\x08',
-					'\t', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0,
-					'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0, '\\',
-					'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 0, 0, 0, ' '};
-char shiftmap[128] = {0, 0, '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\x08',
-					'\t', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n', 0,
-					'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '~', 0, '|',
-					'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?', 0, 0, 0, ' '};
+char noshiftmap[128] =
+	{0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\x08',
+	'\t', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0,
+	'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0, '\\',
+	'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 0, 0, 0, ' '};
+
+char shiftmap[128] =
+	{0, 0, '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\x08',
+	'\t', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n', 0,
+	'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '~', 0, '|',
+	'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?', 0, 0, 0, ' '};
 
 int caps_stat = 0, shift_stat = 0, alt_stat = 0, ctrl_stat = 0;
 u8int leds = 0;
@@ -57,10 +61,11 @@ char *writebufpos = inbuf;
 int echo = 1;
 
 static void update_leds(u8int stat) {
-	while (inb(0x64) & 2) {}	// Loop until keyboard buffer is 0
+	// Spin until keyboard buffer is 0
+	while (inb(0x64) & 2) {}
 	outb(0x60, 0xED);
 
-	while (inb(0x64) & 2) {}	// Loop again
+	while (inb(0x64) & 2) {}
 	outb(0x60, stat);
 }
 
@@ -69,8 +74,9 @@ static void kbd_isr(registers_t *regs) {
 	char trans_code;
 	u8int scode = inb(0x60), oldleds = leds;
 
-	if (scode & 0x80) {			// Key released
-		scode &= ~(0x80);		// Get base key
+	if (scode & 0x80) { // Key released
+		// Get base key
+		scode &= ~(0x80);
 		switch (scode) {
 			case LSHIFT:
 			case RSHIFT:
@@ -129,24 +135,27 @@ static void kbd_isr(registers_t *regs) {
 		update_leds(leds);
 }
 
-static u32int read(struct fs_node *node, void *dest, size_t count, off_t off) {
-	node = node;						// Compiler complains otherwise
-	off = off;
-	while (readbufpos == writebufpos)	// No characters have yet to be read
-		sleep_thread();					// Put the thread to sleep, wait for something to come along
+static u32int read(struct fs_node *node, void *dest, size_t count,
+		off_t off) {
+	// Block if we're up to date
+	while (readbufpos == writebufpos)
+		sleep_thread();
 
 	u32int i;
 	for (i = 0; i < count; i++) {
-		while (readbufpos == writebufpos)	// If we've reached the end of characters yet to be written
-			sleep_thread();					// and have yet to reach our quota, sleep
+		// Block if we don't have enough
+		while (readbufpos == writebufpos)
+			sleep_thread();
 		*(char *)dest++ = *readbufpos++;
-		if (readbufpos == inbuf + BUFSIZE)	// Circle around when we reach the end
+		// Circular buffer y'all
+		if (readbufpos == inbuf + BUFSIZE)
 			readbufpos = inbuf;
 	}
 	return i;
 }
 
-static u32int write(struct fs_node *node, const void *src, size_t count, off_t off) {
+static u32int write(struct fs_node *node, const void *src, size_t count,
+		off_t off) {
 	node = node;
 	off = off;
 	u32int i;
@@ -157,7 +166,7 @@ static u32int write(struct fs_node *node, const void *src, size_t count, off_t o
 }
 
 static s32int open(struct fs_node *node, u32int flags) {
-	node->mask = (flags & O_RDWR);		// Protection from bogus flags
+	node->mask = (flags & O_RDWR);
 	return 0;
 }
 
@@ -202,7 +211,7 @@ static s32int stat(struct fs_node *node, struct stat *buff) {
 
 void init_term(void) {
 	register_interrupt_handler(IRQ1, kbd_isr);
-	update_leds(leds);							// Flush keyboard buffer
+	update_leds(leds);
 	static struct file_ops fops;
 	fops.read = read;
 	fops.write = write;

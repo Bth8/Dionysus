@@ -1,5 +1,6 @@
 /* ordered_array.c - Contains implementation of binary min-heap */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -56,7 +57,8 @@ void insert_ordered_array(type_t item, ordered_array_t *array) {
 	array->array[i] = item;
 	type_t tmp;
 	// If item is greater than its parent, swap them
-	for (; i && array->less_than(array->array[i], array->array[(i-1)/2]); i = (i-1)/2) {
+	for (; i && array->less_than(array->array[i], array->array[(i-1)/2]);
+			i = (i-1)/2) {
 		tmp = array->array[i];
 		array->array[i] = array->array[(i-1)/2];
 		array->array[(i-1)/2] = tmp;
@@ -77,15 +79,24 @@ void remove_ordered_array(u32int i, ordered_array_t *array) {
 		array->array[i] = array->array[array->size];
 		// if new value is less than its parent's, swap
 		type_t tmp;
-		for (; i && array->less_than(array->array[i], array->array[(i-1)/2]); i = (i-1)/2) {
+		for (; i && array->less_than(array->array[i], array->array[(i-1)/2]);
+				i = (i-1)/2) {
 			tmp = array->array[i];
 			array->array[i] = array->array[(i-1)/2];
 			array->array[(i-1)/2] = tmp;
 		}
 		i = i_cache;
 		// If one or both children are less than new value, swap with least
-		while ((2*i+1 < array->size) && (array->less_than(array->array[2*i+1], array->array[i]) || (2*i+2 < array->size) ? array->less_than(array->array[2*i+2], array->array[i]) : 0)) {
-			u32int swap = (2*i+2 < array->size) ? (array->less_than(array->array[2*i+1], array->array[2*i+2]) ? 2*i+1 : 2*i+2) : 2*i+1;
+		while ((2*i+1 < array->size) &&
+				(array->less_than(array->array[2*i+1], array->array[i]) ||
+				 (2*i+2 < array->size) ?
+					array->less_than(array->array[2*i+2], array->array[i]) :
+					0)) {
+			u32int swap = (2*i+2 < array->size) ?
+				(array->less_than(array->array[2*i+1], array->array[2*i+2]) ?
+					2*i+1 :
+					2*i+2) :
+				2*i+1;
 			tmp = array->array[i];
 			array->array[i] = array->array[swap];
 			array->array[swap] = tmp;

@@ -1,5 +1,6 @@
 /* time.h - Header for time data types/functions */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -23,7 +24,7 @@
 #ifndef TIME_T
 #define TIME_T
 typedef unsigned int time_t;
-#endif
+#endif /* TIME_T */
 
 struct tm {
 	int tm_sec;
@@ -42,4 +43,4 @@ struct tm *gmtime(const time_t *timer);
 time_t time(time_t *timer);
 void init_time(void);
 
-#endif
+#endif /* TIME_H */

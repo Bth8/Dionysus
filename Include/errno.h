@@ -1,5 +1,6 @@
 /* errno.h - return values for when things break */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -108,7 +109,8 @@
 #define ELIBACC			79	/* Can not access a needed shared library */
 #define ELIBBAD			80	/* Accessing a corrupted shared library */
 #define ELIBSCN			81	/* .lib section in a.out corrupted */
-#define ELIBMAX			82	/* Attempting to link in too many shared libraries */
+#define ELIBMAX			82	/* Attempting to link in too many shared
+							   libraries */
 #define ELIBEXEC		83	/* Cannot exec a shared library directly */
 #define EILSEQ			84	/* Illegal byte sequence */
 #define ERESTART		85	/* Interrupted system call should be restarted */
@@ -121,7 +123,8 @@
 #define ENOPROTOOPT		92	/* Protocol not available */
 #define EPROTONOSUPPORT	93	/* Protocol not supported */
 #define ESOCKTNOSUPPORT	94	/* Socket type not supported */
-#define EOPNOTSUPP		95	/* Operation not supported on transport endpoint */
+#define EOPNOTSUPP		95	/* Operation not supported on transport
+							   endpoint */
 #define EPFNOSUPPORT	96	/* Protocol family not supported */
 #define EAFNOSUPPORT	97	/* Address family not supported by protocol */
 #define EADDRINUSE		98	/* Address already in use */
@@ -134,7 +137,8 @@
 #define ENOBUFS			105	/* No buffer space available */
 #define EISCONN			106	/* Transport endpoint is already connected */
 #define ENOTCONN		107	/* Transport endpoint is not connected */
-#define ESHUTDOWN		108	/* Cannot send after transport endpoint shutdown */
+#define ESHUTDOWN		108	/* Cannot send after transport endpoint
+							   shutdown */
 #define ETOOMANYREFS	109	/* Too many references: cannot splice */
 #define ETIMEDOUT		110	/* Connection timed out */
 #define ECONNREFUSED	111	/* Connection refused */
@@ -149,7 +153,6 @@
 #define EISNAM			120	/* Is a named type file */
 #define EREMOTEIO		121	/* Remote I/O error */
 #define EDQUOT			122	/* Quota exceeded */
-
 #define ENOMEDIUM		123	/* No medium found */
 #define EMEDIUMTYPE		124	/* Wrong medium type */
 #define ECANCELED		125	/* Operation Canceled */
@@ -162,4 +165,4 @@
 #define EOWNERDEAD		130	/* Owner died */
 #define ENOTRECOVERABLE	131	/* State not recoverable */
 
-#endif
+#endif /* ERRNO_H */

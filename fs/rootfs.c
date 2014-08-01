@@ -1,5 +1,6 @@
 /* rootfs.c - Quick-n-dirty fs for setting up sone basic mountpoints */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -47,7 +48,7 @@ static int close(fs_node_t *file) { file = file; return 0;}
 void init_rootfs(void) {
 	strcpy(rootfs_root.name, "");
 	rootfs_root.mask = VFS_U_READ | VFS_U_WRITE | VFS_U_EXEC | VFS_G_READ |
-					VFS_G_EXEC | VFS_O_READ | VFS_O_EXEC;
+		VFS_G_EXEC | VFS_O_READ | VFS_O_EXEC;
 	rootfs_root.gid = rootfs_root.uid = 0;
 	rootfs_root.flags = VFS_DIR;
 	rootfs_root.inode = 0;
@@ -63,7 +64,7 @@ void init_rootfs(void) {
 	for (i = 0; i < sizeof(names)/sizeof(char *); i++) {
 		strcpy(subdirs[i].name, names[i]);
 		subdirs[i].mask = VFS_U_READ | VFS_U_WRITE | VFS_U_EXEC | VFS_G_READ |
-						VFS_G_EXEC | VFS_O_READ | VFS_O_EXEC;
+			VFS_G_EXEC | VFS_O_READ | VFS_O_EXEC;
 		subdirs[i].gid = subdirs[i].uid = 0;
 		subdirs[i].flags = VFS_DIR;
 		subdirs[i].inode = i + 1;

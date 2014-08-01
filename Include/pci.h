@@ -1,5 +1,6 @@
 /* pci.h - PCI ops header */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -55,4 +56,4 @@ struct pci_dev {
 void init_pci(void);
 void dump_pci(void);
 
-#endif
+#endif /* PCI_H */

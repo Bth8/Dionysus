@@ -1,5 +1,6 @@
 ; process.s - Assembly functions used for process handling
-; Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+; Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
 ;
 ;  This file is part of Dionysus.
 ;
@@ -24,12 +25,12 @@ KERNEL_VIRTUAL_BASE equ 0xC0000000
 
 global copy_page_physical
 copy_page_physical:
-	push ebx			; preserve stack frame
-	push esi			; preserve ... other stuff
+	push ebx
+	push esi
 	push edi
 	pushf				; To remember state of interrupts
 
-	cli					; THIS IS VERY DELICATE WORK. WE MUSTN'T BE INTERRUPTED
+	cli
 
 	mov esi, [esp + 20]	; Source
 	mov edi, [esp + 24]	; Dest
@@ -44,20 +45,25 @@ copy_page_physical:
 	jmp eax
 
 .continue:
+	; Disable paging so that we can access physical addresses
 	mov edx, cr0
-	and edx, 0x7FFFFFFF	; Disable paging so that we can access physical addresses
+	and edx, 0x7FFFFFFF
 	mov cr0, edx
-	mov ecx, 1024		; Number of dwords to copy
+
+	; copy page
+	mov ecx, 1024
 	rep movsd
 
-	or edx, 0x80000000	; reenable paging
+	; reenable paging
+	or edx, 0x80000000
 	mov cr0, edx
 
 	lea eax, [.higher]
 	jmp eax
 
 .higher:
-	mov cr3, ebx		; Reinstate original page directory
+	; Reinstate original page directory
+	mov cr3, ebx
 
 	popf
 	pop edi

@@ -1,5 +1,6 @@
 /* pci.c - read and write PCI registers */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -29,33 +30,39 @@ struct pci_dev host;
 
 u32int pciConfigReadDword(u8int bus, u8int slot, u8int func, u8int off) {
 	// Select config address
-	outl(CONFIG_ADDRESS, (bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
+	outl(CONFIG_ADDRESS,
+			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
 	// Read in data
 	return inl(CONFIG_DATA);
 }
 
 u16int pciConfigReadWord(u8int bus, u8int slot, u8int func, u8int off) {
-	outl(CONFIG_ADDRESS, (bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
+	outl(CONFIG_ADDRESS,
+			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
 	return inw(CONFIG_DATA + (off & 2));
 }
 
 u8int pciConfigReadByte(u8int bus, u8int slot, u8int func, u8int off) {
-	outl(CONFIG_ADDRESS, (bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
+	outl(CONFIG_ADDRESS,
+			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
 	return inb(CONFIG_DATA + (off & 3));
 }
 
 void pciConfigWriteDword(u8int bus, u8int slot, u8int func, u8int off, u32int val) {
-	outl(CONFIG_ADDRESS, (bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
+	outl(CONFIG_ADDRESS,
+			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
 	outl(CONFIG_DATA, val);
 }
 
 void pciConfigWriteWord(u8int bus, u8int slot, u8int func, u8int off, u16int val) {
-	outl(CONFIG_ADDRESS, (bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
+	outl(CONFIG_ADDRESS,
+			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
 	outw(CONFIG_DATA + (off & 2), val);
 }
 
 void pciConfigWriteByte(u8int bus, u8int slot, u8int func, u8int off, u8int val) {
-	outl(CONFIG_ADDRESS, (bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
+	outl(CONFIG_ADDRESS,
+			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
 	outb(CONFIG_DATA + (off & 3), val);
 }
 
@@ -63,9 +70,12 @@ static u8int fill_bus(struct pci_bus *parent, struct pci_dev *busdev);
 
 static u8int check_func(struct pci_bus *bus, u8int slot, u8int func) {
 	struct pci_dev *iter = bus->devs;
-	u16int vend = pciConfigReadWord(bus->secondary, slot, func, PCI_VENDOR_ID);	// Make sure it's a valid function
+	u16int vend =
+		pciConfigReadWord(bus->secondary, slot, func, PCI_VENDOR_ID);
+	// Make sure it's a valid function
 	if (vend != 0xFFFF) {
-		struct pci_dev *dev = (struct pci_dev*)kmalloc(sizeof(struct pci_dev));
+		struct pci_dev *dev =
+			(struct pci_dev*)kmalloc(sizeof(struct pci_dev));
 		if (dev == NULL)
 			return -ENOMEM;
 
@@ -75,14 +85,18 @@ static u8int check_func(struct pci_bus *bus, u8int slot, u8int func) {
 		dev->slot = slot;
 		dev->func = func;
 		dev->vendor = vend;
-		dev->device = pciConfigReadWord(bus->secondary, slot, func, PCI_DEVICE_ID);
-		dev->class = pciConfigReadDword(bus->secondary, slot, func, PCI_CLASS_REVISION) >> 8;
+		dev->device =
+			pciConfigReadWord(bus->secondary, slot, func, PCI_DEVICE_ID);
+		dev->class =
+			pciConfigReadDword(bus->secondary, slot, func,
+					PCI_CLASS_REVISION) >> 8;
 
-		if (iter == NULL) {				// First device on bus
+		if (iter == NULL) {
 			bus->devs = dev;
-			iter = bus->self;			// So we have a valid device in the chain
+			iter = bus->self;
 		} else {
-			while (iter->sibling != NULL)	// Get last device in bus
+			// Seek to last device
+			while (iter->sibling != NULL)
 				iter = iter->sibling;
 
 			iter->sibling = dev;
@@ -104,9 +118,11 @@ static u8int check_device(struct pci_bus *bus, u8int slot) {
 
 	u8int total = 0;
 
-	u16int vend = pciConfigReadWord(bus->secondary, slot, func, PCI_VENDOR_ID);
+	u16int vend =
+		pciConfigReadWord(bus->secondary, slot, func, PCI_VENDOR_ID);
 	if (vend == 0xFFFF) return 0;
-	u8int header = pciConfigReadByte(bus->secondary, slot, func, PCI_HEADER_TYPE);
+	u8int header =
+		pciConfigReadByte(bus->secondary, slot, func, PCI_HEADER_TYPE);
 	if (header & 0x80) { // multifunction device
 		for (; func < 8; func++)
 			total += check_func(bus, slot, func);
@@ -141,16 +157,19 @@ static u8int fill_bus(struct pci_bus *parent, struct pci_dev *busdev) {
 	bus->devs = NULL;
 
 	while (iter->next != NULL)
-		iter = iter->next;		// get the last bus found
+		iter = iter->next;
 
-	bus->secondary = iter->secondary + 1;	// assign bus number of last found + 1
+	bus->secondary = iter->secondary + 1;
 	bus->primary = parent->secondary;
-	bus->subordinate = 0xFF;				// We don't know yet
+	bus->subordinate = 0xFF;
 
 	// Configure the actual device to behave correctly
-	pciConfigWriteByte(busdev->bus->secondary, busdev->slot, busdev->func, PCI_PRIMARY_BUS, bus->primary);
-	pciConfigWriteByte(busdev->bus->secondary, busdev->slot, busdev->func, PCI_SECONDARY_BUS, bus->secondary);
-	pciConfigWriteByte(busdev->bus->secondary, busdev->slot, busdev->func, PCI_SUBORDINATE_BUS, bus->subordinate);
+	pciConfigWriteByte(busdev->bus->secondary, busdev->slot, busdev->func,
+			PCI_PRIMARY_BUS, bus->primary);
+	pciConfigWriteByte(busdev->bus->secondary, busdev->slot, busdev->func,
+			PCI_SECONDARY_BUS, bus->secondary);
+	pciConfigWriteByte(busdev->bus->secondary, busdev->slot, busdev->func,
+			PCI_SUBORDINATE_BUS, bus->subordinate);
 
 	if (parent->children == NULL)
 		parent->children = bus;
@@ -168,7 +187,8 @@ static u8int fill_bus(struct pci_bus *parent, struct pci_dev *busdev) {
 
 	u8int nbelow = check_bus(bus);
 	bus->subordinate = bus->secondary + nbelow;
-	pciConfigWriteByte(busdev->bus->secondary, busdev->slot, busdev->func, PCI_SUBORDINATE_BUS, bus->subordinate);
+	pciConfigWriteByte(busdev->bus->secondary, busdev->slot, busdev->func,
+			PCI_SUBORDINATE_BUS, bus->subordinate);
 	return nbelow;
 }
 
@@ -191,7 +211,6 @@ void init_pci(void) {
 	host.vendor = pciConfigReadWord(0, 0, 0, PCI_VENDOR_ID);
 	host.class = 0x60000;
 
-	// and awaaaaaaaay we go!
 	bus0.subordinate = check_bus(&bus0);
 }
 
@@ -199,7 +218,8 @@ void dump_pci(void) {
 	struct pci_dev *iter = &host;
 
 	while (iter != NULL) {
-		printf("Bus %u Slot %u Func %u:\n\tVendor: 0x%X\n\tDevice: 0x%X\n\tClass: 0x%06X\n",
+		printf("Bus %u Slot %u Func %u:\n\tVendor: 0x%X\n\tDevice:"
+				"0x%X\n\tClass: 0x%06X\n",
 				iter->bus->secondary, iter->slot, iter->func, iter->vendor,
 				iter->device, iter->class);
 

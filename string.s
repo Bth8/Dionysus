@@ -1,5 +1,7 @@
-; string.s - replacement for glibc's string functions. Only implemented when needed, hence the lack of functions
-; Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+; string.s - replacement for glibc's string functions.
+; Only implemented as needed, hence the lack of functions
+
+; Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
 ;
 ;  This file is part of Dionysus.
 ;
@@ -38,9 +40,9 @@ global memset
 memset:
 	push edi
 
-	mov edi, [esp + 8]		; Address of buf
-	mov al, [esp + 12]		; Value
-	mov ecx, [esp + 16]		; Number of bytes to fill
+	mov edi, [esp + 8] ; Address of buf
+	mov al, [esp + 12] ; Value
+	mov ecx, [esp + 16] ; Number of bytes to fill
 
 	rep stosb
 

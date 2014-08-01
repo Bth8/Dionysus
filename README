@@ -3,7 +3,9 @@ simple yet functional (still working on that part) kernel licensed under the
 GNU GPL. It is based rather heavily (for the time being) on theJames Molloy
 tutorial kernel available at
 <http://www.jamesmolloy.co.uk/tutorial_html/index.html>, but it's already been
-significantly modified, and it is planned to be further expanded in the future.
+significantly modified, and it is planned to be further expanded in the
+future.
+
 (See: TODO)
 
 Dionysus is licensed under the GNU GPL. See COPYING for details.

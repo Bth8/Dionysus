@@ -1,5 +1,6 @@
 /* main.c - start of C code; loaded by boot.s */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -49,7 +50,8 @@ void print_time(struct tm *time);
 
 void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	initial_esp = esp;
-	u32int mem_end = 0; // Last valid address in memory so we know how far to page
+	// Last valid address so we know how far we can page
+	u32int mem_end = 0;
 	monitor_clear();
 	printf("Booting Dionysus!\n");
 	if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
@@ -67,13 +69,15 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	print_time(gmtime(&rawtime));
 	init_timer(1000);
 
+	// Check for modules
 	if (mboot->flags & MULTIBOOT_INFO_MODS && mboot->mods_count) {
 		multiboot_module_t *mods = (multiboot_module_t *)mboot->mods_addr;
 		phys_address = mods[mboot->mods_count - 1].mod_end;
-		placement_address = mods[mboot->mods_count - 1].mod_end + 0xC0000000u;
+		placement_address = phys_address + 0xC0000000u;
 	}
 	if (mboot->flags & MULTIBOOT_INFO_MEM_MAP) {
-		multiboot_memory_map_t *mmap = (multiboot_memory_map_t *)mboot->mmap_addr;
+		multiboot_memory_map_t *mmap =
+			(multiboot_memory_map_t *)mboot->mmap_addr;
 		while ((u32int)mmap < mboot->mmap_addr + mboot->mmap_length) {
 			if (mmap->type == MULTIBOOT_MEMORY_AVAILABLE) {
 				if (mmap->addr_low + mmap->len_low <= 4294967295U)
@@ -84,10 +88,11 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 				}
 			}
 
-			mmap = (multiboot_memory_map_t *)((u32int)mmap + mmap->size + sizeof(mmap->size));
+			mmap = (multiboot_memory_map_t *)((u32int)mmap + mmap->size +
+					sizeof(mmap->size));
 		}
 	} else {
-		printf("Error! MULTIBOOT_INFO_MEM_MAP not set in mboot->flags.\n");
+		printf("Error! Memory map not given!\n");
 		halt();
 	}
 
@@ -129,7 +134,7 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 }
 
 void print_time(struct tm *time) {
-	printf("%s, ", (char *[]){"Sunday", "Monday", "Tuesday", "Wednesday", 
+	printf("%s, ", (char *[]){"Sunday", "Monday", "Tuesday", "Wednesday",
 			"Thursday", "Friday", "Saturday"}[time->tm_wday]);
 	printf("%s ", (char *[]){"Jan", "Feb", "March", "April", "May", "June",
 			"July", "Aug", "Sep", "Oct", "Nov", "Dec"}[time->tm_mon]);

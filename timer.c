@@ -1,5 +1,6 @@
 /* timer.c - initializes and handles PIT interrupts */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -34,8 +35,6 @@ static void pit_callback(registers_t *regs) {
 	++tick;
 	if (--task_tick <= 0)
 		task_tick = (20 - switch_task());
-	// Compiler complains otherwise
-	regs = regs;
 }
 
 static void rtc_callback(registers_t *regs) {
@@ -43,9 +42,7 @@ static void rtc_callback(registers_t *regs) {
 		current_time++;
 		rtc_tick = 1024;
 	}
-	READ_CMOS(0x0C);		// Register C has info on what int just fired. We don't care, trash it
-	// Compiler complains otherwise
-	regs = regs;
+	READ_CMOS(0x0C);
 }
 
 void init_timer(u32int freq) {

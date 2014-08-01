@@ -1,5 +1,6 @@
 /* kmalloc.h - function declarations for allocation and freeing */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -27,4 +28,4 @@ void *kmalloc_a(u32int sz);
 void *kmalloc_p(u32int sz, u32int *phys);
 void *kmalloc_ap(u32int sz, u32int *phys);
 
-#endif
+#endif /* KMALLOC_H */

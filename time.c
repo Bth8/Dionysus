@@ -1,5 +1,7 @@
-/* time.c - get and play with time. Bits borrowed from minix source and linux v0.01 */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+/* time.c - get and play with time. Bits borrowed from minix source and
+ * linux v0.01 */
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -81,7 +83,7 @@ struct tm *gmtime(const time_t *timer) {
 	retp->tm_sec = clock % MINUTE;
 	retp->tm_min = (clock % HOUR) / MINUTE;
 	retp->tm_hour = clock / HOUR;
-	retp->tm_wday = (dayno + 4) % 7;	// Epoch was a thursday
+	retp->tm_wday = (dayno + 4) % 7; // Epoch was a thursday
 	while (dayno >= YEARSIZE(year)) {
 		dayno -= YEARSIZE(year);
 		year++;

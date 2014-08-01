@@ -1,5 +1,7 @@
-/* idt.h - data types and declarations and definitions for IDT setup and interrupt handling */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+/* idt.h - data types and declarations and definitions for IDT setup and
+ * interrupt handling */
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -40,23 +42,24 @@
 
 
 typedef struct idt_entry_struct {
-	u16int	handler_low;							// Lower 16 bits of the handler address
-	u16int	selector;								// Code segment selector
-	u8int	zero;									// Must be zero
-	u8int	flags;									// Flags. See Intel documentation
-	u16int	handler_high;							// High 16 bits of the handler address
+	u16int	handler_low; // Lower 16 bits of the handler address
+	u16int	selector; // Code segment selector
+	u8int	zero; // Must be zero
+	u8int	flags; // Flags. See Intel documentation
+	u16int	handler_high; // High 16 bits of the handler address
 } __attribute__((packed)) idt_entry_t;
 
 typedef struct idt_ptr_struct {
-	u16int offset;									// Offset (from base) of last entry in table
-	u32int base;									// Address of first entry
+	u16int offset; // Offset (from base) of last entry in table
+	u32int base; // Address of first entry
 } __attribute__((packed)) idt_ptr_t;
 
 typedef struct registers {
-	u32int ds;										// Data segment
-	u32int edi, esi, ebp, esp, ebx, edx, ecx, eax;	// Pushed by pushad
+	u32int ds; // Data segment
+	u32int edi, esi, ebp, esp, ebx, edx, ecx, eax; // Pushed by pushad
 	u32int int_no, err_code;
-	u32int eip, cs, eflags, useresp, ss;			// Pushed automatically by processor upon interrupt
+	u32int eip, cs, eflags, useresp, ss; // Pushed automatically by processor
+										 // upon interrupt
 } registers_t;
 
 typedef void (*isr_t)(registers_t*);
@@ -117,4 +120,4 @@ extern void irq15(void);
 
 extern void isr128(void);
 
-#endif
+#endif /* IDT_H */

@@ -1,5 +1,6 @@
 /* rootfs.h - Quick-n-dirty fs for setting up sone basic mountpoints */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -22,4 +23,4 @@
 
 void init_rootfs(void);
 
-#endif
+#endif /* ROOTFS_H */

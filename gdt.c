@@ -1,5 +1,6 @@
 /* gdt.c - Functions for setting up the GDT and TSS */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -29,7 +30,8 @@ gdt_entry_t gdt_entries[6];
 gdt_ptr_t gdt_ptr;
 tss_entry_t tss_entry;
 
-static void gdt_set_gate(u32int num, u32int base, u32int limit, u8int access, u8int gran) {
+static void gdt_set_gate(u32int num, u32int base, u32int limit, u8int access,
+		u8int gran) {
 	gdt_entries[num].base_low = base & 0xFFFF;
 	gdt_entries[num].base_mid = (base >> 16) & 0xFF;
 	gdt_entries[num].base_high = base >> 24;
@@ -55,7 +57,8 @@ static void write_tss(u32int num, u16int ss0, u16int esp0) {
 	tss_entry.ss0 = ss0;
 	tss_entry.esp0 = esp0;
 
-	// Set the kernel code and data segments (0x08, 0x10) with RPL 3 so we can switch here from user mode
+	// Set the kernel code and data segments (0x08, 0x10) with RPL 3 so we
+	// can switch here from user mode
 	tss_entry.cs = 0x0B;
 	tss_entry.ss = tss_entry.ds = tss_entry.es = tss_entry.fs = tss_entry.gs = 0x13;
 }
@@ -64,7 +67,7 @@ void init_gdt(void) {
 	gdt_ptr.offset = (sizeof(gdt_entry_t) * 6) - 1;
 	gdt_ptr.base = (u32int)&gdt_entries;
 
-	gdt_set_gate(0, 0, 0, 0, 0);				// Null segment required by Intel
+	gdt_set_gate(0, 0, 0, 0, 0);	// Null segment required by Intel
 	gdt_set_gate(1, 0, 0xFFFFFFFF, 0x9A, 0xCF);	// Code segment
 	gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF);	// Data segment
 	gdt_set_gate(3, 0, 0xFFFFFFFF, 0xFA, 0xCF); // User code segment

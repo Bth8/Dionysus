@@ -1,5 +1,6 @@
 /* vfs.h - basic VFS functions */
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *
@@ -71,7 +72,8 @@ struct file_ops {
 	u32int(*write)(struct fs_node*, const void*, size_t, off_t);
 	int(*open)(struct fs_node*, u32int);
 	int(*close)(struct fs_node*);
-	struct fs_node*(*create)(struct fs_node*, const char*, u32int, u32int, u32int);
+	struct fs_node*(*create)(struct fs_node*, const char*, u32int, u32int,
+			u32int);
 	int(*readdir)(struct fs_node*, struct dirent*, u32int);
 	struct fs_node*(*finddir)(struct fs_node*, const char*);
 	int (*stat)(struct fs_node*, struct stat*);
@@ -85,7 +87,8 @@ typedef struct fs_node {
 	int gid;
 	int uid;
 	u32int flags;				// Includes node type
-	u32int inode;				// Way for individual FSs to differentiate between files
+	u32int inode;				// Way for individual FSs to differentiate
+								// between files
 	size_t len;
 	u32int impl;				// Implementation-defined
 	struct file_ops ops;
@@ -141,9 +144,11 @@ fs_node_t *finddir_vfs(fs_node_t *node, const char *name);
 int stat_vfs(struct fs_node *node, struct stat *buff);
 s32int ioctl_vfs(fs_node_t *node, u32int, void *);
 fs_node_t *get_path(const char *path);
-fs_node_t *create_vfs(const char *path, u32int uid, u32int gid, u32int mode);
+fs_node_t *create_vfs(const char *path, u32int uid, u32int gid,
+		u32int mode);
 int unlink_vfs(struct fs_node *node);
 s32int register_fs(struct file_system_type *fs);
-s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name, u32int flags);
+s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name,
+		u32int flags);
 
-#endif
+#endif /* VFS_H */
