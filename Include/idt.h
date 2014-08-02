@@ -23,6 +23,27 @@
 #define IDT_H
 #include <common.h>
 
+// 8259A stuff. Read the Intel manuals. Kinda out of date, but it works
+#define PIC_MASTER_A 0x20
+#define PIC_SLAVE_A 0xA0
+#define PIC_MASTER_B 0x21
+#define PIC_SLAVE_B 0xA1
+
+#define PIC_COMMAND_START 0x10
+#define PIC_COMMAND_EOI 0x20
+
+#define PIC_ICW1_ICW4 0x01
+#define PIC_ICW1_MASTER_ONLY 0x02
+#define PIC_ICW1_LEVEL 0x08
+
+#define PIC_ICW4_8086 0x01
+#define PIC_ICW4_AEOI 0x02
+#define PIC_ICW4_MASTER 0x04
+#define PIC_ICW4_BUF 0x08
+#define PIC_ICW4_SFNM 0x10
+
+// IDT entry numbers for IRQ, which here means a hardware interrupt
+// caught by the 8059A
 #define IRQ0 32
 #define IRQ1 33
 #define IRQ2 34
@@ -40,6 +61,15 @@
 #define IRQ14 46
 #define IRQ15 47
 
+#define IDT_ENTRY_INTERRUPT 0x06
+#define IDT_ENTRY_TRAP 0x07
+#define IDT_ENTRY_32BIT 0x08
+#define IDT_ENTRY_PRESENT 0x80
+
+#define IDT_DPL_RING0 0x00
+#define IDT_DPL_RING1 0x20
+#define IDT_DPL_RING2 0x40
+#define IDT_DPL_RING3 0x60
 
 typedef struct idt_entry_struct {
 	u16int	handler_low; // Lower 16 bits of the handler address

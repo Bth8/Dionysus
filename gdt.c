@@ -67,7 +67,8 @@ static void write_tss(u32int num, u16int ss0, u16int esp0) {
 	// Set the kernel code and data segments (0x08, 0x10) with RPL 3 so we
 	// can switch here from user mode
 	tss_entry.cs = 0x0B;
-	tss_entry.ss = tss_entry.ds = tss_entry.es = tss_entry.fs = tss_entry.gs = 0x13;
+	tss_entry.ss = tss_entry.ds = tss_entry.es = tss_entry.fs = 
+		tss_entry.gs = 0x13;
 }
 
 void init_gdt(void) {
