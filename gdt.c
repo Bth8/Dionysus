@@ -30,25 +30,32 @@ gdt_entry_t gdt_entries[6];
 gdt_ptr_t gdt_ptr;
 tss_entry_t tss_entry;
 
-static void gdt_set_gate(u32int num, u32int base, u32int limit, u8int access,
-		u8int gran) {
+static void gdt_set_gate(u32int num, u32int base, u32int limit,
+		u16int flags) {
 	gdt_entries[num].base_low = base & 0xFFFF;
 	gdt_entries[num].base_mid = (base >> 16) & 0xFF;
 	gdt_entries[num].base_high = base >> 24;
 
-	gdt_entries[num].limit_low = limit & 0xFFFF;
-	gdt_entries[num].granularity = (limit >> 16) & 0x0F;
+	gdt_entries[num].seg_limit_low = limit & 0xFFFF;
+	gdt_entries[num].seg_limit_high = (limit >> 16) & 0x0F;
 
-	gdt_entries[num].access = access;
-
-	gdt_entries[num].granularity |= gran & 0xF0;
+	// Set appropriate flags
+	gdt_entries[num].seg_type = flags & 0x0F;
+	gdt_entries[num].desc_type = (flags >> 4) & 0x01;
+	gdt_entries[num].priv = (flags >> 5) & 0x03;
+	gdt_entries[num].present = (flags >> 7) & 0x01;
+	gdt_entries[num].reserved = 0; // Must be 0, has meaning in IA-32e
+	gdt_entries[num].DB = (flags >> 10) & 0x01;
+	gdt_entries[num].granularity = (flags >> 11) & 0x01;
 }
 
 static void write_tss(u32int num, u16int ss0, u16int esp0) {
 	// Find base and limit of our TSS and set gates appropriately
 	u32int base = (u32int)&tss_entry;
 	u32int limit = base + sizeof(tss_entry_t);
-	gdt_set_gate(num, base, limit, 0xE9, 0x00);
+	u16int flags = GDT_SEGMENT_PRESENT | GDT_DPL_RING3 |
+		GDT_SEGMENT_SYSTEM | GDT_SYSTEM_32BIT | GDT_SYSTEM_TSS;
+	gdt_set_gate(num, base, limit, flags);
 
 	// Zero it out
 	memset(&tss_entry, 0, sizeof(tss_entry_t));
@@ -67,11 +74,17 @@ void init_gdt(void) {
 	gdt_ptr.offset = (sizeof(gdt_entry_t) * 6) - 1;
 	gdt_ptr.base = (u32int)&gdt_entries;
 
-	gdt_set_gate(0, 0, 0, 0, 0);	// Null segment required by Intel
-	gdt_set_gate(1, 0, 0xFFFFFFFF, 0x9A, 0xCF);	// Code segment
-	gdt_set_gate(2, 0, 0xFFFFFFFF, 0x92, 0xCF);	// Data segment
-	gdt_set_gate(3, 0, 0xFFFFFFFF, 0xFA, 0xCF); // User code segment
-	gdt_set_gate(4, 0, 0xFFFFFFFF, 0xF2, 0xCF); // User data segment
+	// Base flags
+	u16int dflags = GDT_SEGMENT_GRANULAR | GDT_SEGMENT_PRESENT |
+		GDT_SEGMENT_DATA | GDT_DATA_32BIT | GDT_DATA_WRITE;
+	u16int cflags = GDT_SEGMENT_GRANULAR | GDT_SEGMENT_PRESENT |
+		GDT_SEGMENT_CODE | GDT_CODE_32BIT | GDT_CODE_READ;
+
+	gdt_set_gate(0, 0, 0, 0); // Null segment required by Intel
+	gdt_set_gate(1, 0, 0xFFFFFFFF, cflags | GDT_DPL_RING0); // kernel
+	gdt_set_gate(2, 0, 0xFFFFFFFF, dflags | GDT_DPL_RING0);
+	gdt_set_gate(3, 0, 0xFFFFFFFF, cflags | GDT_DPL_RING3); // user
+	gdt_set_gate(4, 0, 0xFFFFFFFF, dflags | GDT_DPL_RING3);
 	write_tss(5, 0x10, 0x0);
 
 	gdt_flush((u32int)&gdt_ptr);
