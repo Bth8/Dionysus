@@ -23,11 +23,11 @@
 #include <kmalloc.h>
 #include <string.h>
 
-u32int std_lessthan(type_t a, type_t b) {
+uint32_t std_lessthan(type_t a, type_t b) {
 	return (a < b) ? 1 : 0;
 }
 
-ordered_array_t create_ordered_array(u32int max_size, lessthan_predicate_t less) {
+ordered_array_t create_ordered_array(uint32_t max_size, lessthan_predicate_t less) {
 	ordered_array_t ret;
 	ret.array = (void *)kmalloc(max_size * sizeof(type_t));
 	memset(ret.array, 0, max_size * sizeof(type_t));
@@ -37,7 +37,7 @@ ordered_array_t create_ordered_array(u32int max_size, lessthan_predicate_t less)
 	return ret;
 }
 
-ordered_array_t place_ordered_array(void *addr, u32int max_size, lessthan_predicate_t less) {
+ordered_array_t place_ordered_array(void *addr, uint32_t max_size, lessthan_predicate_t less) {
 	ordered_array_t ret;
 	ret.array = (type_t *)addr;
 	memset(ret.array, 0, max_size * sizeof(type_t));
@@ -53,7 +53,7 @@ void destroy_ordered_array(ordered_array_t *array) {
 
 void insert_ordered_array(type_t item, ordered_array_t *array) {
 	ASSERT(array->less_than);
-	u32int i = array->size++;
+	uint32_t i = array->size++;
 	array->array[i] = item;
 	type_t tmp;
 	// If item is greater than its parent, swap them
@@ -65,13 +65,13 @@ void insert_ordered_array(type_t item, ordered_array_t *array) {
 	}
 }
 
-type_t lookup_ordered_array(u32int i, ordered_array_t *array) {
+type_t lookup_ordered_array(uint32_t i, ordered_array_t *array) {
 	ASSERT(i < array->size);
 	return array->array[i];
 }
 
-void remove_ordered_array(u32int i, ordered_array_t *array) {
-	u32int i_cache = i;
+void remove_ordered_array(uint32_t i, ordered_array_t *array) {
+	uint32_t i_cache = i;
 	// Sanity checks
 	ASSERT(i < array->size);
 	ASSERT(array->less_than);
@@ -92,7 +92,7 @@ void remove_ordered_array(u32int i, ordered_array_t *array) {
 				 (2*i+2 < array->size) ?
 					array->less_than(array->array[2*i+2], array->array[i]) :
 					0)) {
-			u32int swap = (2*i+2 < array->size) ?
+			uint32_t swap = (2*i+2 < array->size) ?
 				(array->less_than(array->array[2*i+1], array->array[2*i+2]) ?
 					2*i+1 :
 					2*i+2) :

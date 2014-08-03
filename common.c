@@ -22,7 +22,7 @@
 #include <printf.h>
 #include <timer.h>
 
-void panic(u32int line, char *file, char *msg) {
+void panic(uint32_t line, char *file, char *msg) {
 	asm volatile("cli");
 
 	printf("KERNEL PANIC AT LINE %u IN FILE %s: %s\n", line, file, msg);
@@ -30,12 +30,12 @@ void panic(u32int line, char *file, char *msg) {
 	halt();
 }
 
-void spin_lock(volatile u8int *lock) {
+void spin_lock(volatile uint8_t *lock) {
 	while (__sync_lock_test_and_set(lock, 1)) {
 		sleep_thread();
 	}
 }
 
-void spin_unlock(volatile u8int *lock){
+void spin_unlock(volatile uint8_t *lock){
 	__sync_lock_release(lock);
 }

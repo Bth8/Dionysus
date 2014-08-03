@@ -23,15 +23,15 @@
 #include <string.h>
 
 // Defined in descriptor_tables.s
-extern void gdt_flush(u32int);
+extern void gdt_flush(uint32_t);
 extern void tss_flush(void);
 
 gdt_entry_t gdt_entries[6];
 gdt_ptr_t gdt_ptr;
 tss_entry_t tss_entry;
 
-static void gdt_set_gate(u32int num, u32int base, u32int limit,
-		u16int flags) {
+static void gdt_set_gate(uint32_t num, uint32_t base, uint32_t limit,
+		uint16_t flags) {
 	gdt_entries[num].base_low = base & 0xFFFF;
 	gdt_entries[num].base_mid = (base >> 16) & 0xFF;
 	gdt_entries[num].base_high = base >> 24;
@@ -49,11 +49,11 @@ static void gdt_set_gate(u32int num, u32int base, u32int limit,
 	gdt_entries[num].granularity = (flags >> 11) & 0x01;
 }
 
-static void write_tss(u32int num, u16int ss0, u16int esp0) {
+static void write_tss(uint32_t num, uint16_t ss0, uint16_t esp0) {
 	// Find base and limit of our TSS and set gates appropriately
-	u32int base = (u32int)&tss_entry;
-	u32int limit = base + sizeof(tss_entry_t);
-	u16int flags = GDT_SEGMENT_PRESENT | GDT_DPL_RING3 |
+	uint32_t base = (uint32_t)&tss_entry;
+	uint32_t limit = base + sizeof(tss_entry_t);
+	uint16_t flags = GDT_SEGMENT_PRESENT | GDT_DPL_RING3 |
 		GDT_SEGMENT_SYSTEM | GDT_SYSTEM_32BIT | GDT_SYSTEM_TSS;
 	gdt_set_gate(num, base, limit, flags);
 
@@ -73,12 +73,12 @@ static void write_tss(u32int num, u16int ss0, u16int esp0) {
 
 void init_gdt(void) {
 	gdt_ptr.offset = (sizeof(gdt_entry_t) * 6) - 1;
-	gdt_ptr.base = (u32int)&gdt_entries;
+	gdt_ptr.base = (uint32_t)&gdt_entries;
 
 	// Base flags
-	u16int dflags = GDT_SEGMENT_GRANULAR | GDT_SEGMENT_PRESENT |
+	uint16_t dflags = GDT_SEGMENT_GRANULAR | GDT_SEGMENT_PRESENT |
 		GDT_SEGMENT_DATA | GDT_DATA_32BIT | GDT_DATA_WRITE;
-	u16int cflags = GDT_SEGMENT_GRANULAR | GDT_SEGMENT_PRESENT |
+	uint16_t cflags = GDT_SEGMENT_GRANULAR | GDT_SEGMENT_PRESENT |
 		GDT_SEGMENT_CODE | GDT_CODE_32BIT | GDT_CODE_READ;
 
 	gdt_set_gate(0, 0, 0, 0); // Null segment required by Intel
@@ -88,10 +88,10 @@ void init_gdt(void) {
 	gdt_set_gate(4, 0, 0xFFFFFFFF, dflags | GDT_DPL_RING3);
 	write_tss(5, 0x10, 0x0);
 
-	gdt_flush((u32int)&gdt_ptr);
+	gdt_flush((uint32_t)&gdt_ptr);
 	tss_flush();
 }
 
-void set_kernel_stack(u32int esp0) {
+void set_kernel_stack(uint32_t esp0) {
 	tss_entry.esp0 = esp0;
 }

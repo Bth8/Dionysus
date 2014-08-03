@@ -32,7 +32,7 @@ struct dev_file *files = NULL;
 struct chrdev_driver char_drivers[256];		// 1 for every valid major number
 struct blkdev_driver blk_drivers[256];
 
-static struct superblock *return_sb(u32int, fs_node_t *dev);
+static struct superblock *return_sb(uint32_t, fs_node_t *dev);
 struct file_system_type dev_fs = {
 	.name = "dev",
 	.flags = FS_NODEV,
@@ -43,9 +43,9 @@ struct superblock dev_sb = {
 	.root = &dev_root,
 };
 
-static int readdir(fs_node_t *node, struct dirent *dirp, u32int index);
+static int readdir(fs_node_t *node, struct dirent *dirp, uint32_t index);
 static struct fs_node *finddir(fs_node_t *node, const char *name);
-static int root_open(fs_node_t *file, u32int flags) { return 0;}
+static int root_open(fs_node_t *file, uint32_t flags) { return 0;}
 static int root_close(fs_node_t *file) { return 0;}
 
 void init_devfs(void) {
@@ -63,7 +63,7 @@ void init_devfs(void) {
 	dev_root.ops.close = root_close;
 	dev_root.fs_sb = &dev_sb;
 
-	u32int i;
+	uint32_t i;
 	for (i = 0; i < 256; i++) {
 		char_drivers[i].name = "Default";
 		char_drivers[i].ops = (struct file_ops){ NULL };
@@ -76,11 +76,11 @@ void init_devfs(void) {
 	register_fs(&dev_fs);
 }
 
-static struct superblock *return_sb(u32int flags, fs_node_t *dev) {
+static struct superblock *return_sb(uint32_t flags, fs_node_t *dev) {
 	return &dev_sb;
 }
 
-u32int get_dev(fs_node_t *dev) {
+uint32_t get_dev(fs_node_t *dev) {
 	if (!dev)
 		return 0;
 	if (dev->impl == 0)
@@ -91,12 +91,12 @@ u32int get_dev(fs_node_t *dev) {
 	return dev->impl;
 }
 
-u32int read_blkdev(u32int major, u32int minor, size_t count, off_t off,
+uint32_t read_blkdev(uint32_t major, uint32_t minor, size_t count, off_t off,
 		char *buf);
-u32int write_blkdev(u32int major, u32int minor, size_t count, off_t off,
+uint32_t write_blkdev(uint32_t major, uint32_t minor, size_t count, off_t off,
 		const char *buf);
 
-static u32int read(fs_node_t *node, void *buf, size_t count, off_t off) {
+static uint32_t read(fs_node_t *node, void *buf, size_t count, off_t off) {
 	if (node->flags & VFS_CHARDEV) {
 		if (char_drivers[MAJOR(node->impl) - 1].ops.read)
 			return char_drivers[MAJOR(node->impl) - 1].ops.read(node,
@@ -108,7 +108,7 @@ static u32int read(fs_node_t *node, void *buf, size_t count, off_t off) {
 	return 0;
 }
 
-static u32int write(fs_node_t *node, const void *buf, size_t count,
+static uint32_t write(fs_node_t *node, const void *buf, size_t count,
 		off_t off) {
 	if (node->flags & VFS_CHARDEV) {
 		if (char_drivers[MAJOR(node->impl) - 1].ops.write)
@@ -121,13 +121,13 @@ static u32int write(fs_node_t *node, const void *buf, size_t count,
 	return 0;
 }
 
-static int open(fs_node_t *node, u32int flags) {
+static int open(fs_node_t *node, uint32_t flags) {
 	if (node->flags & VFS_CHARDEV) {
 		if (char_drivers[MAJOR(node->impl) - 1].ops.open)
 			return char_drivers[MAJOR(node->impl) - 1].ops.open(node, flags);
 	} else if (node->flags & VFS_BLOCKDEV) {
 		struct blockdev *dev = NULL;
-		u32int i, major = MAJOR(node->impl), minor = MINOR(node->impl);
+		uint32_t i, major = MAJOR(node->impl), minor = MINOR(node->impl);
 		for (i = 0; i < blk_drivers[major - 1].devs.size; i++) {
 			dev = lookup_ordered_array(i, &blk_drivers[major - 1].devs);
 			if (dev->minor == minor)
@@ -162,9 +162,9 @@ static int close(fs_node_t *node) {
 	return -1;
 }
 
-static int readdir(fs_node_t *node, struct dirent *dirp, u32int index) {
+static int readdir(fs_node_t *node, struct dirent *dirp, uint32_t index) {
 	node = node;
-	u32int i;
+	uint32_t i;
 	struct dev_file *filep = files;
 	for (i = 0; i < index; filep = filep->next) {
 		if (filep == NULL)
@@ -194,7 +194,7 @@ static struct fs_node *finddir(fs_node_t *node, const char *name) {
 	return ret;
 }
 
-static s32int ioctl(fs_node_t *node, u32int request, void *ptr) {
+static int32_t ioctl(fs_node_t *node, uint32_t request, void *ptr) {
 	if (node->flags & VFS_CHARDEV) {
 		if (char_drivers[MAJOR(node->impl) - 1].ops.ioctl)
 			return char_drivers[MAJOR(node->impl) - 1].ops.ioctl(node,
@@ -208,7 +208,7 @@ static s32int ioctl(fs_node_t *node, u32int request, void *ptr) {
 	return -ENOTTY;
 }
 
-static s32int stat(fs_node_t *node, struct stat *buff) {
+static int stat(fs_node_t *node, struct stat *buff) {
 	if (node->flags & VFS_CHARDEV) {
 		if (char_drivers[MAJOR(node->impl) - 1].ops.stat)
 			return char_drivers[MAJOR(node->impl) - 1].ops.stat(node, buff);
@@ -225,7 +225,7 @@ static s32int stat(fs_node_t *node, struct stat *buff) {
 		buff->st_gid = node->gid;
 		buff->st_rdev = node->impl;
 		struct blockdev *dev = NULL;
-		u32int i;
+		uint32_t i;
 		for (i = 0; i < blk_drivers[MAJOR(node->impl) - 1].devs.size; i++) {
 			dev = lookup_ordered_array(i,
 					&blk_drivers[MAJOR(node->impl)-1].devs);
@@ -243,13 +243,13 @@ static s32int stat(fs_node_t *node, struct stat *buff) {
 	return -ENOENT;
 }
 
-s32int devfs_register(const char *name, u32int flags, u32int major,
-		u32int minor, u32int mode, u32int uid, u32int gid) {
+int32_t devfs_register(const char *name, uint32_t flags, uint32_t major,
+		uint32_t minor, uint32_t mode, uint32_t uid, uint32_t gid) {
 	if (strlen(name) >= NAME_MAX)
 		return -ENAMETOOLONG;
 	if (major < 1)
 		return -1;
-	u32int i = 0;
+	uint32_t i = 0;
 	struct dev_file *filei = files, *newfile;
 	if (files) {
 		//Check for name collisions
@@ -291,7 +291,7 @@ s32int devfs_register(const char *name, u32int flags, u32int major,
 	return 0;
 }
 
-s32int register_chrdev(u32int major, const char *name, struct file_ops fops) {
+int32_t register_chrdev(uint32_t major, const char *name, struct file_ops fops) {
 	// Find an open major number if given zero
 	if (major == 0)
 		// Max 256
@@ -312,9 +312,9 @@ s32int register_chrdev(u32int major, const char *name, struct file_ops fops) {
 	return major;
 }
 
-s32int detect_partitions(struct blockdev *dev) {
+int32_t detect_partitions(struct blockdev *dev) {
 	struct mbr mbr;
-	u32int nblocks = sizeof(mbr) / dev->block_size;
+	uint32_t nblocks = sizeof(mbr) / dev->block_size;
 	// Get the disk's MBR
 	if (dev->driver->read(dev->minor / 16, 0, nblocks, &mbr))
 		return -1;
@@ -326,7 +326,7 @@ s32int detect_partitions(struct blockdev *dev) {
 		return 0;
 	}
 
-	u32int i;
+	uint32_t i;
 	for (i = 0; i < 4; i++) {
 		if (mbr.partitions[i].sys_id != 0) {
 			struct blockdev *part =
@@ -345,16 +345,16 @@ s32int detect_partitions(struct blockdev *dev) {
 	return 0;
 }
 
-static u32int lessthan_blkdev(type_t a, type_t b) {
+static uint32_t lessthan_blkdev(type_t a, type_t b) {
 	return (((struct blockdev *)a)->minor < ((struct blockdev *)b)->minor) ?
 		1 : 0;
 }
 
-s32int register_blkdev(u32int major, const char *name,
-		u32int (*read)(u32int, u32int, u32int, void*),
-		u32int (*write)(u32int, u32int, u32int, const void*),
-		s32int (*ioctl)(u32int, u32int, void *),
-		u32int nreal, u32int sectsize, u32int *drv_sizes) {
+int32_t register_blkdev(uint32_t major, const char *name,
+		uint32_t (*read)(uint32_t, uint32_t, uint32_t, void*),
+		uint32_t (*write)(uint32_t, uint32_t, uint32_t, const void*),
+		int32_t (*ioctl)(uint32_t, uint32_t, void *),
+		uint32_t nreal, uint32_t sectsize, uint32_t *drv_sizes) {
 
 	// Having read is a must
 	if (!read)
@@ -382,7 +382,7 @@ s32int register_blkdev(u32int major, const char *name,
 
 	printf("Blockdev driver %s added\n", name);
 
-	u32int i;
+	uint32_t i;
 	for (i = 0; i < nreal; i++) {
 		struct blockdev *dev =
 			(struct blockdev *)kmalloc(sizeof(struct blockdev));
@@ -401,10 +401,10 @@ s32int register_blkdev(u32int major, const char *name,
 	return major;
 }
 
-u32int read_blkdev(u32int major, u32int minor, size_t count, off_t off,
+uint32_t read_blkdev(uint32_t major, uint32_t minor, size_t count, off_t off,
 		char *buf) {
 	struct blockdev *dev = NULL;
-	u32int i;
+	uint32_t i;
 	for (i = 0; i < blk_drivers[major - 1].devs.size; i++) {
 		dev = lookup_ordered_array(i, &blk_drivers[major - 1].devs);
 		if (dev->minor == minor)
@@ -413,7 +413,7 @@ u32int read_blkdev(u32int major, u32int minor, size_t count, off_t off,
 	if (dev == NULL || dev->minor != minor)
 		return 0;
 
-	u32int block = off / dev->block_size + dev->offset;
+	uint32_t block = off / dev->block_size + dev->offset;
 	off %= dev->block_size;
 	size_t read = 0;
 
@@ -433,7 +433,7 @@ u32int read_blkdev(u32int major, u32int minor, size_t count, off_t off,
 		kfree(tmp);
 	}
 
-	u32int nblocks = count / dev->block_size;
+	uint32_t nblocks = count / dev->block_size;
 	count %= dev->block_size;
 
 	if (nblocks &&
@@ -459,10 +459,10 @@ u32int read_blkdev(u32int major, u32int minor, size_t count, off_t off,
 	return read;
 }
 
-u32int write_blkdev(u32int major, u32int minor, size_t count, off_t off,
+uint32_t write_blkdev(uint32_t major, uint32_t minor, size_t count, off_t off,
 		const char *buf) {
 	struct blockdev *dev = NULL;
-	u32int i;
+	uint32_t i;
 	for (i = 0; i < blk_drivers[major - 1].devs.size; i++) {
 		dev = lookup_ordered_array(i, &blk_drivers[major - 1].devs);
 		if (dev->minor == minor)
@@ -474,7 +474,7 @@ u32int write_blkdev(u32int major, u32int minor, size_t count, off_t off,
 	if (!dev->driver->write) // Sanity check
 		return 0;
 
-	u32int block = off / dev->block_size + dev->offset;
+	uint32_t block = off / dev->block_size + dev->offset;
 	off %= dev->block_size;
 	size_t written = 0;
 
@@ -498,7 +498,7 @@ u32int write_blkdev(u32int major, u32int minor, size_t count, off_t off,
 		kfree(tmp);
 	}
 
-	u32int nblocks = count / dev->block_size;
+	uint32_t nblocks = count / dev->block_size;
 	count %= dev->block_size;
 
 	if (nblocks && dev->driver->write(dev->minor / 16, block, nblocks,

@@ -38,20 +38,20 @@
 #include <elf.h>
 
 // Defined in linker script
-extern u32int kend;
+extern uint32_t kend;
 
 extern time_t current_time;
 
-u32int placement_address = (u32int)&kend;
-u32int phys_address = (u32int)&kend - 0xC0000000u;
-u32int initial_esp;
+uint32_t placement_address = (uint32_t)&kend;
+uint32_t phys_address = (uint32_t)&kend - 0xC0000000u;
+uint32_t initial_esp;
 
 void print_time(struct tm *time);
 
-void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
+void kmain(uint32_t magic, multiboot_info_t *mboot, uint32_t esp) {
 	initial_esp = esp;
 	// Last valid address so we know how far we can page
-	u32int mem_end = 0;
+	uint32_t mem_end = 0;
 	monitor_clear();
 	printf("Booting Dionysus!\n");
 	if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
@@ -78,7 +78,7 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 	if (mboot->flags & MULTIBOOT_INFO_MEM_MAP) {
 		multiboot_memory_map_t *mmap =
 			(multiboot_memory_map_t *)mboot->mmap_addr;
-		while ((u32int)mmap < mboot->mmap_addr + mboot->mmap_length) {
+		while ((uint32_t)mmap < mboot->mmap_addr + mboot->mmap_length) {
 			if (mmap->type == MULTIBOOT_MEMORY_AVAILABLE) {
 				if (mmap->addr_low + mmap->len_low <= 4294967295U)
 					mem_end = mmap->addr_low + mmap->len_low;
@@ -88,7 +88,7 @@ void kmain(u32int magic, multiboot_info_t *mboot, u32int esp) {
 				}
 			}
 
-			mmap = (multiboot_memory_map_t *)((u32int)mmap + mmap->size +
+			mmap = (multiboot_memory_map_t *)((uint32_t)mmap + mmap->size +
 					sizeof(mmap->size));
 		}
 	} else {

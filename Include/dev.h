@@ -42,54 +42,54 @@ struct dev_file {
 };
 
 struct partition {
-	u8int boot;
-	u8int start_head; // All of the start/end crap is obsolete
-	u32int start_sect:	6; // Ignore.
-	u32int start_cyl:	10;
-	u8int sys_id;
-	u8int end_head;
-	u32int end_sect:	6;
-	u32int end_cyl:		10;
-	u32int rel_sect; // This is what we care about
-	u32int nsects;
+	uint8_t boot;
+	uint8_t start_head; // All of the start/end crap is obsolete
+	uint32_t start_sect:	6; // Ignore.
+	uint32_t start_cyl:	10;
+	uint8_t sys_id;
+	uint8_t end_head;
+	uint32_t end_sect:	6;
+	uint32_t end_cyl:		10;
+	uint32_t rel_sect; // This is what we care about
+	uint32_t nsects;
 } __attribute__((packed));
 
 struct mbr {
-	u8int bootloader[436];
-	u8int disk_id[10];
+	uint8_t bootloader[436];
+	uint8_t disk_id[10];
 	struct partition partitions[4];
-	u8int magic[2];
+	uint8_t magic[2];
 } __attribute__((packed));
 
 struct blkdev_driver;
 
 struct blockdev {
 	struct blkdev_driver *driver;
-	u32int minor;
-	u32int block_size;
-	u32int offset; // Offset in sectors
-	u32int capacity; // Capacity in sectors
+	uint32_t minor;
+	uint32_t block_size;
+	uint32_t offset; // Offset in sectors
+	uint32_t capacity; // Capacity in sectors
 	struct blockdev *next;
 };
 
 struct blkdev_driver {
 	const char *name;
-	u32int (*read)(u32int, u32int, u32int, void*);
-	u32int (*write)(u32int, u32int, u32int, const void*);
-	s32int (*ioctl)(u32int, u32int, void *);
-	u32int nreal; // Number of real devices
+	uint32_t (*read)(uint32_t, uint32_t, uint32_t, void*);
+	uint32_t (*write)(uint32_t, uint32_t, uint32_t, const void*);
+	int32_t (*ioctl)(uint32_t, uint32_t, void *);
+	uint32_t nreal; // Number of real devices
 	ordered_array_t devs; // Block devices managed by this driver
 };
 
 void init_devfs(void);
-u32int get_dev(fs_node_t *dev);
-s32int devfs_register(const char *name, u32int flags, u32int major,
-		u32int minor, u32int mode, u32int uid, u32int gid);
-s32int register_chrdev(u32int major, const char *name, struct file_ops fops);
-s32int register_blkdev(u32int major, const char *name,
-		u32int (*read)(u32int, u32int, u32int, void*),
-		u32int (*write)(u32int, u32int, u32int, const void*),
-		s32int (*ioctl)(u32int, u32int, void *),
-		u32int nreal, u32int sectsize, u32int *drv_sizes);
+uint32_t get_dev(fs_node_t *dev);
+int32_t devfs_register(const char *name, uint32_t flags, uint32_t major,
+		uint32_t minor, uint32_t mode, uint32_t uid, uint32_t gid);
+int32_t register_chrdev(uint32_t major, const char *name, struct file_ops fops);
+int32_t register_blkdev(uint32_t major, const char *name,
+		uint32_t (*read)(uint32_t, uint32_t, uint32_t, void*),
+		uint32_t (*write)(uint32_t, uint32_t, uint32_t, const void*),
+		int32_t (*ioctl)(uint32_t, uint32_t, void *),
+		uint32_t nreal, uint32_t sectsize, uint32_t *drv_sizes);
 
 #endif /* DEV_H */

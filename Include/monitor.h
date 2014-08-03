@@ -42,6 +42,6 @@
 
 void monitor_put(char c);
 void monitor_clear(void);
-void setcolor(u8int bg, u8int fg);
+void setcolor(uint8_t bg, uint8_t fg);
 
 #endif /* MONITOR_H */

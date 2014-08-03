@@ -27,12 +27,12 @@
 
 struct IDEChannelRegisters channels[2];
 struct IDEDevice ide_devices[4];
-u8int ide_buf[2048] = {0};
-u8int ide_irq_invoked = 0;
-u8int atapi_packet[] = {0xA8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+uint8_t ide_buf[2048] = {0};
+uint8_t ide_irq_invoked = 0;
+uint8_t atapi_packet[] = {0xA8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-u32int ide_read_sectors(u32int drive, u32int lba, u32int numsects, void *edi);
-u32int ide_write_sectors(u32int drive, u32int lba, u32int numsects,
+uint32_t ide_read_sectors(uint32_t drive, uint32_t lba, uint32_t numsects, void *edi);
+uint32_t ide_write_sectors(uint32_t drive, uint32_t lba, uint32_t numsects,
 		const void *esi);
 
 static void ide_irq(registers_t *regs) {
@@ -40,7 +40,7 @@ static void ide_irq(registers_t *regs) {
 	ide_irq_invoked = 1;
 }
 
-void ide_write(u8int channel, u8int reg, u8int data) {
+void ide_write(uint8_t channel, uint8_t reg, uint8_t data) {
 	if (reg > 0x07 && reg < 0x0C)
 		ide_write(channel, ATA_REG_CONTROL, 0x80 | channels[channel].nEIN);
 	if (reg < 0x08)
@@ -55,8 +55,8 @@ void ide_write(u8int channel, u8int reg, u8int data) {
 		ide_write(channel, ATA_REG_CONTROL, channels[channel].nEIN);
 }
 
-u8int ide_read(u8int channel, u8int reg) {
-	u8int ret = 0;
+uint8_t ide_read(uint8_t channel, uint8_t reg) {
+	uint8_t ret = 0;
 	if (reg > 0x07 && reg < 0x0C)
 		ide_write(channel, ATA_REG_CONTROL, 0x80 | channels[channel].nEIN);
 	if (reg < 0x08)
@@ -72,7 +72,7 @@ u8int ide_read(u8int channel, u8int reg) {
 	return ret;
 }
 
-void ide_read_buffer(u8int channel, u8int reg, void *buffer, u32int count) {
+void ide_read_buffer(uint8_t channel, uint8_t reg, void *buffer, uint32_t count) {
 	if (reg > 0x07 && reg < 0x0C)
 		ide_write(channel, ATA_REG_CONTROL, 0x80 | channels[channel].nEIN);
 	if (reg < 0x08)
@@ -87,7 +87,7 @@ void ide_read_buffer(u8int channel, u8int reg, void *buffer, u32int count) {
 		ide_write(channel, ATA_REG_CONTROL, channels[channel].nEIN);
 }
 
-u8int ide_polling(u8int channel, u32int advanced_check) {
+uint8_t ide_polling(uint8_t channel, uint32_t advanced_check) {
 	int i;
 	// Delay 400 ns for BSY to be set
 	for (i = 0; i < 4; i++)
@@ -98,7 +98,7 @@ u8int ide_polling(u8int channel, u32int advanced_check) {
 		continue;
 
 	if (advanced_check) {
-		u8int state = ide_read(channel, ATA_REG_STATUS);
+		uint8_t state = ide_read(channel, ATA_REG_STATUS);
 		// Check for errors
 		if (state & ATA_SR_ERR)
 			return 2;
@@ -113,14 +113,14 @@ u8int ide_polling(u8int channel, u32int advanced_check) {
 	return 0;
 }
 
-u8int ide_print_err(u8int drive, u8int err) {
+uint8_t ide_print_err(uint8_t drive, uint8_t err) {
 	if (!err)
 		return err;
 
 	printf("IDE:\n\t");
 	if (err == 1) {printf("- Device fault\n\t"); err = 19;}
 	else if (err == 2) {
-		u8int st = ide_read(ide_devices[drive].channel, ATA_REG_ERROR);
+		uint8_t st = ide_read(ide_devices[drive].channel, ATA_REG_ERROR);
 		if (st & ATA_ER_AMNF) {printf("- Address mark not found\n\t");
 			err = 7;}
 		if (st & ATA_ER_TK0NF) {printf("- No media or media error\n\t");
@@ -144,9 +144,9 @@ u8int ide_print_err(u8int drive, u8int err) {
 	return err;
 }
 
-void init_ide(u32int BAR0, u32int BAR1, u32int BAR2, u32int BAR3,
-		u32int BAR4) {
-	u32int i, j, k, count = 0, sizes[4] = {0,};
+void init_ide(uint32_t BAR0, uint32_t BAR1, uint32_t BAR2, uint32_t BAR3,
+		uint32_t BAR4) {
+	uint32_t i, j, k, count = 0, sizes[4] = {0,};
 
 	register_interrupt_handler(IRQ14, ide_irq);
 	register_interrupt_handler(IRQ15, ide_irq);
@@ -166,7 +166,7 @@ void init_ide(u32int BAR0, u32int BAR1, u32int BAR2, u32int BAR3,
 	// Detect ATA/ATAPI devices
 	for (i = 0; i < 2; i++)
 		for (j = 0; j < 2; j++) {
-			u8int err = 0, type = IDE_ATA, status;
+			uint8_t err = 0, type = IDE_ATA, status;
 			ide_devices[count].reserved = 0; // Assume no device
 
 			// Select drive
@@ -189,8 +189,8 @@ void init_ide(u32int BAR0, u32int BAR1, u32int BAR2, u32int BAR3,
 
 			// Probe for ATAPI
 			if (err) {
-				u8int cl = ide_read(i, ATA_REG_LBA1);
-				u8int ch = ide_read(i, ATA_REG_LBA2);
+				uint8_t cl = ide_read(i, ATA_REG_LBA1);
+				uint8_t ch = ide_read(i, ATA_REG_LBA2);
 
 				if (cl == 0x14 && ch == 0xEB)
 					type = IDE_ATAPI;
@@ -212,20 +212,20 @@ void init_ide(u32int BAR0, u32int BAR1, u32int BAR2, u32int BAR3,
 			ide_devices[count].drive = j;
 			ide_devices[count].type = type;
 			ide_devices[count].sig =
-				*(u16int *)(ide_buf + ATA_IDENT_DEVICETYPE);
+				*(uint16_t *)(ide_buf + ATA_IDENT_DEVICETYPE);
 			ide_devices[count].cap =
-				*(u16int *)(ide_buf + ATA_IDENT_CAPABILITIES);
+				*(uint16_t *)(ide_buf + ATA_IDENT_CAPABILITIES);
 			ide_devices[count].commandsets =
-				*(u32int *)(ide_buf + ATA_IDENT_COMMANDSETS);
+				*(uint32_t *)(ide_buf + ATA_IDENT_COMMANDSETS);
 
 			// Get size
 			// Check if device uses 48-bit addressing
 			if (ide_devices[count].commandsets & (1 << 26))
 				ide_devices[count].size =
-					*(u32int *)(ide_buf + ATA_IDENT_MAX_LBA_EXT);
+					*(uint32_t *)(ide_buf + ATA_IDENT_MAX_LBA_EXT);
 			else
 				ide_devices[count].size = sizes[count] =
-					*(u32int *)(ide_buf + ATA_IDENT_MAX_LBA);
+					*(uint32_t *)(ide_buf + ATA_IDENT_MAX_LBA);
 
 			// Get device string
 			for (k = 0; k < 40; k += 2) {
@@ -272,14 +272,14 @@ void init_ide(u32int BAR0, u32int BAR1, u32int BAR2, u32int BAR3,
  *   - IRQs
  *   - Polling Status   (+) // Suitable for Singletasking
  */
-u8int ide_ata_access(u8int direction, u8int drive, u32int lba,
-		u8int numsects, void *edi) {
-	u8int lba_mode, /* 0: CHS, 1: LBA28, 2: LBA48 */ dma, cmd = 0, lba_io[6];
-	u32int channel = ide_devices[drive].channel;
-	u32int slave = ide_devices[drive].drive;
-	u32int bus = channels[channel].base, words = 256;
-	u16int cyl, i;
-	u8int head, sect, err;
+uint8_t ide_ata_access(uint8_t direction, uint8_t drive, uint32_t lba,
+		uint8_t numsects, void *edi) {
+	uint8_t lba_mode, /* 0: CHS, 1: LBA28, 2: LBA48 */ dma, cmd = 0, lba_io[6];
+	uint32_t channel = ide_devices[drive].channel;
+	uint32_t slave = ide_devices[drive].drive;
+	uint32_t bus = channels[channel].base, words = 256;
+	uint16_t cyl, i;
+	uint8_t head, sect, err;
 
 	ide_write(channel, ATA_REG_CONTROL,
 			channels[channel].nEIN = (ide_irq_invoked = 0) + 2);
@@ -406,12 +406,12 @@ void ide_wait_irq(void) {
 	ide_irq_invoked = 0;
 }
 
-u32int ide_atapi_read(u32int drive, u32int lba, u32int numsects, void *edi) {
-	u32int channel = ide_devices[drive].channel;
-	u32int slave = ide_devices[drive].drive;
-	u32int bus = channels[channel].base;
-	u32int words = 1024, i;
-	u8int err;
+uint32_t ide_atapi_read(uint32_t drive, uint32_t lba, uint32_t numsects, void *edi) {
+	uint32_t channel = ide_devices[drive].channel;
+	uint32_t slave = ide_devices[drive].drive;
+	uint32_t bus = channels[channel].base;
+	uint32_t words = 1024, i;
+	uint8_t err;
 
 	// Enable IRQs
 	ide_write(channel, ATA_REG_CONTROL,
@@ -473,9 +473,9 @@ u32int ide_atapi_read(u32int drive, u32int lba, u32int numsects, void *edi) {
 	return 0;
 }
 
-u32int ide_read_sectors(u32int drive, u32int lba, u32int numsects,
+uint32_t ide_read_sectors(uint32_t drive, uint32_t lba, uint32_t numsects,
 		void *edi) {
-	u32int i;
+	uint32_t i;
 
 	// Check if drive present
 	if (drive > 3 || !ide_devices[drive].reserved)
@@ -488,7 +488,7 @@ u32int ide_read_sectors(u32int drive, u32int lba, u32int numsects,
 
 	// Read
 	else {
-		u8int err = 0;
+		uint8_t err = 0;
 		if (ide_devices[drive].type == IDE_ATA)
 			err = ide_ata_access(ATA_READ, drive, lba, numsects, edi);
 		else
@@ -498,7 +498,7 @@ u32int ide_read_sectors(u32int drive, u32int lba, u32int numsects,
 	}
 }
 
-u32int ide_write_sectors(u32int drive, u32int lba, u32int numsects,
+uint32_t ide_write_sectors(uint32_t drive, uint32_t lba, uint32_t numsects,
 		const void *esi) {
 	// Check if drive present
 	if (drive > 3 || !ide_devices[drive].reserved)
@@ -511,7 +511,7 @@ u32int ide_write_sectors(u32int drive, u32int lba, u32int numsects,
 
 	// Write
 	else {
-		u8int err;
+		uint8_t err;
 		if (ide_devices[drive].type == IDE_ATA)
 			err = ide_ata_access(ATA_WRITE, drive, lba, numsects,
 					(void *)esi);
@@ -521,12 +521,12 @@ u32int ide_write_sectors(u32int drive, u32int lba, u32int numsects,
 	}
 }
 
-u8int ide_atapi_eject(u8int drive) {
-	u32int channel = ide_devices[drive].channel;
-	u32int slave = ide_devices[drive].drive;
-	u32int bus = channels[channel].base;
-	u32int i;
-	u8int err = 0;
+uint8_t ide_atapi_eject(uint8_t drive) {
+	uint32_t channel = ide_devices[drive].channel;
+	uint32_t slave = ide_devices[drive].drive;
+	uint32_t bus = channels[channel].base;
+	uint32_t i;
+	uint8_t err = 0;
 
 	// Check if present
 	if (drive > 3 || !ide_devices[drive].reserved)

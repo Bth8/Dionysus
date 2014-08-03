@@ -12,9 +12,9 @@ SOURCES_ALL=$(SOURCES_MAIN) $(addprefix fs/, $(SOURCES_FS)) \
 
 CC=i686-pc-dionysus-gcc
 CFLAGS=-Wall -Wextra -Werror -Wno-unused-parameter \
-	   -Wno-missing-field-initializers -nostdlib -nostartfiles \
-	   -fomit-frame-pointer -nodefaultlibs -I./Include \
-	   -fno-leading-underscore -O -fno-builtin
+	   -Wno-missing-field-initializers -nostdlib \
+	   -fomit-frame-pointer -I./Include -fno-leading-underscore -O \
+	   -ffreestanding
 LD=i686-pc-dionysus-ld
 LDFLAGS=-Tlink.ld
 LIBS=$(shell $(CC) -print-libgcc-file-name)

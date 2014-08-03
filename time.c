@@ -55,7 +55,7 @@ static unsigned int _ytab[2][12] = {
 };
 
 time_t mktime(struct tm *tp) {
-	u32int res;
+	uint32_t res;
 	int year;
 
 	year = tp->tm_year - 70;

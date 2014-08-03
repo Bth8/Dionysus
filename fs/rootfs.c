@@ -28,7 +28,7 @@ fs_node_t rootfs_root;
 char *names[] = {"real_root", "dev"};
 fs_node_t subdirs[sizeof(names)/sizeof(char *)];
 
-static struct superblock *return_sb(u32int flags, fs_node_t *dev);
+static struct superblock *return_sb(uint32_t flags, fs_node_t *dev);
 struct file_system_type rootfs = {
 	.name = "rootfs",
 	.flags = FS_NODEV,
@@ -39,10 +39,10 @@ struct superblock rootfs_sb = {
 	.root = &rootfs_root
 };
 
-static int readdir(fs_node_t *node, struct dirent *dirp, u32int index);
+static int readdir(fs_node_t *node, struct dirent *dirp, uint32_t index);
 static fs_node_t *finddir(fs_node_t *node, const char *name);
 // Do literally nothing
-static int open(fs_node_t *file, u32int flags) {file = file; flags = flags; return 0;}
+static int open(fs_node_t *file, uint32_t flags) {file = file; flags = flags; return 0;}
 static int close(fs_node_t *file) { file = file; return 0;}
 
 void init_rootfs(void) {
@@ -60,7 +60,7 @@ void init_rootfs(void) {
 	rootfs_root.ops.close = close;
 	rootfs_root.fs_sb = &rootfs_sb;
 
-	u32int i;
+	uint32_t i;
 	for (i = 0; i < sizeof(names)/sizeof(char *); i++) {
 		strcpy(subdirs[i].name, names[i]);
 		subdirs[i].mask = VFS_U_READ | VFS_U_WRITE | VFS_U_EXEC | VFS_G_READ |
@@ -76,13 +76,13 @@ void init_rootfs(void) {
 	register_fs(&rootfs);
 }
 
-static struct superblock *return_sb(u32int flags, fs_node_t *dev) {
+static struct superblock *return_sb(uint32_t flags, fs_node_t *dev) {
 	flags = flags;
 	dev = dev;
 	return &rootfs_sb;
 }
 
-static int readdir(fs_node_t *node, struct dirent *dirp, u32int index) {
+static int readdir(fs_node_t *node, struct dirent *dirp, uint32_t index) {
 	node = node;
 	if (index >= sizeof(names)/sizeof(char *))
 		return -1;
@@ -93,7 +93,7 @@ static int readdir(fs_node_t *node, struct dirent *dirp, u32int index) {
 
 static fs_node_t *finddir(fs_node_t *node, const char *name) {
 	node = node;
-	u32int i;
+	uint32_t i;
 	for (i = 0; i < sizeof(names)/sizeof(char *); i++) {
 		if (strcmp(name, names[i]) == 0) {
 			fs_node_t *ret = (fs_node_t *)kmalloc(sizeof(fs_node_t));

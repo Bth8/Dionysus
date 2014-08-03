@@ -112,26 +112,26 @@
 #define IDE_MAJOR				1
 
 struct IDEChannelRegisters {
-	u16int base;
-	u16int ctrl;
-	u16int bmide;
-	u8int nEIN;
+	uint16_t base;
+	uint16_t ctrl;
+	uint16_t bmide;
+	uint8_t nEIN;
 };
 
 struct IDEDevice {
-	u8int reserved;		// Does exist if set
-	u8int channel;		// Secondary if set
-	u8int drive;		// Slave if set
-	u8int type;			// ATAPI if set
-	u16int sig;
-	u16int cap;			// Drive features
-	u32int commandsets;
-	u32int size;		// Drive size in sectors
+	uint8_t reserved;		// Does exist if set
+	uint8_t channel;		// Secondary if set
+	uint8_t drive;		// Slave if set
+	uint8_t type;			// ATAPI if set
+	uint16_t sig;
+	uint16_t cap;			// Drive features
+	uint32_t commandsets;
+	uint32_t size;		// Drive size in sectors
 	char model[41];		// Model string
 };
 
-void init_ide(u32int BAR0, u32int BAR1, u32int BAR2, u32int BAR3,
-		u32int BAR4);
-u8int ide_atapi_eject(u8int drive);
+void init_ide(uint32_t BAR0, uint32_t BAR1, uint32_t BAR2, uint32_t BAR3,
+		uint32_t BAR4);
+uint8_t ide_atapi_eject(uint8_t drive);
 
 #endif /* IDE_H */

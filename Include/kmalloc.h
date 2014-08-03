@@ -23,9 +23,9 @@
 #include <common.h>
 
 void kfree(void *addr);
-void *kmalloc(u32int sz);
-void *kmalloc_a(u32int sz);
-void *kmalloc_p(u32int sz, u32int *phys);
-void *kmalloc_ap(u32int sz, u32int *phys);
+void *kmalloc(uint32_t sz);
+void *kmalloc_a(uint32_t sz);
+void *kmalloc_p(uint32_t sz, uint32_t *phys);
+void *kmalloc_ap(uint32_t sz, uint32_t *phys);
 
 #endif /* KMALLOC_H */

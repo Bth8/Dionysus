@@ -22,8 +22,8 @@
 #define TIMER_H
 #include <common.h>
 
-void init_timer(u32int freq);
-void wait(u32int ms);
+void init_timer(uint32_t freq);
+void wait(uint32_t ms);
 void sleep_thread(void);
 
 #endif /* TIMER_H */

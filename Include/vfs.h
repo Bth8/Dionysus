@@ -63,34 +63,34 @@
 struct fs_node;
 struct stat;
 struct dirent {
-	u32int d_ino;
+	uint32_t d_ino;
 	char d_name[NAME_MAX];
 };
 
 struct file_ops {
-	u32int(*read)(struct fs_node*, void*, size_t, off_t);
-	u32int(*write)(struct fs_node*, const void*, size_t, off_t);
-	int(*open)(struct fs_node*, u32int);
+	uint32_t(*read)(struct fs_node*, void*, size_t, off_t);
+	uint32_t(*write)(struct fs_node*, const void*, size_t, off_t);
+	int(*open)(struct fs_node*, uint32_t);
 	int(*close)(struct fs_node*);
-	struct fs_node*(*create)(struct fs_node*, const char*, u32int, u32int,
-			u32int);
-	int(*readdir)(struct fs_node*, struct dirent*, u32int);
+	struct fs_node*(*create)(struct fs_node*, const char*, uint32_t, uint32_t,
+			uint32_t);
+	int(*readdir)(struct fs_node*, struct dirent*, uint32_t);
 	struct fs_node*(*finddir)(struct fs_node*, const char*);
 	int (*stat)(struct fs_node*, struct stat*);
 	int (*unlink)(struct fs_node*);
-	s32int (*ioctl)(struct fs_node*, u32int, void*);
+	int32_t (*ioctl)(struct fs_node*, uint32_t, void*);
 };
 
 typedef struct fs_node {
 	char name[NAME_MAX];
-	u32int mask;				// Permissions mask
+	uint32_t mask;				// Permissions mask
 	int gid;
 	int uid;
-	u32int flags;				// Includes node type
-	u32int inode;				// Way for individual FSs to differentiate
+	uint32_t flags;				// Includes node type
+	uint32_t inode;				// Way for individual FSs to differentiate
 								// between files
 	size_t len;
-	u32int impl;				// Implementation-defined
+	uint32_t impl;				// Implementation-defined
 	struct file_ops ops;
 	struct superblock *fs_sb;	// Parent fs
 	struct superblock *ptr_sb;	// For mount points
@@ -102,25 +102,25 @@ struct superblock {
 	fs_node_t *dev;
 	void *private_data;
 	fs_node_t *root;
-	u32int flags;
+	uint32_t flags;
 };
 
 struct file_system_type {
 	const char *name;
-	u32int flags;
-	struct superblock *(*get_super)(u32int, fs_node_t*);
+	uint32_t flags;
+	struct superblock *(*get_super)(uint32_t, fs_node_t*);
 	struct file_system_type *next;
 };
 
 // Spares are such that it matches newlib's definition
 struct stat {
-	u32int st_dev;
-	u32int st_ino;
-	u32int st_mode;
-	u16int st_nlink;
-	u32int st_uid;
-	u32int st_gid;
-	u32int st_rdev;
+	uint32_t st_dev;
+	uint32_t st_ino;
+	uint32_t st_mode;
+	uint16_t st_nlink;
+	uint32_t st_uid;
+	uint32_t st_gid;
+	uint32_t st_rdev;
 	size_t st_size;
 	time_t st_atime;
 	long st_spare1;
@@ -128,27 +128,27 @@ struct stat {
 	long st_spare2;
 	time_t st_ctime;
 	long st_spare3;
-	u32int st_blksize;
-	u32int st_blocks;
+	uint32_t st_blksize;
+	uint32_t st_blocks;
 	long st_spare4[2];
 };
 
 extern fs_node_t *vfs_root;
 
-u32int read_vfs(fs_node_t *node, void *buf, size_t count, off_t off);
-u32int write_vfs(fs_node_t *node, const void *buf, size_t count, off_t off);
-int open_vfs(fs_node_t *node, u32int flags);
+uint32_t read_vfs(fs_node_t *node, void *buf, size_t count, off_t off);
+uint32_t write_vfs(fs_node_t *node, const void *buf, size_t count, off_t off);
+int open_vfs(fs_node_t *node, uint32_t flags);
 int close_vfs(fs_node_t *node);
-int readdir_vfs(fs_node_t *node, struct dirent *dirp, u32int index);
+int readdir_vfs(fs_node_t *node, struct dirent *dirp, uint32_t index);
 fs_node_t *finddir_vfs(fs_node_t *node, const char *name);
 int stat_vfs(struct fs_node *node, struct stat *buff);
-s32int ioctl_vfs(fs_node_t *node, u32int, void *);
+int32_t ioctl_vfs(fs_node_t *node, uint32_t, void *);
 fs_node_t *get_path(const char *path);
-fs_node_t *create_vfs(const char *path, u32int uid, u32int gid,
-		u32int mode);
+fs_node_t *create_vfs(const char *path, uint32_t uid, uint32_t gid,
+		uint32_t mode);
 int unlink_vfs(struct fs_node *node);
-s32int register_fs(struct file_system_type *fs);
-s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name,
-		u32int flags);
+int32_t register_fs(struct file_system_type *fs);
+int32_t mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name,
+		uint32_t flags);
 
 #endif /* VFS_H */

@@ -42,15 +42,15 @@ struct filep {
 };
 
 typedef struct task {
-	u32int id;					// PID
-	u32int esp, ebp;			// Stack and base pointers
-	u32int eip;					// Instruction pointer
+	uint32_t id;					// PID
+	uint32_t esp, ebp;			// Stack and base pointers
+	uint32_t eip;					// Instruction pointer
 	page_directory_t *page_dir;
-	u32int brk;					// Heap end
-	u32int brk_actual;			// Actual end of the memory allocated for
+	uint32_t brk;					// Heap end
+	uint32_t brk_actual;			// Actual end of the memory allocated for
 								// the heap
-	u32int start;				// Image start
-	s8int nice;
+	uint32_t start;				// Image start
+	int8_t nice;
 	int ruid, euid, suid;
 	int rgid, egid, sgid;
 	struct filep files[MAX_OF];
@@ -61,12 +61,12 @@ void init_tasking(void);
 int switch_task(void);
 void exit_task(void);
 int fork(void);
-void globalize_table(u32int i, page_table_t *table);
+void globalize_table(uint32_t i, page_table_t *table);
 int nice(int inc);
-void move_stack(void *new_stack_start, u32int size);
+void move_stack(void *new_stack_start, uint32_t size);
 int getpid(void);
-void switch_user_mode(u32int entry, int argc, char **argv, char **envp,
-		u32int stack);
+void switch_user_mode(uint32_t entry, int argc, char **argv, char **envp,
+		uint32_t stack);
 int setuid(int uid);
 int seteuid(int new_euid);
 int setreuid(int new_ruid, int new_euid);
@@ -86,14 +86,14 @@ int user_pread(int fd, char *buf, size_t nbytes, off_t off);
 int user_read(int fd, char *buf, size_t nbytes);
 int user_pwrite(int fd, const char *buf, size_t nbytes, off_t off);
 int user_write(int fd, const char *buf, size_t nbytes);
-int user_open(const char *path, u32int flags, u32int mode);
+int user_open(const char *path, uint32_t flags, uint32_t mode);
 int user_close(int fd);
-int user_ioctl(int fd, u32int request, void *ptr);
+int user_ioctl(int fd, uint32_t request, void *ptr);
 int user_mount(const char *src, const char *target, const char *fs_name,
-		u32int flags);
-int user_readdir(int fd, struct dirent *dirp, u32int index);
+		uint32_t flags);
+int user_readdir(int fd, struct dirent *dirp, uint32_t index);
 int user_fstat(int fd, struct stat *buff);
 int user_unlink(const char *path);
-int sbrk(unsigned int inc);
+int sbrk(uint32_t inc);
 
 #endif /* TASK_H */

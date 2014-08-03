@@ -28,7 +28,7 @@
 struct pci_bus bus0;
 struct pci_dev host;
 
-u32int pciConfigReadDword(u8int bus, u8int slot, u8int func, u8int off) {
+uint32_t pciConfigReadDword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off) {
 	// Select config address
 	outl(CONFIG_ADDRESS,
 			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
@@ -36,41 +36,41 @@ u32int pciConfigReadDword(u8int bus, u8int slot, u8int func, u8int off) {
 	return inl(CONFIG_DATA);
 }
 
-u16int pciConfigReadWord(u8int bus, u8int slot, u8int func, u8int off) {
+uint16_t pciConfigReadWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off) {
 	outl(CONFIG_ADDRESS,
 			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
 	return inw(CONFIG_DATA + (off & 2));
 }
 
-u8int pciConfigReadByte(u8int bus, u8int slot, u8int func, u8int off) {
+uint8_t pciConfigReadByte(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off) {
 	outl(CONFIG_ADDRESS,
 			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
 	return inb(CONFIG_DATA + (off & 3));
 }
 
-void pciConfigWriteDword(u8int bus, u8int slot, u8int func, u8int off, u32int val) {
+void pciConfigWriteDword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off, uint32_t val) {
 	outl(CONFIG_ADDRESS,
 			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
 	outl(CONFIG_DATA, val);
 }
 
-void pciConfigWriteWord(u8int bus, u8int slot, u8int func, u8int off, u16int val) {
+void pciConfigWriteWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off, uint16_t val) {
 	outl(CONFIG_ADDRESS,
 			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
 	outw(CONFIG_DATA + (off & 2), val);
 }
 
-void pciConfigWriteByte(u8int bus, u8int slot, u8int func, u8int off, u8int val) {
+void pciConfigWriteByte(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off, uint8_t val) {
 	outl(CONFIG_ADDRESS,
 			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
 	outb(CONFIG_DATA + (off & 3), val);
 }
 
-static u8int fill_bus(struct pci_bus *parent, struct pci_dev *busdev);
+static uint8_t fill_bus(struct pci_bus *parent, struct pci_dev *busdev);
 
-static u8int check_func(struct pci_bus *bus, u8int slot, u8int func) {
+static uint8_t check_func(struct pci_bus *bus, uint8_t slot, uint8_t func) {
 	struct pci_dev *iter = bus->devs;
-	u16int vend =
+	uint16_t vend =
 		pciConfigReadWord(bus->secondary, slot, func, PCI_VENDOR_ID);
 	// Make sure it's a valid function
 	if (vend != 0xFFFF) {
@@ -113,15 +113,15 @@ static u8int check_func(struct pci_bus *bus, u8int slot, u8int func) {
 	return 0;
 }
 
-static u8int check_device(struct pci_bus *bus, u8int slot) {
-	u8int func = 0;
+static uint8_t check_device(struct pci_bus *bus, uint8_t slot) {
+	uint8_t func = 0;
 
-	u8int total = 0;
+	uint8_t total = 0;
 
-	u16int vend =
+	uint16_t vend =
 		pciConfigReadWord(bus->secondary, slot, func, PCI_VENDOR_ID);
 	if (vend == 0xFFFF) return 0;
-	u8int header =
+	uint8_t header =
 		pciConfigReadByte(bus->secondary, slot, func, PCI_HEADER_TYPE);
 	if (header & 0x80) { // multifunction device
 		for (; func < 8; func++)
@@ -132,10 +132,10 @@ static u8int check_device(struct pci_bus *bus, u8int slot) {
 	return total;
 }
 
-static u8int check_bus(struct pci_bus *bus) {
+static uint8_t check_bus(struct pci_bus *bus) {
 	// kinda kludge-y, but I'm gonna do it fuck you
-	u8int slot = (bus->secondary == 0) ? 1 : 0;
-	u8int total = 0;
+	uint8_t slot = (bus->secondary == 0) ? 1 : 0;
+	uint8_t total = 0;
 
 	for (; slot < 32; slot++)
 		total += check_device(bus, slot);
@@ -143,7 +143,7 @@ static u8int check_bus(struct pci_bus *bus) {
 	return total;
 }
 
-static u8int fill_bus(struct pci_bus *parent, struct pci_dev *busdev) {
+static uint8_t fill_bus(struct pci_bus *parent, struct pci_dev *busdev) {
 	struct pci_bus *iter = parent;
 	struct pci_bus *bus = (struct pci_bus *)kmalloc(sizeof(struct pci_bus));
 	if (bus == NULL)
@@ -185,7 +185,7 @@ static u8int fill_bus(struct pci_bus *parent, struct pci_dev *busdev) {
 
 	iter->next = bus;
 
-	u8int nbelow = check_bus(bus);
+	uint8_t nbelow = check_bus(bus);
 	bus->subordinate = bus->secondary + nbelow;
 	pciConfigWriteByte(busdev->bus->secondary, busdev->slot, busdev->func,
 			PCI_SUBORDINATE_BUS, bus->subordinate);

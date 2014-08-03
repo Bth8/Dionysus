@@ -95,7 +95,7 @@ static void *syscalls[] = {
 	sbrk,
 	execve
 };
-u32int num_syscalls;
+uint32_t num_syscalls;
 
 void syscall_handler(registers_t *regs) {
 	if (regs->eax < num_syscalls) {

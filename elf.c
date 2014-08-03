@@ -33,8 +33,8 @@ extern page_directory_t *current_dir;
 // Defined in task.c
 extern task_t *current_task;
 
-static int int_exec(const char *filename, u32int argc, char *argv[],
-		u32int envc, char *envp[]) {
+static int int_exec(const char *filename, uint32_t argc, char *argv[],
+		uint32_t envc, char *envp[]) {
 	fs_node_t *file = get_path(filename);
 	if (!file)
 		return -EACCES;
@@ -83,14 +83,14 @@ static int int_exec(const char *filename, u32int argc, char *argv[],
 			header->e_phoff);
 
 	// Deallocate memory of old process (not stack, we reuse it)
-	u32int i;
+	uint32_t i;
 	for (i = current_task->start; i < current_task->brk_actual; i += 0x1000)
 		free_frame(get_page(i, 0, 0, current_dir));
 
 	// Allocate memory for new process
-	u32int start = 0xFFFFFFFF;
-	u32int size = 0;
-	u32int entry = header->e_entry;
+	uint32_t start = 0xFFFFFFFF;
+	uint32_t size = 0;
+	uint32_t entry = header->e_entry;
 
 	for (i = 0; i < header->e_phnum; i++) {
 		if (prog_headers[i].p_type != PT_LOAD)
@@ -99,7 +99,7 @@ static int int_exec(const char *filename, u32int argc, char *argv[],
 		if (prog_headers[i].p_vaddr < start)
 			start = prog_headers[i].p_vaddr;
 
-		u32int j;
+		uint32_t j;
 		for (j = prog_headers[i].p_vaddr;
 				j < prog_headers[i].p_vaddr + prog_headers[i].p_memsz;
 				j += 0x1000)
@@ -122,9 +122,9 @@ static int int_exec(const char *filename, u32int argc, char *argv[],
 
 	current_task->start = start;
 
-	u32int heap = start + size;
+	uint32_t heap = start + size;
 	alloc_frame(get_page(heap, 1, 0, current_dir), 0, 1, 0);
-	u32int heap_actual = heap + 0x1000;
+	uint32_t heap_actual = heap + 0x1000;
 	switch_page_dir(current_dir);
 
 	// Move everything to user space
@@ -152,8 +152,8 @@ static int int_exec(const char *filename, u32int argc, char *argv[],
 	heap += 1;
 	kfree(envp);
 
-	current_task->brk = (u32int)heap;
-	current_task->brk_actual = (u32int)heap_actual;
+	current_task->brk = (uint32_t)heap;
+	current_task->brk_actual = (uint32_t)heap_actual;
 
 	switch_user_mode(entry, argc, argv_, envp_, USER_STACK_TOP);
 error2:
@@ -173,8 +173,8 @@ int execve(const char *filename, char *const argv[], char *const envp[]) {
 	if (!envp)
 		return -EFAULT;
 
-	u32int argc;
-	u32int envc;
+	uint32_t argc;
+	uint32_t envc;
 	for (argc = 0; argv[argc]; argc++);
 	for (envc = 0; envp[envc]; envc++);
 
@@ -182,7 +182,7 @@ int execve(const char *filename, char *const argv[], char *const envp[]) {
 	char **argv_ = (char**)kmalloc(sizeof(char*) * (argc + 1));
 	char **envp_ = (char**)kmalloc(sizeof(char*) * (envc + 1));
 
-	u32int i;
+	uint32_t i;
 	for (i = 0; i < argc; i++) {
 		argv_[i] = (char *)kmalloc(strlen(argv[i]) + 1);
 		memcpy(argv_[i], argv[i], strlen(argv[i]) + 1);

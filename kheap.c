@@ -29,22 +29,22 @@ extern page_directory_t *current_dir;
 
 kheap_t *kheap = NULL;
 
-static s32int find_smallest_hole(size_t size, u8int align, kheap_t *heap) {
-	u32int i;
+static int32_t find_smallest_hole(size_t size, uint8_t align, kheap_t *heap) {
+	uint32_t i;
 	for (i = 0; i < heap->index.size; i++) {
 		kheap_header_t *header =
 			(kheap_header_t *)lookup_ordered_array(i, &heap->index);
 
 		if (align) {
 			// Page align the starting point
-			u32int location = (u32int)header;
-			s32int offset = 0;
+			uint32_t location = (uint32_t)header;
+			int32_t offset = 0;
 			if ((location + sizeof(kheap_header_t)) & 0xFFFFF000)
 				offset = 0x1000 -
 					((location + sizeof(kheap_header_t)) % 0x1000);
-			s32int hole_size = (s32int) header->size - offset;
+			int32_t hole_size = (int32_t) header->size - offset;
 			// Do we fit?
-			if (hole_size >= (s32int)size)
+			if (hole_size >= (int32_t)size)
 				break;
 		} else if (header->size > size)
 			break;
@@ -54,12 +54,12 @@ static s32int find_smallest_hole(size_t size, u8int align, kheap_t *heap) {
 	return i;
 }
 
-static u32int kheap_header_less_than(type_t a, type_t b) {
+static uint32_t kheap_header_less_than(type_t a, type_t b) {
 	return (((kheap_header_t *)a)->size < ((kheap_header_t *)b)->size) ?
 		1 : 0;
 }
 
-kheap_t *create_heap(u32int start, u32int end, u32int max, u8int supervisor, u8int rw) {
+kheap_t *create_heap(uint32_t start, uint32_t end, uint32_t max, uint8_t supervisor, uint8_t rw) {
 	kheap_t *heap = (kheap_t *)kmalloc(sizeof(kheap_t));
 	// Assert we're page-aligned
 	ASSERT(!(start % 0x1000));
@@ -97,7 +97,7 @@ kheap_t *create_heap(u32int start, u32int end, u32int max, u8int supervisor, u8i
 	return heap;
 }
 
-static void expand(u32int new_size, kheap_t *heap) {
+static void expand(uint32_t new_size, kheap_t *heap) {
 	// Sanity check
 	ASSERT(new_size > heap->end_address - heap->start_address);
 	// Get nearest following page boudary
@@ -108,7 +108,7 @@ static void expand(u32int new_size, kheap_t *heap) {
 
 	// Assert we stay within the bounds of the heap
 	ASSERT(heap->start_address + new_size <= heap->max_address);
-	u32int i;
+	uint32_t i;
 	for (i = heap->end_address - heap->start_address; i < new_size;
 			i += 0x1000) {
 		void *address = get_page(heap->start_address + i, 1,
@@ -120,7 +120,7 @@ static void expand(u32int new_size, kheap_t *heap) {
 	heap->end_address = heap->start_address+new_size;
 }
 
-static u32int contract(u32int new_size, kheap_t *heap) {
+static uint32_t contract(uint32_t new_size, kheap_t *heap) {
 	// Sanity check
 	ASSERT(new_size < heap->end_address - heap->start_address);
 	// Nearest following page boundary
@@ -131,7 +131,7 @@ static u32int contract(u32int new_size, kheap_t *heap) {
 	// Don't contract too far
 	if (new_size < KHEAP_MIN_SIZE)
 		new_size = KHEAP_MIN_SIZE;
-	u32int i;
+	uint32_t i;
 	for (i = heap->end_address - heap->start_address - 0x1000; new_size < i;
 			i -= 0x1000)
 		free_frame(get_page(heap->start_address + i, 0, 1, current_dir));
@@ -140,20 +140,20 @@ static u32int contract(u32int new_size, kheap_t *heap) {
 	return new_size;
 }
 
-void *alloc(u32int size, u8int align, kheap_t *heap) {
-	u32int new_size = size + sizeof(kheap_header_t) + sizeof(kheap_footer_t);
-	s32int i = find_smallest_hole(new_size, align, heap);
+void *alloc(uint32_t size, uint8_t align, kheap_t *heap) {
+	uint32_t new_size = size + sizeof(kheap_header_t) + sizeof(kheap_footer_t);
+	int32_t i = find_smallest_hole(new_size, align, heap);
 	if (i < 0) { // No suitable hole
-		u32int old_length = heap->end_address - heap->start_address;
-		u32int old_end_address = heap->end_address;
+		uint32_t old_length = heap->end_address - heap->start_address;
+		uint32_t old_end_address = heap->end_address;
 		// We need to allocate more space
 		expand(old_length + new_size, heap);
-		u32int new_length = heap->end_address - heap->start_address;
+		uint32_t new_length = heap->end_address - heap->start_address;
 		// Find last header by location
-		s32int idx = -1;
-		u32int val = 0x0;
-		for (i = 0; (u32int)i < heap->index.size; i++) {
-			u32int tmp = (u32int)lookup_ordered_array(i, &heap->index);
+		int32_t idx = -1;
+		uint32_t val = 0x0;
+		for (i = 0; (uint32_t)i < heap->index.size; i++) {
+			uint32_t tmp = (uint32_t)lookup_ordered_array(i, &heap->index);
 			if (tmp > val) {
 				val = tmp;
 				idx = i;
@@ -175,7 +175,7 @@ void *alloc(u32int size, u8int align, kheap_t *heap) {
 			kheap_header_t *header = lookup_ordered_array(idx, &heap->index);
 			header->size += new_length - old_length;
 			// And rewrite the footer
-			kheap_footer_t *footer = (kheap_footer_t *)((u32int)header +
+			kheap_footer_t *footer = (kheap_footer_t *)((uint32_t)header +
 					header->size - sizeof(kheap_footer_t));
 			footer->magic = KHEAP_MAGIC;
 			footer->header = header;
@@ -185,8 +185,8 @@ void *alloc(u32int size, u8int align, kheap_t *heap) {
 	}
 	kheap_header_t *orig_hole_header =
 		(kheap_header_t *)lookup_ordered_array(i, &heap->index);
-	u32int orig_hole_pos = (u32int)orig_hole_header;
-	u32int orig_hole_size = orig_hole_header->size;
+	uint32_t orig_hole_pos = (uint32_t)orig_hole_header;
+	uint32_t orig_hole_size = orig_hole_header->size;
 	// Should we split the hole? Is the original hole size - the requested
 	// hole size less than the header/footer overhead?
 	if (orig_hole_size - new_size <
@@ -198,14 +198,14 @@ void *alloc(u32int size, u8int align, kheap_t *heap) {
 	// If we need to page align, do so now and make a new hole in front of
 	// our block
 	if (align && (orig_hole_pos + sizeof(kheap_header_t)) % 0x1000) {
-		u32int new_location =
+		uint32_t new_location =
 			(orig_hole_pos & 0xFFFFF000) + 0x1000 - sizeof(kheap_header_t);
 		kheap_header_t *hole_header = (kheap_header_t *)orig_hole_pos;
 		hole_header->size = new_location - orig_hole_pos;
 		hole_header->magic = KHEAP_MAGIC;
 		hole_header->hole = 1;
 		kheap_footer_t *hole_footer =
-			(kheap_footer_t *)((u32int)new_location - sizeof(kheap_footer_t));
+			(kheap_footer_t *)((uint32_t)new_location - sizeof(kheap_footer_t));
 		hole_footer->magic = KHEAP_MAGIC;
 		hole_footer->header = hole_header;
 		orig_hole_pos = new_location;
@@ -230,9 +230,9 @@ void *alloc(u32int size, u8int align, kheap_t *heap) {
 		hole_header->hole = 1;
 		hole_header->size = orig_hole_size - new_size;
 		kheap_footer_t *hole_footer =
-			(kheap_footer_t *)((u32int)hole_header + orig_hole_size -
+			(kheap_footer_t *)((uint32_t)hole_header + orig_hole_size -
 					new_size - sizeof(kheap_footer_t));
-		if ((u32int)hole_footer < heap->end_address) {
+		if ((uint32_t)hole_footer < heap->end_address) {
 			hole_footer->magic = KHEAP_MAGIC;
 			hole_footer->header = hole_header;
 		}
@@ -240,7 +240,7 @@ void *alloc(u32int size, u8int align, kheap_t *heap) {
 		insert_ordered_array((type_t)hole_header, &heap->index);
 	}
 	// We're finally done
-	return (void *)((u32int)block_header + sizeof(kheap_header_t));
+	return (void *)((uint32_t)block_header + sizeof(kheap_header_t));
 }
 
 void free(void *p, kheap_t *heap) {
@@ -249,9 +249,9 @@ void free(void *p, kheap_t *heap) {
 		return;
 
 	kheap_header_t *header =
-		(kheap_header_t *)((u32int)p - sizeof(kheap_header_t));
+		(kheap_header_t *)((uint32_t)p - sizeof(kheap_header_t));
 	kheap_footer_t *footer =
-		(kheap_footer_t *)((u32int)header + header->size -
+		(kheap_footer_t *)((uint32_t)header + header->size -
 				sizeof(kheap_footer_t));
 
 	// Sanity check
@@ -259,13 +259,13 @@ void free(void *p, kheap_t *heap) {
 	ASSERT(footer->magic == KHEAP_MAGIC);
 
 	header->hole = 1;
-	u32int add_to_index = 1;
+	uint32_t add_to_index = 1;
 
 	// Unify left if thing immediately to the left is a hole footer
 	kheap_footer_t *test_footer =
-		(kheap_footer_t *)((u32int)header - sizeof(kheap_footer_t));
+		(kheap_footer_t *)((uint32_t)header - sizeof(kheap_footer_t));
 	if (test_footer->magic == KHEAP_MAGIC && test_footer->header->hole) {
-		u32int cache_size = header->size;
+		uint32_t cache_size = header->size;
 		header = test_footer->header;
 		footer->header = header;
 		header->size += cache_size;
@@ -273,14 +273,14 @@ void free(void *p, kheap_t *heap) {
 	}
 	// Unify right if thing immediately to the right is a hole header
 	kheap_header_t *test_header =
-		(kheap_header_t *)((u32int)footer + sizeof(kheap_footer_t));
+		(kheap_header_t *)((uint32_t)footer + sizeof(kheap_footer_t));
 	if (test_header->magic == KHEAP_MAGIC && test_header->hole) {
 		header->size += test_header->size;
 		test_footer =
-			(kheap_footer_t *)((u32int)header + header->size -
+			(kheap_footer_t *)((uint32_t)header + header->size -
 					sizeof(kheap_footer_t));
 		footer = test_footer;
-		u32int i;
+		uint32_t i;
 		for (i = 0; i < heap->index.size &&
 				lookup_ordered_array(i, &heap->index) != (type_t)test_header;
 				i++) {}
@@ -293,21 +293,21 @@ void free(void *p, kheap_t *heap) {
 	}
 
 	// If the footer is at the end address, we can contract the heap
-	if ((u32int)footer + sizeof(kheap_footer_t) == heap->end_address) {
-		u32int old_length = heap->end_address - heap->start_address;
-		u32int new_length =
-			contract((u32int)header - heap->start_address, heap);
+	if ((uint32_t)footer + sizeof(kheap_footer_t) == heap->end_address) {
+		uint32_t old_length = heap->end_address - heap->start_address;
+		uint32_t new_length =
+			contract((uint32_t)header - heap->start_address, heap);
 		// Do we still exist?
 		if (header->size - (old_length - new_length) > 0) {
 			// Yes. Resize
 			header->size -= old_length - new_length;
 			footer =
-				(kheap_footer_t *)((u32int)header + header->size -
+				(kheap_footer_t *)((uint32_t)header + header->size -
 						sizeof(kheap_footer_t));
 			footer->magic = KHEAP_MAGIC;
 			footer->header = header;
 		} else {
-			u32int i;
+			uint32_t i;
 			// Nope. Remove ourselves from the index
 			for (i = 0; i < heap->index.size &&
 					(lookup_ordered_array(i, &heap->index) !=

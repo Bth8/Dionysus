@@ -33,9 +33,9 @@ struct pci_bus {
 	struct pci_dev *self;		// This bus as seen by its parent
 	struct pci_dev *devs;		// Chain of devices on this bus
 
-	u8int primary;				// Number of the parent bus
-	u8int secondary;			// Number of this bus
-	u8int subordinate;			// Config stuff
+	uint8_t primary;				// Number of the parent bus
+	uint8_t secondary;			// Number of this bus
+	uint8_t subordinate;			// Config stuff
 };
 
 struct pci_dev {
@@ -43,11 +43,11 @@ struct pci_dev {
 	struct pci_dev *sibling;	// Next device on this bus
 	struct pci_dev *next;		// Chain of all devices
 
-	u8int slot;					// Slot number
-	u8int func;					// Function number (for multifunction devices)
-	u16int vendor;				// Vendor number
-	u16int device;				// Device ID
-	u32int class;				// Class, subclass, Prog IF
+	uint8_t slot;					// Slot number
+	uint8_t func;					// Function number (for multifunction devices)
+	uint16_t vendor;				// Vendor number
+	uint16_t device;				// Device ID
+	uint32_t class;				// Class, subclass, Prog IF
 };
 
 #define CONFIG_ADDRESS	0x0CF8

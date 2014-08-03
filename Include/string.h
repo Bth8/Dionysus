@@ -21,12 +21,12 @@
 #define STRING_H
 #include <common.h>
 
-u32int strlen(const char *buf);
-void memset(void *buf, u8int value, u32int num);
-void memcpy(void *dest, const void *src, u32int size);
+uint32_t strlen(const char *buf);
+void memset(void *buf, uint8_t value, uint32_t num);
+void memcpy(void *dest, const void *src, uint32_t size);
 void strcpy(char *dest, const char *src);
-void strncpy(char *dest, const char *src, u32int len);
-s32int strcmp(const char *str1, const char *str2);
-s32int strncmp(const char *str1, const char *str2, u32int len);
+void strncpy(char *dest, const char *src, uint32_t len);
+int32_t strcmp(const char *str1, const char *str2);
+int32_t strncmp(const char *str1, const char *str2, uint32_t len);
 
 #endif /* STRING_H */

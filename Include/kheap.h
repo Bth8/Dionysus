@@ -31,30 +31,30 @@
 #define KHEAP_MIN_SIZE 0x70000
 
 typedef struct kheap_header_struct {
-	u32int magic;
-	u8int hole;
-	u32int size;
+	uint32_t magic;
+	uint8_t hole;
+	uint32_t size;
 } kheap_header_t;
 
 typedef struct kheap_footer_struct {
-	u32int magic;
+	uint32_t magic;
 	kheap_header_t *header;
 } kheap_footer_t;
 
 typedef struct kheap_struct {
 	ordered_array_t index;
-	u32int start_address; // Start of allocated space
-	u32int end_address; // End of allocated space
-	u32int max_address; // Highest possible address to which heap can expand
-	u8int supervisor; // Should requested pages be in kernel mode
-	u8int rw; // Should requested pages be rw
+	uint32_t start_address; // Start of allocated space
+	uint32_t end_address; // End of allocated space
+	uint32_t max_address; // Highest possible address to which heap can expand
+	uint8_t supervisor; // Should requested pages be in kernel mode
+	uint8_t rw; // Should requested pages be rw
 } kheap_t;
 
-kheap_t *create_heap(u32int start, u32int end, u32int max, u8int supervisor,
-		u8int rw);
+kheap_t *create_heap(uint32_t start, uint32_t end, uint32_t max, uint8_t supervisor,
+		uint8_t rw);
 
 // Allocates coniguous memory within heap
-void *alloc(u32int size, u8int align, kheap_t *heap);
+void *alloc(uint32_t size, uint8_t align, kheap_t *heap);
 
 // Releases block allocated with alloc
 void free(void *p, kheap_t *heap);

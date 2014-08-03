@@ -28,17 +28,17 @@
 #include <task.h>
 
 // Defined in kmalloc.c
-extern u32int placement_address;
+extern uint32_t placement_address;
 
 // Defined in kheap.c
 extern kheap_t *kheap;
 
 // Defined in process.s
-extern void copy_page_physical(u32int src, u32int dest);
+extern void copy_page_physical(uint32_t src, uint32_t dest);
 
 // Bitset of frames
-u32int *frames;
-u32int nframes;
+uint32_t *frames;
+uint32_t nframes;
 
 // Kernel page directory
 page_directory_t *kernel_dir = NULL;
@@ -46,39 +46,39 @@ page_directory_t *kernel_dir = NULL;
 // Current page directory
 page_directory_t *current_dir = NULL;
 
-#define INDEX_FROM_BIT(a) (a/(8*4))
-#define OFFSET_FROM_BIT(a) (a%(8*4))
+#define INDEX_FROM_BIT(a) (a >> 5)
+#define OFFSET_FROM_BIT(a) (a & 0x1F)
 
-static void set_frame(u32int addr) {
-	u32int frame = addr / 0x1000;
-	u32int i = INDEX_FROM_BIT(frame);
-	u32int off = OFFSET_FROM_BIT(frame);
+static void set_frame(uint32_t addr) {
+	uint32_t frame = addr / 0x1000;
+	uint32_t i = INDEX_FROM_BIT(frame);
+	uint32_t off = OFFSET_FROM_BIT(frame);
 	frames[i] |= (0x01 << off);
 }
 
-static void clear_frame(u32int addr) {
-	u32int frame = addr / 0x1000;
-	u32int i = INDEX_FROM_BIT(frame);
-	u32int off = OFFSET_FROM_BIT(frame);
+static void clear_frame(uint32_t addr) {
+	uint32_t frame = addr / 0x1000;
+	uint32_t i = INDEX_FROM_BIT(frame);
+	uint32_t off = OFFSET_FROM_BIT(frame);
 	frames[i] &= ~(0x01 << off);
 }
 
 // Not actually used as of yet. May be used later.
-/* static u32int test_frame(u32int addr) {
-	u32int frame = addr / 0x1000;
-	u32int i = INDEX_FROM_BIT(frame);
-	u32int off = OFFSET_FROM_BIT(frame);
+/* static uint32_t test_frame(uint32_t addr) {
+	uint32_t frame = addr / 0x1000;
+	uint32_t i = INDEX_FROM_BIT(frame);
+	uint32_t off = OFFSET_FROM_BIT(frame);
 	return (frames[i] & (0x01 << off));
 } */
 
-static u32int first_frame(void) {
-	u32int i, j;
+static uint32_t first_frame(void) {
+	uint32_t i, j;
 	for (i = 0; i < INDEX_FROM_BIT(nframes); i++)
 		if (frames[i] != 0xFFFFFFFF)
 			for (j = 0; j < 32; j++) {
-				u32int test = 0x01 << j;
+				uint32_t test = 0x01 << j;
 				if (!(frames[i]&test))
-					return i * 32 + j;
+					return (i << 5) + j;
 			}
 	return 0xFFFFFFFF;
 }
@@ -87,7 +87,7 @@ void alloc_frame(page_t *page, int kernel, int rw, int global) {
 	if (page->frame != 0) // Already allocated
 		return;
 
-	u32int i;
+	uint32_t i;
 	if ((i = first_frame()) == 0xFFFFFFFF)
 		PANIC("No free frames.");
 	set_frame(i*0x1000);
@@ -99,7 +99,7 @@ void alloc_frame(page_t *page, int kernel, int rw, int global) {
 }
 
 void free_frame(page_t *page) {
-	u32int frame;
+	uint32_t frame;
 	if (!(frame = page->frame))
 		return;
 
@@ -110,7 +110,7 @@ void free_frame(page_t *page) {
 
 static void page_fault(registers_t *regs) {
 	// Store faulting address
-	u32int fault_addr;
+	uint32_t fault_addr;
 	asm volatile("mov %%cr2, %0" : "=r" (fault_addr));
 
 	// Output an error message.
@@ -123,18 +123,20 @@ static void page_fault(registers_t *regs) {
 	PANIC("Page fault");
 }
 
-void init_paging(u32int mem_end) {
+void init_paging(uint32_t mem_end) {
 	// Make sure it's page aligned. Shouldn't be a problem, but doesn't hurt
 	mem_end &= 0xFFFFF000;
 	nframes = mem_end / 0x1000;
-	frames = (u32int *)kmalloc(INDEX_FROM_BIT(nframes));
+	frames = (uint32_t *)kmalloc(INDEX_FROM_BIT(nframes));
 	memset(frames, 0, INDEX_FROM_BIT(nframes));
 
-	u32int i;
-	kernel_dir = (page_directory_t *)kmalloc_ap(sizeof(page_directory_t), &i);
+	uint32_t phys;
+	kernel_dir = (page_directory_t *)kmalloc_ap(sizeof(page_directory_t),
+			&phys);
 	memset(kernel_dir, 0, sizeof(page_directory_t));
-	kernel_dir->physical_address = i;
+	kernel_dir->physical_address = phys;
 
+	uint32_t i;
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INIT_SIZE; i += 0x1000)
 		get_page(i, 1, 1, kernel_dir);
 
@@ -169,29 +171,29 @@ void global_flush(void) {
 				"bts $7, %%eax; mov %%eax, %%cr4" : : : "eax");
 }
 
-page_t *get_page(u32int address, int make, int global,
+page_t *get_page(uint32_t address, int make, int global,
 		page_directory_t *dir) {
 	address /= 0x1000;
-	u32int i = address / 1024;
+	uint32_t i = address / 1024;
 	if (dir->tables[i]) // already assigned
 		return &dir->tables[i]->pages[address%1024];
 	else if (make) {
-		u32int tmp;
+		uint32_t phys;
 		dir->tables[i] =
-			(page_table_t*)kmalloc_ap(sizeof(page_table_t), &tmp);
+			(page_table_t*)kmalloc_ap(sizeof(page_table_t), &phys);
 		if (global)
 			globalize_table(i, dir->tables[i]);
 		memset(dir->tables[i], 0, 0x1000);
 		dir->tables_phys[i].present = 1;
 		dir->tables_phys[i].rw = 1;
 		dir->tables_phys[i].user = 1;
-		dir->tables_phys[i].table = tmp >> 12;
+		dir->tables_phys[i].table = phys >> 12;
 		return &(dir->tables[i]->pages[address%1024]);
 	} else
 		return NULL;
 }
 
-static page_table_t *clone_table(page_table_t *src, u32int *physAddr) {
+static page_table_t *clone_table(page_table_t *src, uint32_t *physAddr) {
 	page_table_t *table =
 		(page_table_t *)kmalloc_ap(sizeof(page_table_t), physAddr);
 	memset(table, 0, sizeof(page_table_t));
@@ -217,7 +219,7 @@ static page_table_t *clone_table(page_table_t *src, u32int *physAddr) {
 }
 
 page_directory_t *clone_directory(page_directory_t *src) {
-	u32int phys;
+	uint32_t phys;
 	page_directory_t *dir =
 		(page_directory_t *)kmalloc_ap(sizeof(page_directory_t), &phys);
 	memset(dir, 0, sizeof(page_directory_t));
@@ -232,7 +234,7 @@ page_directory_t *clone_directory(page_directory_t *src) {
 				dir->tables[i] = src->tables[i];
 				dir->tables_phys[i] = src->tables_phys[i];
 			} else {
-				u32int phys;
+				uint32_t phys;
 				dir->tables[i] = clone_table(src->tables[i], &phys);
 				dir->tables_phys[i].present = 1;
 				dir->tables_phys[i].rw = 1;

@@ -23,16 +23,16 @@
 #include <common.h>
 
 typedef struct page {
-	u32int present	: 1;	// Present in memory
-	u32int rw		: 1;	// Read-write if set
-	u32int user		: 1;	// User-accessible
-	u32int unused	: 2;
-	u32int accessed	: 1;	// Has it been accessed since refresh?
-	u32int dirty	: 1;	// Has it been written to since refresh?
-	u32int zero		: 1;
-	u32int global	: 1;	// Not updated in TLB upon CR3 refresh
-	u32int avail	: 3;	// Available for kernel use
-	u32int frame	: 20;	// Frame pointer >> 12
+	uint32_t present	: 1;	// Present in memory
+	uint32_t rw		: 1;	// Read-write if set
+	uint32_t user		: 1;	// User-accessible
+	uint32_t unused	: 2;
+	uint32_t accessed	: 1;	// Has it been accessed since refresh?
+	uint32_t dirty	: 1;	// Has it been written to since refresh?
+	uint32_t zero		: 1;
+	uint32_t global	: 1;	// Not updated in TLB upon CR3 refresh
+	uint32_t avail	: 3;	// Available for kernel use
+	uint32_t frame	: 20;	// Frame pointer >> 12
 } page_t;
 
 typedef struct page_table {
@@ -40,16 +40,16 @@ typedef struct page_table {
 } page_table_t;
 
 typedef struct page_directory_entry {
-	u32int present	: 1;	// Present in memory
-	u32int rw		: 1;	// Read-write
-	u32int user		: 1;	// User-accessible
-	u32int unused	: 2;
-	u32int accessed	: 1;	// Accessed since last refresh?
-	u32int dirty	: 1;	// Written to since last refresh (4Mb only)
-	u32int size		: 1;	// 4kB if unset, 4MB if set
-	u32int global	: 1;	// Global (4MB only)
-	u32int avail	: 3;	// Available for kernel use
-	u32int table	: 20;	// Table address >> 12
+	uint32_t present	: 1;	// Present in memory
+	uint32_t rw		: 1;	// Read-write
+	uint32_t user		: 1;	// User-accessible
+	uint32_t unused	: 2;
+	uint32_t accessed	: 1;	// Accessed since last refresh?
+	uint32_t dirty	: 1;	// Written to since last refresh (4Mb only)
+	uint32_t size		: 1;	// 4kB if unset, 4MB if set
+	uint32_t global	: 1;	// Global (4MB only)
+	uint32_t avail	: 3;	// Available for kernel use
+	uint32_t table	: 20;	// Table address >> 12
 } page_directory_entry_t;
 
 typedef struct page_directory {
@@ -59,16 +59,16 @@ typedef struct page_directory {
 	page_table_t *tables[1024];
 
 	// Our physical address
-	u32int physical_address;
+	uint32_t physical_address;
 } page_directory_t;
 
-void init_paging(u32int mem_end);
+void init_paging(uint32_t mem_end);
 void switch_page_dir(page_directory_t *newdir);
 void global_flush(void);
 void alloc_frame(page_t *page, int kernel, int rw, int global);
 void free_frame(page_t *page);
 // Gets specified page from dir. If make, create if not already present
-page_t *get_page(u32int address, int make, int global, page_directory_t *dir);
+page_t *get_page(uint32_t address, int make, int global, page_directory_t *dir);
 page_directory_t *clone_directory(page_directory_t *src);
 void free_dir(page_directory_t *dir);
 

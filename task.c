@@ -31,10 +31,10 @@
 #include <errno.h>
 
 // Defined in main.c
-extern u32int initial_esp;
+extern uint32_t initial_esp;
 
 // Defined in process.s
-extern u32int read_eip(void);
+extern uint32_t read_eip(void);
 
 // Defined in paging.c
 extern page_directory_t *current_dir;
@@ -42,38 +42,38 @@ extern page_directory_t *kernel_dir;
 
 volatile task_t *current_task = NULL;
 volatile task_t *ready_queue;
-u32int next_pid = 1;
+uint32_t next_pid = 1;
 
-void move_stack(void *new_stack_start, u32int size) {
-	u32int i;
+void move_stack(void *new_stack_start, uint32_t size) {
+	uint32_t i;
 	// Allocate space
-	for (i = (u32int)new_stack_start; i >= (u32int)new_stack_start - size;
+	for (i = (uint32_t)new_stack_start; i >= (uint32_t)new_stack_start - size;
 			i -= 0x1000)
 		alloc_frame(get_page(i, 1, 0, current_dir), 1, 1, 0);
 
 	// Flush TLB
 	switch_page_dir(current_dir);
 
-	u32int old_esp;
-	u32int old_ebp;
+	uint32_t old_esp;
+	uint32_t old_ebp;
 
 	asm volatile("mov %%esp, %0" : "=r" (old_esp));
 	asm volatile("mov %%ebp, %0" : "=r" (old_ebp));
 
-	off_t offset = (u32int)new_stack_start - initial_esp;
-	u32int new_esp = old_esp + offset;
-	u32int new_ebp = old_ebp + offset;
+	off_t offset = (uint32_t)new_stack_start - initial_esp;
+	uint32_t new_esp = old_esp + offset;
+	uint32_t new_ebp = old_ebp + offset;
 
 	// Copy old stack contents into new one
 	memcpy((void *)new_esp, (void *)old_esp, initial_esp - old_esp);
 
 	// Fix ebps (and hopefully not much else)
-	for (i = (u32int)new_stack_start; i > (u32int)new_stack_start - size;
+	for (i = (uint32_t)new_stack_start; i > (uint32_t)new_stack_start - size;
 			i -= 4) {
-		u32int tmp = *(u32int *)i;
+		uint32_t tmp = *(uint32_t *)i;
 		if (old_esp < tmp && tmp < initial_esp) {
 			tmp += offset;
-			u32int *tmp2 = (u32int *)i;
+			uint32_t *tmp2 = (uint32_t *)i;
 			*tmp2 = tmp;
 		}
 	}
@@ -162,11 +162,11 @@ int fork(void) {
 		task_i = task_i->next;
 	task_i->next = new_task;
 	// Entry point for new process
-	u32int esp;
-	u32int ebp;
+	uint32_t esp;
+	uint32_t ebp;
 	asm volatile("mov %%esp, %0" : "=r" (esp));
 	asm volatile("mov %%ebp, %0" : "=r" (ebp));
-	u32int eip = read_eip();
+	uint32_t eip = read_eip();
 
 	// Are we parent or child?
 	if (eip != 0x12345) {
@@ -181,8 +181,8 @@ int fork(void) {
 	}
 }
 
-void globalize_table(u32int i, page_table_t *table) {
-	u32int flags;
+void globalize_table(uint32_t i, page_table_t *table) {
+	uint32_t flags;
 	asm volatile("pushf; popl %%eax": "=a"(flags));
 	asm volatile("cli");
 	ASSERT(!(kernel_dir->tables[i]) || kernel_dir->tables[i] == table);
@@ -203,7 +203,7 @@ int getpid(void) {
 int switch_task(void) {
 	if (current_task) {
 		asm volatile("cli");
-		u32int esp, ebp, eip;
+		uint32_t esp, ebp, eip;
 		asm volatile("mov %%esp, %0" : "=r" (esp));
 		asm volatile("mov %%ebp, %0" : "=r" (ebp));
 
@@ -294,8 +294,8 @@ void exit_task(void) {
 			"ecx", "esp", "ebp", "eax");
 }
 
-void switch_user_mode(u32int entry, int argc, char **argv, char **envp,
-		u32int stack) {
+void switch_user_mode(uint32_t entry, int argc, char **argv, char **envp,
+		uint32_t stack) {
 	set_kernel_stack(current_task->esp);
 
 	// First entry on stack will be 0. Protects from page fault.
@@ -567,7 +567,7 @@ int user_read(int fd, char *buf, size_t nbytes) {
 	if (!(current_task->files[fd].file->mask & O_RDONLY))
 		return -EINVAL;
 
-	u32int ret = read_vfs(current_task->files[fd].file, buf, nbytes,
+	uint32_t ret = read_vfs(current_task->files[fd].file, buf, nbytes,
 			current_task->files[fd].off);
 	current_task->files[fd].off += ret;
 	return ret;
@@ -596,13 +596,13 @@ int user_write(int fd, const char *buf, size_t nbytes) {
 	if (!(current_task->files[fd].file->mask & O_WRONLY))
 		return -EINVAL;
 
-	u32int ret = write_vfs(current_task->files[fd].file, buf, nbytes,
+	uint32_t ret = write_vfs(current_task->files[fd].file, buf, nbytes,
 			current_task->files[fd].off);
 	current_task->files[fd].off += ret;
 	return ret;
 }
 
-static int check_flags(fs_node_t *file, u32int flags) {
+static int check_flags(fs_node_t *file, uint32_t flags) {
 	int acceptable = 1;
 
 	// Root is all powerful
@@ -634,7 +634,7 @@ static int check_flags(fs_node_t *file, u32int flags) {
 	return acceptable;
 }
 
-int user_open(const char *path, u32int flags, u32int mode) {
+int user_open(const char *path, uint32_t flags, uint32_t mode) {
 	if (!path)
 		return -EFAULT;
 
@@ -674,7 +674,7 @@ int user_close(int fd) {
 	if (!valid_fd(fd))
 		return -EBADF;
 
-	u32int ret = close_vfs(current_task->files[fd].file);
+	uint32_t ret = close_vfs(current_task->files[fd].file);
 	if (ret == 0) {
 		kfree(current_task->files[fd].file);
 		current_task->files[fd].file = NULL;
@@ -682,14 +682,14 @@ int user_close(int fd) {
 	return ret;
 }
 
-int user_ioctl(int fd, u32int request, void *ptr) {
+int user_ioctl(int fd, uint32_t request, void *ptr) {
 	if (!valid_fd(fd))
 		return -EBADF;
 
 	return ioctl_vfs(current_task->files[fd].file, request, ptr);
 }
 
-int user_mount(const char *src, const char *target, const char *fs_name, u32int flags) {
+int user_mount(const char *src, const char *target, const char *fs_name, uint32_t flags) {
 	if (current_task->euid != 0)
 		return -EPERM;
 
@@ -706,7 +706,7 @@ int user_mount(const char *src, const char *target, const char *fs_name, u32int 
 		return -EACCES;
 	}
 
-	u32int ret = mount(src_node, dest_node, fs_name, flags);
+	uint32_t ret = mount(src_node, dest_node, fs_name, flags);
 
 	if (ret != 0)
 		kfree(src_node);
@@ -715,7 +715,7 @@ int user_mount(const char *src, const char *target, const char *fs_name, u32int 
 	return ret;
 }
 
-int user_readdir(int fd, struct dirent *dirp, u32int index) {
+int user_readdir(int fd, struct dirent *dirp, uint32_t index) {
 	if (!valid_fd(fd))
 		return -EBADF;
 
@@ -748,8 +748,8 @@ int user_unlink(const char *path) {
 	return ret;
 }
 
-int sbrk(u32int inc) {
-	u32int ret = current_task->brk;
+int sbrk(uint32_t inc) {
+	uint32_t ret = current_task->brk;
 	while (current_task->brk_actual < current_task->brk + inc) {
 		current_task->brk_actual += 0x1000;
 		alloc_frame(get_page(current_task->brk_actual, 1, 0, current_dir), 0,

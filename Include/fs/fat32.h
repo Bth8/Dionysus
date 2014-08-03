@@ -55,76 +55,76 @@
 struct fat32_boot_record {
 	char jump[3];				// Jump instruction
 	char oemID[8];
-	u16int bps;					// Bytes per sector
-	u8int spc;					// Sectors per cluster
-	u16int nres;				// Number of reserved sectors
-	u8int nFAT;					// Number of file allocation tables
-	u16int rootEntries;			// # of entries in root dir, ignored in FAT32
-	u16int nsect_short;			// If 0, real value in nsect_long
-	u8int desc;
-	u16int spf_old;				// Sectors per FAT in FAT12/16
-	u16int spt;					// Sectors per track
-	u16int nheads;
-	u32int nhidden;				// Number of "hidden" sectors at the beginning
-	u32int nsect_long;
+	uint16_t bps;					// Bytes per sector
+	uint8_t spc;					// Sectors per cluster
+	uint16_t nres;				// Number of reserved sectors
+	uint8_t nFAT;					// Number of file allocation tables
+	uint16_t rootEntries;			// # of entries in root dir, ignored in FAT32
+	uint16_t nsect_short;			// If 0, real value in nsect_long
+	uint8_t desc;
+	uint16_t spf_old;				// Sectors per FAT in FAT12/16
+	uint16_t spt;					// Sectors per track
+	uint16_t nheads;
+	uint32_t nhidden;				// Number of "hidden" sectors at the beginning
+	uint32_t nsect_long;
 	// This is where things diverge from FAT12/16
-	u32int spf;					// Sectors per FAT
-	u16int flags;
-	u16int version;
-	u32int root_cluster;		// Cluster # of root dir
-	u16int fsinfo_cluster;
-	u16int backup_cluster;		// Backup boot sect
-	u8int reserved[12];
-	u8int drive;
-	u8int ntfslags;
-	u8int sig;					// Signature. Must be 0x28 or 0x29
-	u32int serial;
+	uint32_t spf;					// Sectors per FAT
+	uint16_t flags;
+	uint16_t version;
+	uint32_t root_cluster;		// Cluster # of root dir
+	uint16_t fsinfo_cluster;
+	uint16_t backup_cluster;		// Backup boot sect
+	uint8_t reserved[12];
+	uint8_t drive;
+	uint8_t ntfslags;
+	uint8_t sig;					// Signature. Must be 0x28 or 0x29
+	uint32_t serial;
 	char label[11];				// Padded with spaces
 	char id[8];					// Should be "FAT32   ", but don't trust it
 	/* These are both present in the actual structure, but aren't needed and
 	 * make our representation here way too big
 
-	u8int code[420];
-	u8int bootable[2];			// 0x55, 0xAA
+	uint8_t code[420];
+	uint8_t bootable[2];			// 0x55, 0xAA
 	*/
 
 	// We add these in
 	struct fat32_inode *inode_list;
-	u8int lock;
+	uint8_t lock;
 } __attribute__((packed));
 
 struct fat32_dirent {
 	unsigned char name_short[11];
-	u8int attr;
-	u8int res_nt;				// Reserved for Windows NT use
-	u8int tenths;				// Creation time in tenths of second
-	u16int create_time;			// hhhhh mmmmmm sssss
-	u16int create_date;			// yyyyyyy mmmm ddddd
-	u16int last_access;			// Same format as create
-	u16int cluster_high;
-	u16int mod_time;
-	u16int mod_date;
-	u16int cluster_low;
-	u32int size;
+	uint8_t attr;
+	uint8_t res_nt;				// Reserved for Windows NT use
+	uint8_t tenths;				// Creation time in tenths of second
+	uint16_t create_time;			// hhhhh mmmmmm sssss
+	uint16_t create_date;			// yyyyyyy mmmm ddddd
+	uint16_t last_access;			// Same format as create
+	uint16_t cluster_high;
+	uint16_t mod_time;
+	uint16_t mod_date;
+	uint16_t cluster_low;
+	uint32_t size;
 } __attribute__((packed));
 
 struct fat32_long_name {
-	u8int seq;
+	uint8_t seq;
 	char name0[10];				// First 5 chars. Actually wchars
-	u8int attr;					// always FAT32_LONG_NAME
-	u8int type;					// zero for name entries
-	u8int checksum;
+	uint8_t attr;					// always FAT32_LONG_NAME
+	uint8_t type;					// zero for name entries
+	uint8_t checksum;
 	char name1[12];
-	u16int zero;
+	uint16_t zero;
 	char name2[4];
 } __attribute__((packed));
 
 struct fat32_inode {
-	u32int first_cluster;
-	u32int parent_first_cluster;
+	uint32_t first_cluster;
+	uint32_t parent_first_cluster;
 	off_t disk_off;
-	u16int dirent_cluster;
-	u16int dirent_index;
+	uint16_t dirent_cluster;
+	uint16_t dirent_index;
 	struct fat32_inode *next;
 };
 

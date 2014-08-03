@@ -52,68 +52,68 @@
 
 
 typedef struct gdt_entry_struct {
-	u16int seg_limit_low; // Lower 16 bits of the limit
-	u16int base_low; // Lower 16 bits of the base
-	u8int base_mid; // Middle 8 bits of the base
-	u32int seg_type : 4; // Read Intel documentation
-	u32int desc_type : 1; // System if 0, code/data if 1
-	u32int priv : 2;
-	u32int present : 1;
-	u32int seg_limit_high : 4;
-	u32int avail : 1; // Whatever
-	u32int reserved : 1;
-	u32int DB : 1; // Changes depending on type
-	u32int granularity : 1; // Limit can measure in increments of 1B to 4kiB
-	u8int	base_high; // High 8 bits of the base
+	uint16_t seg_limit_low; // Lower 16 bits of the limit
+	uint16_t base_low; // Lower 16 bits of the base
+	uint8_t base_mid; // Middle 8 bits of the base
+	uint32_t seg_type : 4; // Read Intel documentation
+	uint32_t desc_type : 1; // System if 0, code/data if 1
+	uint32_t priv : 2;
+	uint32_t present : 1;
+	uint32_t seg_limit_high : 4;
+	uint32_t avail : 1; // Whatever
+	uint32_t reserved : 1;
+	uint32_t DB : 1; // Changes depending on type
+	uint32_t granularity : 1; // Limit can measure in increments of 1B to 4kiB
+	uint8_t	base_high; // High 8 bits of the base
 } __attribute__((packed)) gdt_entry_t;
 
 typedef struct gdt_ptr_struct {
-	u16int	offset; // Offset of last entry in table
-	u32int	base; // First entry in table
+	uint16_t	offset; // Offset of last entry in table
+	uint32_t	base; // First entry in table
 } __attribute__((packed)) gdt_ptr_t;
 
 typedef struct tss_entry_struct {
-	u16int prev_tss; // Prev TSS. If we were hardware switching, this would
+	uint16_t prev_tss; // Prev TSS. If we were hardware switching, this would
 					 // help form a linked list
-	u16int res0;
-	u32int esp0; // Stack pointer for kernel mode
-	u16int ss0; // Stack segment for kernel mode
-	u16int res1;
-	u32int esp1; // These are unused...
-	u16int ss1;
-	u16int res2;
-	u32int esp2;
-	u16int ss2;
-	u16int res3;
-	u32int cr3;
-	u32int eip;
-	u32int eflags;
-	u32int eax;
-	u32int ecx;
-	u32int edx;
-	u32int ebx;
-	u32int esp;
-	u32int ebp;
-	u32int esi;
-	u32int edi;
-	u16int es; // Segments for kernel mode
-	u16int res4;
-	u16int cs;
-	u16int res5;
-	u16int ss;
-	u16int res6;
-	u16int ds;
-	u16int res7;
-	u16int fs;
-	u16int res8;
-	u16int gs;
-	u16int res9;
-	u16int ldt; // Unused...
-	u32int res10;
-	u16int iomap_base;
+	uint16_t res0;
+	uint32_t esp0; // Stack pointer for kernel mode
+	uint16_t ss0; // Stack segment for kernel mode
+	uint16_t res1;
+	uint32_t esp1; // These are unused...
+	uint16_t ss1;
+	uint16_t res2;
+	uint32_t esp2;
+	uint16_t ss2;
+	uint16_t res3;
+	uint32_t cr3;
+	uint32_t eip;
+	uint32_t eflags;
+	uint32_t eax;
+	uint32_t ecx;
+	uint32_t edx;
+	uint32_t ebx;
+	uint32_t esp;
+	uint32_t ebp;
+	uint32_t esi;
+	uint32_t edi;
+	uint16_t es; // Segments for kernel mode
+	uint16_t res4;
+	uint16_t cs;
+	uint16_t res5;
+	uint16_t ss;
+	uint16_t res6;
+	uint16_t ds;
+	uint16_t res7;
+	uint16_t fs;
+	uint16_t res8;
+	uint16_t gs;
+	uint16_t res9;
+	uint16_t ldt; // Unused...
+	uint32_t res10;
+	uint16_t iomap_base;
 } __attribute__((packed)) tss_entry_t;
 
 void init_gdt(void);
-void set_kernel_stack(u32int esp0);
+void set_kernel_stack(uint32_t esp0);
 
 #endif /* GDT_H */

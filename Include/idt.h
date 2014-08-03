@@ -72,30 +72,30 @@
 #define IDT_DPL_RING3 0x60
 
 typedef struct idt_entry_struct {
-	u16int	handler_low; // Lower 16 bits of the handler address
-	u16int	selector; // Code segment selector
-	u8int	zero; // Must be zero
-	u8int	flags; // Flags. See Intel documentation
-	u16int	handler_high; // High 16 bits of the handler address
+	uint16_t	handler_low; // Lower 16 bits of the handler address
+	uint16_t	selector; // Code segment selector
+	uint8_t	zero; // Must be zero
+	uint8_t	flags; // Flags. See Intel documentation
+	uint16_t	handler_high; // High 16 bits of the handler address
 } __attribute__((packed)) idt_entry_t;
 
 typedef struct idt_ptr_struct {
-	u16int offset; // Offset (from base) of last entry in table
-	u32int base; // Address of first entry
+	uint16_t offset; // Offset (from base) of last entry in table
+	uint32_t base; // Address of first entry
 } __attribute__((packed)) idt_ptr_t;
 
 typedef struct registers {
-	u32int ds; // Data segment
-	u32int edi, esi, ebp, esp, ebx, edx, ecx, eax; // Pushed by pushad
-	u32int int_no, err_code;
-	u32int eip, cs, eflags, useresp, ss; // Pushed automatically by processor
+	uint32_t ds; // Data segment
+	uint32_t edi, esi, ebp, esp, ebx, edx, ecx, eax; // Pushed by pushad
+	uint32_t int_no, err_code;
+	uint32_t eip, cs, eflags, useresp, ss; // Pushed automatically by processor
 										 // upon interrupt
 } registers_t;
 
 typedef void (*isr_t)(registers_t*);
 
 void init_idt(void);
-void register_interrupt_handler(u8int n, isr_t handler);
+void register_interrupt_handler(uint8_t n, isr_t handler);
 
 // Interrupts. Define in interrupt.s
 extern void isr0(void);

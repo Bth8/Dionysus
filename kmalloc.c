@@ -32,18 +32,18 @@ extern page_directory_t *kernel_dir;
 extern kheap_t *kheap;
 
 // Defined in main.c
-extern u32int placement_address;
-extern u32int phys_address;
+extern uint32_t placement_address;
+extern uint32_t phys_address;
 
-u8int lock = 0;
+uint8_t lock = 0;
 
-static void *kmalloc_internal(u32int sz, int align, u32int *phys) {
+static void *kmalloc_internal(uint32_t sz, int align, uint32_t *phys) {
 	if (kheap) {
 		spin_lock(&lock);
 		void *addr = alloc(sz, align, kheap);
 		if (phys) {
-			page_t *pg = get_page((u32int) addr, 0, 0, kernel_dir);
-			*phys = pg->frame * 0x1000 + (u32int)addr % 0x1000;
+			page_t *pg = get_page((uint32_t) addr, 0, 0, kernel_dir);
+			*phys = pg->frame * 0x1000 + (uint32_t)addr % 0x1000;
 		}
 		spin_unlock(&lock);
 		return addr;
@@ -59,7 +59,7 @@ static void *kmalloc_internal(u32int sz, int align, u32int *phys) {
 	if (phys) {
 		*phys = phys_address;
 	}
-	u32int tmp = placement_address;
+	uint32_t tmp = placement_address;
 	placement_address += sz;
 	phys_address += sz;
 	return (void *)tmp;
@@ -71,18 +71,18 @@ void kfree(void *addr) {
 	spin_unlock(&lock);
 }
 
-void *kmalloc(u32int sz) {
+void *kmalloc(uint32_t sz) {
 	return (void *)kmalloc_internal(sz, 0, NULL);
 }
 
-void *kmalloc_a(u32int sz) {
+void *kmalloc_a(uint32_t sz) {
 	return (void *)kmalloc_internal(sz, 1, NULL);
 }
 
-void *kmalloc_p(u32int sz, u32int *phys) {
+void *kmalloc_p(uint32_t sz, uint32_t *phys) {
 	return (void *)kmalloc_internal(sz, 0, phys);
 }
 
-void *kmalloc_ap(u32int sz, u32int *phys) {
+void *kmalloc_ap(uint32_t sz, uint32_t *phys) {
 	return (void *)kmalloc_internal(sz, 1, phys);
 }

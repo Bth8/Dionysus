@@ -37,7 +37,7 @@
 #include <time.h>
 #include <dev.h>
 
-static struct superblock *return_sb(u32int flags, fs_node_t *dev);
+static struct superblock *return_sb(uint32_t flags, fs_node_t *dev);
 struct file_system_type fat32 = {
 	"fat32",
 	0,
@@ -45,12 +45,12 @@ struct file_system_type fat32 = {
 	NULL
 };
 
-static int open(fs_node_t *file, u32int flags);
+static int open(fs_node_t *file, uint32_t flags);
 static int close(fs_node_t *file);
-static u32int read(fs_node_t *file, void *buff, size_t count, off_t off);
-static u32int write(fs_node_t *file, const void *buff, size_t count,
+static uint32_t read(fs_node_t *file, void *buff, size_t count, off_t off);
+static uint32_t write(fs_node_t *file, const void *buff, size_t count,
 		off_t off);
-static int readdir(fs_node_t *file, struct dirent *dirp, u32int index);
+static int readdir(fs_node_t *file, struct dirent *dirp, uint32_t index);
 static fs_node_t *finddir(fs_node_t *file, const char *name);
 static int stat(fs_node_t *file, struct stat *buff);
 struct file_ops fat32_ops = {
@@ -63,8 +63,8 @@ struct file_ops fat32_ops = {
 	.stat = stat,
 };
 
-static u32int fat32_attr_to_vfs(u32int attr) {
-	u32int ret = 0;
+static uint32_t fat32_attr_to_vfs(uint32_t attr) {
+	uint32_t ret = 0;
 
 	if (attr & FAT32_DIR)
 		ret |= VFS_DIR;
@@ -74,7 +74,7 @@ static u32int fat32_attr_to_vfs(u32int attr) {
 	return ret;
 }
 
-static struct superblock *return_sb(u32int flags, fs_node_t *dev) {
+static struct superblock *return_sb(uint32_t flags, fs_node_t *dev) {
 	struct fat32_boot_record *sb =
 		(struct fat32_boot_record*)kmalloc(sizeof(struct fat32_boot_record));
 	if (sb == NULL)
@@ -126,37 +126,37 @@ error:
 	return NULL;
 }
 
-static u32int read_cluster(struct superblock *sb, void *buff,
-		u32int cluster) {
+static uint32_t read_cluster(struct superblock *sb, void *buff,
+		uint32_t cluster) {
 	// For the root dir
 	if (cluster == 0)
 		cluster = 2;
 	struct fat32_boot_record *bpb =
 		(struct fat32_boot_record*)sb->private_data;
-	u32int first_data_sect = bpb->nres + (bpb->nFAT * bpb->spf);
-	u32int cluster_sect = first_data_sect + ((cluster - 2) * bpb->spc);
+	uint32_t first_data_sect = bpb->nres + (bpb->nFAT * bpb->spf);
+	uint32_t cluster_sect = first_data_sect + ((cluster - 2) * bpb->spc);
 	off_t off = cluster_sect * bpb->bps;
 
 	return read_vfs(sb->dev, buff, bpb->spc * bpb->bps, off) ==
 		bpb->spc * bpb->bps;
 }
 
-static u32int write_cluster(struct superblock *sb, void *buff,
-		u32int cluster) {
+static uint32_t write_cluster(struct superblock *sb, void *buff,
+		uint32_t cluster) {
 	if (cluster == 0)
 		cluster = 2;
 	struct fat32_boot_record *bpb =
 		(struct fat32_boot_record*)sb->private_data;
-	u32int first_data_sect = bpb->nres + (bpb->nFAT * bpb->spf);
-	u32int cluster_sect = first_data_sect + ((cluster - 2) * bpb->spc);
+	uint32_t first_data_sect = bpb->nres + (bpb->nFAT * bpb->spf);
+	uint32_t cluster_sect = first_data_sect + ((cluster - 2) * bpb->spc);
 	off_t off = cluster_sect * bpb->bps;
 
 	return write_vfs(sb->dev, buff, bpb->spc * bpb->bps, off) ==
 		bpb->spc * bpb->bps;
 }
 
-static u32int follow_cluster_chain(struct superblock *sb, u32int cluster0,
-		u32int depth) {
+static uint32_t follow_cluster_chain(struct superblock *sb, uint32_t cluster0,
+		uint32_t depth) {
 	// Just expedite the process a bit
 	if (depth == 0)
 		return cluster0;
@@ -165,17 +165,17 @@ static u32int follow_cluster_chain(struct superblock *sb, u32int cluster0,
 
 	struct fat32_boot_record *bpb =
 		(struct fat32_boot_record *)sb->private_data;
-	u32int *FAT = (u32int *)kmalloc(bpb->spf * bpb->bps);
+	uint32_t *FAT = (uint32_t *)kmalloc(bpb->spf * bpb->bps);
 	if (FAT == NULL)
 		return 0;
 
 	off_t off = (bpb->nres +
-			(cluster0 / (bpb->spf * bpb->bps / sizeof(u32int))) * bpb->spf) *
+			(cluster0 / (bpb->spf * bpb->bps / sizeof(uint32_t))) * bpb->spf) *
 		bpb->bps;
 	read_vfs(sb->dev, FAT, bpb->spf * bpb->bps, off);
 
-	u32int fat_index = cluster0 % (bpb->spf * bpb->bps / sizeof(u32int));
-	u32int fat_offset = cluster0 - fat_index;
+	uint32_t fat_index = cluster0 % (bpb->spf * bpb->bps / sizeof(uint32_t));
+	uint32_t fat_offset = cluster0 - fat_index;
 
 	for (; depth > 0; depth--) {
 		fat_index = (FAT[fat_index] & 0x0FFFFFFF) - fat_offset;
@@ -184,7 +184,7 @@ static u32int follow_cluster_chain(struct superblock *sb, u32int cluster0,
 			kfree(FAT);
 			return 0;
 		}
-		if (fat_index * sizeof(u32int) > bpb->spf * bpb->bps) {
+		if (fat_index * sizeof(uint32_t) > bpb->spf * bpb->bps) {
 			off += bpb->spf * bpb->bps;
 			read_vfs(sb->dev, FAT, bpb->spf * bpb->bps, off);
 			fat_offset += fat_index;
@@ -196,29 +196,29 @@ static u32int follow_cluster_chain(struct superblock *sb, u32int cluster0,
 	return fat_index + fat_offset;
 }
 
-static u32int alloc_clusters(struct superblock *sb, u32int chain_start,
-		u32int nclusters) {
+static uint32_t alloc_clusters(struct superblock *sb, uint32_t chain_start,
+		uint32_t nclusters) {
 	chain_start &= 0x0FFFFFFF;
 
 	struct fat32_boot_record *bpb =
 		(struct fat32_boot_record*)sb->private_data;
-	u32int *FAT = (u32int *)kmalloc(bpb->spf * bpb->bps);
+	uint32_t *FAT = (uint32_t *)kmalloc(bpb->spf * bpb->bps);
 	if (FAT == NULL)
 		return 0;
 
 	off_t off = (bpb->nres +
-			(chain_start / (bpb->spf * bpb->bps / sizeof(u32int))) *
+			(chain_start / (bpb->spf * bpb->bps / sizeof(uint32_t))) *
 			bpb->spf) * bpb->bps;
 	read_vfs(sb->dev, FAT, bpb->spf * bpb->bps, off);
 
-	u32int fat_index = chain_start % (bpb->spf * bpb->bps / sizeof(u32int));
-	u32int fat_offset = chain_start - fat_index;
+	uint32_t fat_index = chain_start % (bpb->spf * bpb->bps / sizeof(uint32_t));
+	uint32_t fat_offset = chain_start - fat_index;
 
 	// Allocate a block without any parents
 	if (chain_start == 0) {
 		for (fat_index = 2; FAT[fat_index] != 0;
 				fat_index = (FAT[fat_index] & 0x0FFFFFFF) - fat_offset) {
-			if (fat_index * sizeof(u32int) >= bpb->spf * bpb->bps) {
+			if (fat_index * sizeof(uint32_t) >= bpb->spf * bpb->bps) {
 				if ((fat_index + fat_offset) * bpb->spc > bpb->nsect_long) {
 					kfree(FAT);
 					return 0xFFFFFFFF;
@@ -238,7 +238,7 @@ static u32int alloc_clusters(struct superblock *sb, u32int chain_start,
 	// Seek index to end of current chain
 	for (; FAT[fat_index] < FAT32_LAST_CLUSTER;
 			fat_index = (FAT[fat_index] & 0x0FFFFFFF) - fat_offset) {
-		if (fat_index * sizeof(u32int) >= bpb->spf * bpb->bps) {
+		if (fat_index * sizeof(uint32_t) >= bpb->spf * bpb->bps) {
 			off += bpb->spf * bpb->bps;
 			read_vfs(sb->dev, FAT, bpb->spf * bpb->bps, off);
 			fat_offset += fat_index;
@@ -249,13 +249,13 @@ static u32int alloc_clusters(struct superblock *sb, u32int chain_start,
 		}
 	}
 
-	u32int search_index = 0;
-	u32int nalloc = 0;
+	uint32_t search_index = 0;
+	uint32_t nalloc = 0;
 	for (; nclusters > 0; nclusters--) {
 		// Get first empty cluster
 		while ((FAT[search_index] & 0x0FFFFFFF) != 0) {
 			// We've passed the end of the FAT. Shit just got difficult
-			if (++search_index * sizeof(u32int) >= bpb->spf * bpb->bps) {
+			if (++search_index * sizeof(uint32_t) >= bpb->spf * bpb->bps) {
 				// We're not actually going to handle this. Fuck it.
 				write_vfs(sb->dev, FAT, bpb->spf * bpb->bps, off);
 				kfree(FAT);
@@ -293,15 +293,15 @@ static int update_dirent(fs_node_t *file) {
 		time_t cur_time = time(NULL);
 		struct tm *time = gmtime(&cur_time);
 
-		our_entry->mod_time = (u16int)(time->tm_hour << 11);
-		our_entry->mod_time |= (u16int)((time->tm_min & 0x3F) << 5);
-		our_entry->mod_time |= (u16int)(time->tm_sec & 0x1F);
+		our_entry->mod_time = (uint16_t)(time->tm_hour << 11);
+		our_entry->mod_time |= (uint16_t)((time->tm_min & 0x3F) << 5);
+		our_entry->mod_time |= (uint16_t)(time->tm_sec & 0x1F);
 
-		our_entry->mod_date = (u16int)((time->tm_year - 80) << 9);
-		our_entry->mod_date |= (u16int)(((time->tm_mon + 1) & 0x3F) << 5);
-		our_entry->mod_date |= (u16int)(time->tm_mday & 0x1F);
+		our_entry->mod_date = (uint16_t)((time->tm_year - 80) << 9);
+		our_entry->mod_date |= (uint16_t)(((time->tm_mon + 1) & 0x3F) << 5);
+		our_entry->mod_date |= (uint16_t)(time->tm_mday & 0x1F);
 
-		our_entry->size = (u32int)file->len;
+		our_entry->size = (uint32_t)file->len;
 
 		write_vfs(file->fs_sb->dev, our_entry, sizeof(struct fat32_dirent),
 				inode->disk_off);
@@ -310,7 +310,7 @@ static int update_dirent(fs_node_t *file) {
 	return 0;
 }
 
-static u32int read(fs_node_t *file, void *buff, size_t count, off_t off) {
+static uint32_t read(fs_node_t *file, void *buff, size_t count, off_t off) {
 	if (count == 0)
 		return 0;
 
@@ -319,7 +319,7 @@ static u32int read(fs_node_t *file, void *buff, size_t count, off_t off) {
 
 	struct fat32_boot_record *bpb =
 		(struct fat32_boot_record*)(file->fs_sb->private_data);
-	u32int cluster = 0;
+	uint32_t cluster = 0;
 
 	// Offset not in the cached cluster
 	if ((off / (bpb->spc * bpb->bps)) != FAT32_CLUSTER_NUM(file->impl)) {
@@ -371,7 +371,7 @@ static u32int read(fs_node_t *file, void *buff, size_t count, off_t off) {
 	return read;
 }
 
-static u32int write(fs_node_t *file, const void *buff, size_t count,
+static uint32_t write(fs_node_t *file, const void *buff, size_t count,
 		off_t off) {
 	if (count == 0)
 		return 0;
@@ -381,11 +381,11 @@ static u32int write(fs_node_t *file, const void *buff, size_t count,
 
 	if (count + off >= file->len) {
 		size_t delta = count + off - file->len;
-		u32int nclusters = delta / (bpb->spc * bpb->bps);
+		uint32_t nclusters = delta / (bpb->spc * bpb->bps);
 		if (delta % (bpb->spc * bpb->bps) != 0)
 			nclusters++;
 		if (nclusters > 0) {
-			u32int nalloc = alloc_clusters(file->fs_sb, file->inode,
+			uint32_t nalloc = alloc_clusters(file->fs_sb, file->inode,
 					nclusters);
 			if (nalloc < nclusters)
 				file->len += nclusters * bpb->spc * bpb->bps;
@@ -395,7 +395,7 @@ static u32int write(fs_node_t *file, const void *buff, size_t count,
 			file->len = off + count;
 	}
 
-	u32int cluster = 0;
+	uint32_t cluster = 0;
 
 	// Offset not in the cached cluster
 	if ((off / (bpb->spc * bpb->bps)) != FAT32_CLUSTER_NUM(file->impl)) {
@@ -458,7 +458,7 @@ static u32int write(fs_node_t *file, const void *buff, size_t count,
 	return written;
 }
 
-static int open(fs_node_t *file, u32int flags) {
+static int open(fs_node_t *file, uint32_t flags) {
 	if (!(flags & O_RDONLY))
 		file->mask &= ~(VFS_O_READ | VFS_G_READ | VFS_U_READ);
 	if (!(flags & O_WRONLY))
@@ -484,10 +484,10 @@ static int open(fs_node_t *file, u32int flags) {
 		inode->dirent_index = file->impl >> 16;
 		inode->next = NULL;
 
-		u32int cluster = follow_cluster_chain(file->fs_sb,
+		uint32_t cluster = follow_cluster_chain(file->fs_sb,
 				inode->parent_first_cluster, inode->dirent_cluster);
-		u32int first_data_sect = bpb->nres + (bpb->nFAT * bpb->spf);
-		u32int cluster_sect = first_data_sect + ((cluster - 2) * bpb->spc);
+		uint32_t first_data_sect = bpb->nres + (bpb->nFAT * bpb->spf);
+		uint32_t cluster_sect = first_data_sect + ((cluster - 2) * bpb->spc);
 		inode->disk_off = cluster_sect * bpb->bps +
 			inode->dirent_index * sizeof(struct fat32_dirent);
 
@@ -518,7 +518,7 @@ static int open(fs_node_t *file, u32int flags) {
 
 static int close(fs_node_t *file) {
 	if (FAT32_CHECK_DIRTY(file->impl)) {
-		u32int cluster = follow_cluster_chain(file->fs_sb, file->inode,
+		uint32_t cluster = follow_cluster_chain(file->fs_sb, file->inode,
 				FAT32_CLUSTER_NUM(file->impl));
 		write_cluster(file->fs_sb, file->private_data, cluster);
 		update_dirent(file);
@@ -550,15 +550,15 @@ static int close(fs_node_t *file) {
 	return 0;
 }
 
-static int get_name(fs_node_t *file, u32int entry, char *buff) {
+static int get_name(fs_node_t *file, uint32_t entry, char *buff) {
 	struct fat32_long_name *entries =
 		(struct fat32_long_name*)file->private_data;
 	struct fat32_boot_record *bpb =
 		(struct fat32_boot_record*)(file->fs_sb->private_data);
 
 	if (entries[entry - 1].attr == FAT32_LONG_NAME) {
-			u32int i;
-			u32int cluster_old = 0;
+			uint32_t i;
+			uint32_t cluster_old = 0;
 			entry--;
 
 			for (; !(entries[entry].seq & FAT32_LAST_LONG); entry--) {
@@ -574,7 +574,7 @@ static int get_name(fs_node_t *file, u32int entry, char *buff) {
 				if (entry == 0) {
 					if (!cluster_old)
 						cluster_old = FAT32_DIR_GET_CL(file->impl);
-					u32int cluster;
+					uint32_t cluster;
 					if (FAT32_DIR_CHK_DIRTY(file->impl)) {
 						cluster = follow_cluster_chain(file->fs_sb,
 								file->inode, FAT32_DIR_GET_CL(file->impl));
@@ -605,18 +605,18 @@ static int get_name(fs_node_t *file, u32int entry, char *buff) {
 
 			if (cluster_old) {
 				FAT32_DIR_SET_CL(file->impl, cluster_old);
-				u32int cluster =
+				uint32_t cluster =
 					follow_cluster_chain(file->fs_sb, file->inode,
 							cluster_old);
 				read_cluster(file->fs_sb, file->private_data, cluster);
 			}
 	} else {
-		u32int nameBuff = 0;
+		uint32_t nameBuff = 0;
 		if (((struct fat32_dirent*)entries)[entry].attr & FAT32_HIDDEN) {
 			buff[0] = '.';
 			nameBuff++;
 		}
-		u32int nameEnt;
+		uint32_t nameEnt;
 		for (nameEnt = 0; nameEnt < 8 &&
 				((struct fat32_dirent*)entries)[entry].name_short[nameEnt] !=
 				0x20; nameEnt++) {
@@ -647,19 +647,19 @@ static int get_name(fs_node_t *file, u32int entry, char *buff) {
 // Args are something of a kludge...
 // Offset automatically starts at the entry offset in the dir to make
 // finddir easier
-static int find_file_ent(fs_node_t *file, u32int index, int offset) {
+static int find_file_ent(fs_node_t *file, uint32_t index, int offset) {
 	struct fat32_dirent *entries = (struct fat32_dirent*)file->private_data;
 	struct fat32_boot_record *bpb =
 		(struct fat32_boot_record*)(file->fs_sb->private_data);
 	index -= FAT32_DIR_GET_ENT(file->impl);
 
-	u32int i = 0;
+	uint32_t i = 0;
 	// Probably a simpler way to do this, but this is how imma roll
 	// Locate the entry.
 	while (1) {
 		// We've passed the end of the current cluster
 		if (offset * sizeof(struct fat32_dirent) > bpb->spc * bpb->bps) {
-			u32int cluster;
+			uint32_t cluster;
 			if (FAT32_DIR_CHK_DIRTY(file->impl)) {
 				cluster = follow_cluster_chain(file->fs_sb, file->inode,
 						FAT32_DIR_GET_CL(file->impl));
@@ -689,7 +689,7 @@ static int find_file_ent(fs_node_t *file, u32int index, int offset) {
 	return offset;
 }
 
-static int readdir(fs_node_t *file, struct dirent *dirp, u32int index) {
+static int readdir(fs_node_t *file, struct dirent *dirp, uint32_t index) {
 	struct fat32_dirent *entries = (struct fat32_dirent*)file->private_data;
 
 	// Offset is always 0 since we want to start from the beginning of

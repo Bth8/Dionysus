@@ -54,13 +54,13 @@ char shiftmap[128] =
 	'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?', 0, 0, 0, ' '};
 
 int caps_stat = 0, shift_stat = 0, alt_stat = 0, ctrl_stat = 0;
-u8int leds = 0;
+uint8_t leds = 0;
 char inbuf[BUFSIZE];
 char *readbufpos = inbuf;
 char *writebufpos = inbuf;
 int echo = 1;
 
-static void update_leds(u8int stat) {
+static void update_leds(uint8_t stat) {
 	// Spin until keyboard buffer is 0
 	while (inb(0x64) & 2) {}
 	outb(0x60, 0xED);
@@ -72,7 +72,7 @@ static void update_leds(u8int stat) {
 static void kbd_isr(registers_t *regs) {
 	regs = regs;
 	char trans_code;
-	u8int scode = inb(0x60), oldleds = leds;
+	uint8_t scode = inb(0x60), oldleds = leds;
 
 	if (scode & 0x80) { // Key released
 		// Get base key
@@ -135,13 +135,13 @@ static void kbd_isr(registers_t *regs) {
 		update_leds(leds);
 }
 
-static u32int read(struct fs_node *node, void *dest, size_t count,
+static uint32_t read(struct fs_node *node, void *dest, size_t count,
 		off_t off) {
 	// Block if we're up to date
 	while (readbufpos == writebufpos)
 		sleep_thread();
 
-	u32int i;
+	uint32_t i;
 	for (i = 0; i < count; i++) {
 		// Block if we don't have enough
 		while (readbufpos == writebufpos)
@@ -154,23 +154,23 @@ static u32int read(struct fs_node *node, void *dest, size_t count,
 	return i;
 }
 
-static u32int write(struct fs_node *node, const void *src, size_t count,
+static uint32_t write(struct fs_node *node, const void *src, size_t count,
 		off_t off) {
 	node = node;
 	off = off;
-	u32int i;
+	uint32_t i;
 	for (i = 0; i < count; i++)
 		monitor_put(*(char *)src++);
 
 	return i;
 }
 
-static s32int open(struct fs_node *node, u32int flags) {
+static int open(struct fs_node *node, uint32_t flags) {
 	node->mask = (flags & O_RDWR);
 	return 0;
 }
 
-static s32int ioctl(struct fs_node *node, u32int req, void *ptr) {
+static int32_t ioctl(struct fs_node *node, uint32_t req, void *ptr) {
 	node = node;
 	int ret;
 	switch (req) {
@@ -191,7 +191,7 @@ static s32int ioctl(struct fs_node *node, u32int req, void *ptr) {
 	return ret;
 }
 
-static s32int stat(struct fs_node *node, struct stat *buff) {
+static int stat(struct fs_node *node, struct stat *buff) {
 	buff->st_dev = node->impl;
 	buff->st_ino = node->inode;
 	buff->st_mode = node->mask;

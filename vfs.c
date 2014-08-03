@@ -30,9 +30,9 @@ fs_node_t *vfs_root = NULL;
 struct file_system_type *fs_types = NULL;
 
 fs_node_t mnt_pts[MAX_MNT_PTS];
-u32int nmnts = 0;
+uint32_t nmnts = 0;
 
-u32int read_vfs(fs_node_t *node, void *buf, size_t count, off_t off) {
+uint32_t read_vfs(fs_node_t *node, void *buf, size_t count, off_t off) {
 	if (!node)
 		return 0;
 	if (node->flags & VFS_DIR)
@@ -43,7 +43,7 @@ u32int read_vfs(fs_node_t *node, void *buf, size_t count, off_t off) {
 		return 0;
 }
 
-u32int write_vfs(fs_node_t *node, const void *buf, size_t count, off_t off) {
+uint32_t write_vfs(fs_node_t *node, const void *buf, size_t count, off_t off) {
 	if (!node)
 		return 0;
 	if (node->flags & VFS_DIR)
@@ -57,7 +57,7 @@ u32int write_vfs(fs_node_t *node, const void *buf, size_t count, off_t off) {
 // Determines if the fs node passed to it is a mountpoint
 // Returns the root if it is
 static fs_node_t *get_mnt(fs_node_t *node) {
-	u32int i;
+	uint32_t i;
 	for (i = 0; i < nmnts; i++) {
 		if (node->fs_sb != mnt_pts[i].fs_sb)
 			continue;
@@ -71,7 +71,7 @@ static fs_node_t *get_mnt(fs_node_t *node) {
 	return node;
 }
 
-int open_vfs(fs_node_t *node, u32int flags) {
+int open_vfs(fs_node_t *node, uint32_t flags) {
 	if (!node)
 		return -1;
 	fs_node_t *mnt = get_mnt(node);
@@ -94,7 +94,7 @@ int close_vfs(fs_node_t *node) {
 	return 0;
 }
 
-int readdir_vfs(fs_node_t *node, struct dirent *dirp, u32int index) {
+int readdir_vfs(fs_node_t *node, struct dirent *dirp, uint32_t index) {
 	if (!node)
 		return -1;
 	if (!(node->flags & VFS_DIR))
@@ -129,7 +129,7 @@ int stat_vfs(fs_node_t *node, struct stat *buff) {
 		return -EACCES;
 }
 
-s32int ioctl_vfs(fs_node_t *node, u32int request, void *ptr) {
+int32_t ioctl_vfs(fs_node_t *node, uint32_t request, void *ptr) {
 	if (!node)
 		return -1;
 	if (!(node->flags & VFS_CHARDEV) && !(node->flags & VFS_BLOCKDEV))
@@ -152,7 +152,7 @@ int unlink_vfs(struct fs_node *node) {
 	return -EACCES;
 }
 
-s32int register_fs(struct file_system_type *fs) {
+int32_t register_fs(struct file_system_type *fs) {
 	struct file_system_type *fsi = fs_types;
 	fs->next = NULL;
 	if (fsi == NULL) {
@@ -168,8 +168,8 @@ s32int register_fs(struct file_system_type *fs) {
 }
 
 // TODO: Return error codes slightly more useful than -1
-s32int mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name,
-		u32int flags) {
+int32_t mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name,
+		uint32_t flags) {
 	struct file_system_type *fsi = fs_types;
 	struct superblock *sb = NULL;
 	if (dest == NULL) {
@@ -239,7 +239,7 @@ fs_node_t *get_path(const char *path) {
 	off = path_cpy + 1;
 	fs_node_t *cur_node = (fs_node_t *)kmalloc(sizeof(fs_node_t));
 	memcpy(cur_node, vfs_root, sizeof(fs_node_t));
-	u32int opened = open_vfs(cur_node, O_RDONLY);
+	uint32_t opened = open_vfs(cur_node, O_RDONLY);
 	fs_node_t *next_node;
 	int i;
 	for (i = 0; i < depth; i++) {
@@ -267,7 +267,7 @@ fs_node_t *get_path(const char *path) {
 	return NULL;
 }
 
-fs_node_t *create_vfs(const char *path, u32int uid, u32int gid, u32int mode) {
+fs_node_t *create_vfs(const char *path, uint32_t uid, uint32_t gid, uint32_t mode) {
 	if (!path || path[0] != '/')
 		return NULL;
 

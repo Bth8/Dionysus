@@ -27,11 +27,11 @@
 
 #define EI_NIDENT	16
 
-typedef u32int Elf32_Addr;
-typedef u16int Elf32_Half;
-typedef u32int Elf32_Off;
-typedef u32int Elf32_Sword;
-typedef u32int Elf32_Word;
+typedef uint32_t Elf32_Addr;
+typedef uint16_t Elf32_Half;
+typedef uint32_t Elf32_Off;
+typedef uint32_t Elf32_Sword;
+typedef uint32_t Elf32_Word;
 
 typedef struct {
 	unsigned char	e_ident[EI_NIDENT];

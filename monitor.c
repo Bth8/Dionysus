@@ -22,15 +22,15 @@
 #include <monitor.h>
 #include <string.h>
 
-u8int attrByte = (BLACK << 4) | (WHITE & 0x0F), cursor_x = 0, cursor_y = 0;
-u16int *vmem = (u16int *)0x0B8000;
+uint8_t attrByte = (BLACK << 4) | (WHITE & 0x0F), cursor_x = 0, cursor_y = 0;
+uint16_t *vmem = (uint16_t *)0x0B8000;
 
-void setcolor(u8int bg, u8int fg) {
+void setcolor(uint8_t bg, uint8_t fg) {
 	attrByte = (bg << 4) | (fg & 0x0F);
 }
 
 static void update_cursor(void) {
-	u16int cursorLocation = cursor_y * 80 + cursor_x;
+	uint16_t cursorLocation = cursor_y * 80 + cursor_x;
 	// Setting high cursor byte
 	outb(0x03D4, 14);
 	outb(0x03D5, cursorLocation >> 8);
@@ -39,14 +39,14 @@ static void update_cursor(void) {
 	outb(0x03D5, cursorLocation);
 }
 
-void move_cursor(u32int x, u32int y) {
+void move_cursor(uint32_t x, uint32_t y) {
 	cursor_x = x;
 	cursor_y = y;
 	update_cursor();
 }
 
 static void scroll(void) {
-	u16int blank = 0x20 | (attrByte << 8);
+	uint16_t blank = 0x20 | (attrByte << 8);
 
 	if (cursor_y > 24) {
 		int i;
@@ -63,7 +63,7 @@ static void scroll(void) {
 
 // Print 1 character
 void monitor_put(char c) {
-	u16int *location = vmem + (cursor_y*80 + cursor_x);
+	uint16_t *location = vmem + (cursor_y*80 + cursor_x);
 
 	// Backspace
 	if (c == 0x08 && (cursor_x | cursor_y)) {
@@ -104,7 +104,7 @@ void monitor_put(char c) {
 }
 
 void monitor_clear(void) {
-	u16int blank = 0x20 | (attrByte << 8);
+	uint16_t blank = 0x20 | (attrByte << 8);
 
 	int i;
 	for (i = 0; i < 80*25; i++)
