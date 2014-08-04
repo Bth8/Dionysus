@@ -26,6 +26,8 @@ strlen:
 	xor al, al
 	xor ecx, ecx
 
+	cld
+
 .check:
 	scasb
 	je .end
@@ -44,6 +46,8 @@ memset:
 	mov al, [esp + 12] ; Value
 	mov ecx, [esp + 16] ; Number of bytes to fill
 
+	cld
+
 	rep stosb
 
 	pop edi
@@ -58,10 +62,65 @@ memcpy:
 	mov esi, [esp + 16]
 	mov ecx, [esp + 20]
 
+	cld
+
 	rep movsb
 
 	pop esi
 	pop edi
+	ret
+
+global memmove
+memmove:
+	push edi
+	push esi
+
+	mov edi, [esp + 12]
+	mov esi, [esp + 16]
+	mov ecx, [esp + 20]
+	
+	cld
+
+	cmp edi, esi
+	jnl .move
+	std
+	add esi, ecx
+	dec esi
+	add edi, ecx
+	dec esi
+.move:
+	rep movsb
+
+	mov eax, [esp + 12]
+	pop esi
+	pop edi
+	ret
+
+global memcmp
+memcmp:
+	push edi
+	push esi
+
+	mov edi, [esp + 12]
+	mov esi, [esp + 16]
+	mov ecx, [esp + 20]
+
+	cld
+
+	repe cmpsb
+
+	pop esi
+	pop edi
+	
+	ja .greater
+	jb .less
+	xor eax, eax
+	ret
+.greater:
+	mov eax, 1
+	ret
+.less:
+	mov eax, -1
 	ret
 
 global strcpy
@@ -71,18 +130,16 @@ strcpy:
 
 	mov edi, [esp + 12]
 	mov esi, [esp + 16]
-	xor al, al
-	xor ecx, ecx
 
 	push esi
 	call strlen
-	pop esi
+	add esp, 4
 	inc eax
 
 	push eax
 	push esi
 	push edi
-	call strncpy
+	call memcpy
 	add esp, 12
 
 	pop esi
@@ -98,8 +155,38 @@ strncpy:
 	mov esi, [esp + 16]
 	mov ecx, [esp + 20]
 
+	push esi
+	call strlen
+	pop esi
+	inc eax
+
+	cmp ecx, eax
+	jge .greater
+
+	push eax
+	push esi
+	push edi
+	call memcpy
+	add esp, 12
+	add edi, eax
+
+	sub ecx, eax
+	push ecx
+	push 0
+	push edi
+	call memset
+	jmp .end
+
+.greater:
+	push ecx
+	push esi
+	push edi
+	call memcpy
+	add esp, 12
+
 	rep movsb
 
+.end:
 	pop esi
 	pop edi
 	ret
@@ -109,43 +196,39 @@ strcmp:
 	push edi
 	push esi
 
-	mov esi, [esp + 12]
-	mov edi, [esp + 16]
+	mov edi, [esp + 12]
+	mov esi, [esp + 16]
 
 	push esi
 	call strlen
-	pop esi
+	add esp, 4
 
 	push eax
 	push edi
 	call strlen
-	pop edi
-	pop ecx
+	add esp, 4
+	pop edx
 
-	cmp ecx, eax
+	cmp eax, edx
 	ja .greater
-	jb .less
-
-	push ecx
-	push edi
-	push esi
-	call strncmp
-	add esp, 12
-	pop esi
-	pop edi
-	ret
+	push eax
+	jmp .call
 
 .greater:
+	push ecx
+
+.call:
+	push esi
+	push edi
+	call memcmp
+	add esp, 12
+
 	pop esi
 	pop edi
-	mov eax, 1
-	ret
-.less:
-	pop esi
-	pop edi
-	mov eax, -1
 	ret
 
+
+; Needs to be fixed
 global strncmp
 strncmp:
 	push edi

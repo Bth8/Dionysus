@@ -24,6 +24,8 @@
 uint32_t strlen(const char *buf);
 void memset(void *buf, uint8_t value, uint32_t num);
 void memcpy(void *dest, const void *src, uint32_t size);
+void *memmove(void *dest, const void *src, uint32_t size);
+int32_t memcmp(const void *buf1, const void *buf2, uint32_t size);
 void strcpy(char *dest, const char *src);
 void strncpy(char *dest, const char *src, uint32_t len);
 int32_t strcmp(const char *str1, const char *str2);
