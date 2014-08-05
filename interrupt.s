@@ -20,7 +20,6 @@
 %macro ISR_NOERRORCODE 1 ; Macro takes 1 parameter, returns dummy error code
 	global isr%1
 	isr%1:
-		cli
 		push dword 0
 		push dword %1
 		jmp isr_common_stub
@@ -29,7 +28,6 @@
 %macro ISR_ERRORCODE 1 ; Returns an error code
 	global isr%1
 	isr%1:
-		cli
 		push dword %1
 		jmp isr_common_stub
 %endmacro
@@ -85,7 +83,9 @@ isr_common_stub:
 	mov fs, ax
 	mov gs, ax
 
+	push esp
 	call isr_handler
+	add esp, 4
 
 	pop eax			; reload segment descriptor
 	mov ds, ax
@@ -95,14 +95,12 @@ isr_common_stub:
 
 	popad			; Pop eax, ecx...
 	add esp, 8		; Gets rid of pushed error code and ISR number
-	sti				; Enable interrupts
 
 	iret			; interrupt return
 
 %macro IRQ 2
   global irq%1
   irq%1:
-    cli
     push dword 0
     push dword %2
     jmp irq_common_stub
@@ -139,7 +137,9 @@ irq_common_stub:
 	mov fs, ax
 	mov gs, ax
 
+	push esp
 	call irq_handler
+	add esp, 4
 
 	pop eax			; reload segment descriptor
 	mov ds, ax
@@ -149,6 +149,5 @@ irq_common_stub:
 
 	popad			; Pop eax, ecx...
 	add esp, 8		; Gets rid of pushed error code and ISR number
-	sti				; Enable interrupts
 
 	iret			; interrupt return

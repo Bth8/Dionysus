@@ -111,8 +111,7 @@ static void expand(uint32_t new_size, kheap_t *heap) {
 	uint32_t i;
 	for (i = heap->end_address - heap->start_address; i < new_size;
 			i += 0x1000) {
-		void *address = get_page(heap->start_address + i, 1,
-				(heap->supervisor) ? 1 : 0, current_dir);
+		void *address = get_page(heap->start_address + i, 1, current_dir);
 		alloc_frame(address, (heap->supervisor) ? 1 : 0,(heap->rw) ? 1 : 0,
 				(heap->supervisor) ? 1 : 0);
 	}
@@ -134,7 +133,7 @@ static uint32_t contract(uint32_t new_size, kheap_t *heap) {
 	uint32_t i;
 	for (i = heap->end_address - heap->start_address - 0x1000; new_size < i;
 			i -= 0x1000)
-		free_frame(get_page(heap->start_address + i, 0, 1, current_dir));
+		free_frame(get_page(heap->start_address + i, 0, current_dir));
 	global_flush();
 	heap->end_address = heap->start_address + new_size;
 	return new_size;

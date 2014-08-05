@@ -115,22 +115,22 @@ void init_idt(void) {
 	idt_flush((uint32_t)&idt_ptr);
 }
 
-void isr_handler(registers_t regs) {
+void isr_handler(registers_t *regs) {
 	isr_t handler;
-	if ((handler = isr_handlers[regs.int_no]) != NULL)
-		handler(&regs);
+	if ((handler = isr_handlers[regs->int_no]) != NULL)
+		handler(regs);
 	else {
-		printf("Unhandled interrupt: %i\n", regs.int_no);
+		printf("Unhandled interrupt: %i\n", regs->int_no);
 		halt();
 	}
 }
 
-void irq_handler(registers_t regs) {
+void irq_handler(registers_t *regs) {
 	isr_t handler;
-	if ((handler = isr_handlers[regs.int_no]) != NULL)
-		handler(&regs);
+	if ((handler = isr_handlers[regs->int_no]) != NULL)
+		handler(regs);
 
-	if (regs.int_no >= IRQ8) // Signal came from slave
+	if (regs->int_no >= IRQ8) // Signal came from slave
 		outb(PIC_SLAVE_A, PIC_COMMAND_EOI); // Reset slave
 
 	outb(PIC_MASTER_A, PIC_COMMAND_EOI); // Reset master

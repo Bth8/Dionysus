@@ -49,6 +49,8 @@ page_directory_t *current_dir = NULL;
 #define INDEX_FROM_BIT(a) (a >> 5)
 #define OFFSET_FROM_BIT(a) (a & 0x1F)
 
+volatile uint8_t frame_lock = 0;
+
 static void set_frame(uint32_t addr) {
 	uint32_t frame = addr / 0x1000;
 	uint32_t i = INDEX_FROM_BIT(frame);
@@ -87,6 +89,7 @@ void alloc_frame(page_t *page, int kernel, int rw, int global) {
 	if (page->frame != 0) // Already allocated
 		return;
 
+	spin_lock(&frame_lock);
 	uint32_t i;
 	if ((i = first_frame()) == 0xFFFFFFFF)
 		PANIC("No free frames.");
@@ -96,6 +99,19 @@ void alloc_frame(page_t *page, int kernel, int rw, int global) {
 	page->user = (kernel ? 0 : 1);
 	page->global = (global ? 1 : 0);
 	page->frame = i;
+	spin_unlock(&frame_lock);
+}
+
+// Directly map a page
+void dm_frame(page_t *page, int kernel, int rw, int global, uint32_t addr) {
+	page->present = 1;
+	page->rw = rw ? 1 : 0;
+	page->user = kernel ? 0 : 1;
+	page->global = global ? 1 : 0;
+	page->frame = addr / 0x1000;
+
+	if (addr / 0x1000 < nframes)
+		set_frame(addr);
 }
 
 void free_frame(page_t *page) {
@@ -123,10 +139,9 @@ static void page_fault(registers_t *regs) {
 	PANIC("Page fault");
 }
 
-void init_paging(uint32_t mem_end) {
-	// Make sure it's page aligned. Shouldn't be a problem, but doesn't hurt
-	mem_end &= 0xFFFFF000;
-	nframes = mem_end / 0x1000;
+// memlength is a measure of the available memory in kilobytes
+void init_paging(uint32_t memlength) {
+	nframes = memlength / 4;
 	frames = (uint32_t *)kmalloc(INDEX_FROM_BIT(nframes));
 	memset(frames, 0, INDEX_FROM_BIT(nframes));
 
@@ -138,18 +153,18 @@ void init_paging(uint32_t mem_end) {
 
 	uint32_t i;
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INIT_SIZE; i += 0x1000)
-		get_page(i, 1, 1, kernel_dir);
+		get_page(i, 1, kernel_dir);
 
 	// Identity page lowest MB
 	for (i = 0; i < 0x100000; i += 0x1000)
-		alloc_frame(get_page(i, 1, 1, kernel_dir), 1, 1, 1);
+		alloc_frame(get_page(i, 1, kernel_dir), 1, 1, 1);
 
 	//Map kernel space to 0xC0000000
 	for (i = 0xC0100000; i < placement_address + 0x1000; i += 0x1000)
-		alloc_frame(get_page(i, 1, 1, kernel_dir), 1, 1, 1);
+		alloc_frame(get_page(i, 1, kernel_dir), 1, 1, 1);
 
 	for (i = KHEAP_START; i < KHEAP_START + KHEAP_INIT_SIZE; i += 0x1000)
-		alloc_frame(get_page(i, 1, 1, kernel_dir), 1, 1, 1);
+		alloc_frame(get_page(i, 1, kernel_dir), 1, 1, 1);
 
 	register_interrupt_handler(14, page_fault);
 	switch_page_dir(kernel_dir);
@@ -171,8 +186,7 @@ void global_flush(void) {
 				"bts $7, %%eax; mov %%eax, %%cr4" : : : "eax");
 }
 
-page_t *get_page(uint32_t address, int make, int global,
-		page_directory_t *dir) {
+page_t *get_page(uint32_t address, int make, page_directory_t *dir) {
 	address /= 0x1000;
 	uint32_t i = address / 1024;
 	if (dir->tables[i]) // already assigned
@@ -181,8 +195,6 @@ page_t *get_page(uint32_t address, int make, int global,
 		uint32_t phys;
 		dir->tables[i] =
 			(page_table_t*)kmalloc_ap(sizeof(page_table_t), &phys);
-		if (global)
-			globalize_table(i, dir->tables[i]);
 		memset(dir->tables[i], 0, 0x1000);
 		dir->tables_phys[i].present = 1;
 		dir->tables_phys[i].rw = 1;

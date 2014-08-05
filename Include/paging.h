@@ -62,13 +62,13 @@ typedef struct page_directory {
 	uint32_t physical_address;
 } page_directory_t;
 
-void init_paging(uint32_t mem_end);
+void init_paging(uint32_t memlength);
 void switch_page_dir(page_directory_t *newdir);
 void global_flush(void);
 void alloc_frame(page_t *page, int kernel, int rw, int global);
 void free_frame(page_t *page);
 // Gets specified page from dir. If make, create if not already present
-page_t *get_page(uint32_t address, int make, int global, page_directory_t *dir);
+page_t *get_page(uint32_t address, int make, page_directory_t *dir);
 page_directory_t *clone_directory(page_directory_t *src);
 void free_dir(page_directory_t *dir);
 

@@ -85,7 +85,7 @@ static int int_exec(const char *filename, uint32_t argc, char *argv[],
 	// Deallocate memory of old process (not stack, we reuse it)
 	uint32_t i;
 	for (i = current_task->start; i < current_task->brk_actual; i += 0x1000)
-		free_frame(get_page(i, 0, 0, current_dir));
+		free_frame(get_page(i, 0, current_dir));
 
 	// Allocate memory for new process
 	uint32_t start = 0xFFFFFFFF;
@@ -103,7 +103,7 @@ static int int_exec(const char *filename, uint32_t argc, char *argv[],
 		for (j = prog_headers[i].p_vaddr;
 				j < prog_headers[i].p_vaddr + prog_headers[i].p_memsz;
 				j += 0x1000)
-			alloc_frame(get_page(j, 1, 0, current_dir), 0,
+			alloc_frame(get_page(j, 1, current_dir), 0,
 					(prog_headers[i].p_flags & PF_W) ? 1 : 0, 0);
 
 		switch_page_dir(current_dir);
@@ -123,7 +123,7 @@ static int int_exec(const char *filename, uint32_t argc, char *argv[],
 	current_task->start = start;
 
 	uint32_t heap = start + size;
-	alloc_frame(get_page(heap, 1, 0, current_dir), 0, 1, 0);
+	alloc_frame(get_page(heap, 1, current_dir), 0, 1, 0);
 	uint32_t heap_actual = heap + 0x1000;
 	switch_page_dir(current_dir);
 

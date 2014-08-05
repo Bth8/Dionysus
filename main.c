@@ -50,21 +50,22 @@ void print_time(struct tm *time);
 
 void kmain(uint32_t magic, multiboot_info_t *mboot, uint32_t esp) {
 	initial_esp = esp;
-	// Last valid address so we know how far we can page
-	uint32_t mem_end = 0;
 	monitor_clear();
 	printf("Booting Dionysus!\n");
-	if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
-		printf("ERROR: MULTIBOOT_BOOTLOADER_MAGIC not correct. Halting.\n");
-		halt();
-	}
+	ASSERT(magic == MULTIBOOT_BOOTLOADER_MAGIC &&
+			"Not booted with multiboot.");
+	ASSERT(mboot->flags & MULTIBOOT_INFO_MEMORY && "No memory info.");
+	ASSERT(mboot->flags & MULTIBOOT_INFO_MEM_MAP && "No memory map.");
 
 	printf("Initializing GDT\n");
 	init_gdt();
+
 	printf("Initializing IDT\n");
 	init_idt();
+	
 	printf("Getting system time: ");
 	init_time();
+	
 	time_t rawtime = time(NULL);
 	print_time(gmtime(&rawtime));
 	init_timer(1000);
@@ -75,28 +76,18 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uint32_t esp) {
 		phys_address = mods[mboot->mods_count - 1].mod_end;
 		placement_address = phys_address + 0xC0000000u;
 	}
-	if (mboot->flags & MULTIBOOT_INFO_MEM_MAP) {
-		multiboot_memory_map_t *mmap =
-			(multiboot_memory_map_t *)mboot->mmap_addr;
-		while ((uint32_t)mmap < mboot->mmap_addr + mboot->mmap_length) {
-			if (mmap->type == MULTIBOOT_MEMORY_AVAILABLE) {
-				if (mmap->addr_low + mmap->len_low <= 4294967295U)
-					mem_end = mmap->addr_low + mmap->len_low;
-				else {
-					mem_end = 4294967295U;
-					break;
-				}
-			}
 
-			mmap = (multiboot_memory_map_t *)((uint32_t)mmap + mmap->size +
-					sizeof(mmap->size));
-		}
-	} else {
-		printf("Error! Memory map not given!\n");
-		halt();
+	multiboot_memory_map_t *mmap = (void *)mboot->mmap_addr;
+
+	while ((uint32_t)mmap < mboot->mmap_addr + mboot->mmap_length) {
+		printf("0x%08X 0x%08X-0x%08X: %d\n", mmap, mmap->addr_low,
+				mmap->addr_low + mmap->len_low, mmap->type);
+		mmap = (void*)((uint32_t)mmap + mmap->size + sizeof(mmap->size));
 	}
 
-	init_paging(mem_end);
+	printf("Setting up paging\n");
+	init_paging(mboot->mem_lower + mboot->mem_upper);
+
 	printf("Starting task scheduling\n");
 	init_tasking();
 	init_syscalls();

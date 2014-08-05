@@ -49,7 +49,7 @@ void move_stack(void *new_stack_start, uint32_t size) {
 	// Allocate space
 	for (i = (uint32_t)new_stack_start; i >= (uint32_t)new_stack_start - size;
 			i -= 0x1000)
-		alloc_frame(get_page(i, 1, 0, current_dir), 1, 1, 0);
+		alloc_frame(get_page(i, 1, current_dir), 1, 1, 0);
 
 	// Flush TLB
 	switch_page_dir(current_dir);
@@ -106,7 +106,7 @@ void init_tasking(void) {
 
 	// Create a user stack
 	for (i = USER_STACK_BOTTOM; i < USER_STACK_TOP; i += 0x1000)
-		alloc_frame(get_page(i, 1, 0, current_dir), 0, 1, 0);
+		alloc_frame(get_page(i, 1, current_dir), 0, 1, 0);
 
 	switch_page_dir(current_dir);
 
@@ -752,7 +752,7 @@ int sbrk(uint32_t inc) {
 	uint32_t ret = current_task->brk;
 	while (current_task->brk_actual < current_task->brk + inc) {
 		current_task->brk_actual += 0x1000;
-		alloc_frame(get_page(current_task->brk_actual, 1, 0, current_dir), 0,
+		alloc_frame(get_page(current_task->brk_actual, 1, current_dir), 0,
 				1, 0);
 	}
 
