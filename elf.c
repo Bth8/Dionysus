@@ -104,7 +104,7 @@ static int int_exec(const char *filename, uint32_t argc, char *argv[],
 				j < prog_headers[i].p_vaddr + prog_headers[i].p_memsz;
 				j += 0x1000)
 			alloc_frame(get_page(j, 1, current_dir), 0,
-					(prog_headers[i].p_flags & PF_W) ? 1 : 0, 0);
+					(prog_headers[i].p_flags & PF_W) ? 1 : 0);
 
 		switch_page_dir(current_dir);
 
@@ -123,7 +123,7 @@ static int int_exec(const char *filename, uint32_t argc, char *argv[],
 	current_task->start = start;
 
 	uint32_t heap = start + size;
-	alloc_frame(get_page(heap, 1, current_dir), 0, 1, 0);
+	alloc_frame(get_page(heap, 1, current_dir), 0, 1);
 	uint32_t heap_actual = heap + 0x1000;
 	switch_page_dir(current_dir);
 

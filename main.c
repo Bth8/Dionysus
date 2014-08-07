@@ -37,14 +37,14 @@
 #include <fs/fat32.h>
 #include <elf.h>
 
+// LOOK HERE
 // Defined in linker script
-extern uint32_t kend;
+extern uintptr_t kend;
 
 extern time_t current_time;
 
-uint32_t placement_address = (uint32_t)&kend;
-uint32_t phys_address = (uint32_t)&kend - 0xC0000000u;
-uint32_t initial_esp;
+uintptr_t placement_address = (uint32_t)&kend;
+uintptr_t initial_esp;
 
 void print_time(struct tm *time);
 
@@ -73,20 +73,12 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uint32_t esp) {
 	// Check for modules
 	if (mboot->flags & MULTIBOOT_INFO_MODS && mboot->mods_count) {
 		multiboot_module_t *mods = (multiboot_module_t *)mboot->mods_addr;
-		phys_address = mods[mboot->mods_count - 1].mod_end;
-		placement_address = phys_address + 0xC0000000u;
-	}
-
-	multiboot_memory_map_t *mmap = (void *)mboot->mmap_addr;
-
-	while ((uint32_t)mmap < mboot->mmap_addr + mboot->mmap_length) {
-		printf("0x%08X 0x%08X-0x%08X: %d\n", mmap, mmap->addr_low,
-				mmap->addr_low + mmap->len_low, mmap->type);
-		mmap = (void*)((uint32_t)mmap + mmap->size + sizeof(mmap->size));
+		placement_address = mods[mboot->mods_count - 1].mod_end + KERNEL_BASE;
 	}
 
 	printf("Setting up paging\n");
-	init_paging(mboot->mem_lower + mboot->mem_upper);
+	init_paging(mboot->mem_lower + mboot->mem_upper, mboot->mmap_addr,
+		mboot->mmap_length);
 
 	printf("Starting task scheduling\n");
 	init_tasking();

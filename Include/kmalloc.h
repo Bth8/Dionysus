@@ -1,4 +1,9 @@
-/* kmalloc.h - function declarations for allocation and freeing */
+
+/* kmalloc.h - kernel heap allocation/management 
+ * This is an adaptation of liballoc, written by Durand, released to the public
+ * domain. Still, I feel it bears repeating: I did not write this. I only
+ * adapted
+ */
 
 /* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
@@ -20,12 +25,22 @@
 
 #ifndef KMALLOC_H
 #define KMALLOC_H
+
 #include <common.h>
 
-void kfree(void *addr);
-void *kmalloc(uint32_t sz);
-void *kmalloc_a(uint32_t sz);
-void *kmalloc_p(uint32_t sz, uint32_t *phys);
-void *kmalloc_ap(uint32_t sz, uint32_t *phys);
+//This lets you prefix malloc and friends
+#define PREFIX(func)		k ## func
+#define KHEAP_START 0xD0000000
+#define KHEAP_MAX 0xDFFFFFFF
 
-#endif /* KMALLOC_H */
+void *PREFIX(memalign)(size_t, size_t);		///< The standard function.
+void *PREFIX(valloc)(size_t);				///< The standard function.
+void *PREFIX(malloc)(size_t);				///< The standard function.
+void *PREFIX(realloc)(void *, size_t);		///< The standard function.
+void *PREFIX(calloc)(size_t, size_t);		///< The standard function.
+void PREFIX(free)(void *);					///< The standard function.
+
+#endif
+
+
+

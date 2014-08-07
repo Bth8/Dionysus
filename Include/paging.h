@@ -21,6 +21,10 @@
 #ifndef PAGING_H
 #define PAGING_H
 #include <common.h>
+#include <multiboot.h>
+
+#define KERNEL_BASE 0xC0000000
+#define PAGE_SIZE 0x1000
 
 typedef struct page {
 	uint32_t present	: 1;	// Present in memory
@@ -62,11 +66,14 @@ typedef struct page_directory {
 	uint32_t physical_address;
 } page_directory_t;
 
-void init_paging(uint32_t memlength);
+void init_paging(uint32_t memlength, uintptr_t mmap_addr,
+	uintptr_t mmap_length);
 void switch_page_dir(page_directory_t *newdir);
 void global_flush(void);
-void alloc_frame(page_t *page, int kernel, int rw, int global);
+void alloc_frame(page_t *page, int kernel, int rw);
+void dm_frame(page_t *page, int kernel, int rw, uintptr_t addr);
 void free_frame(page_t *page);
+uintptr_t resolve_physical(uintptr_t addr);
 // Gets specified page from dir. If make, create if not already present
 page_t *get_page(uint32_t address, int make, page_directory_t *dir);
 page_directory_t *clone_directory(page_directory_t *src);
