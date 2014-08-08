@@ -42,14 +42,14 @@ struct filep {
 };
 
 typedef struct task {
-	uint32_t id;					// PID
-	uint32_t esp, ebp;			// Stack and base pointers
-	uint32_t eip;					// Instruction pointer
+	uint32_t id;				// PID
+	uintptr_t esp, ebp;			// Stack and base pointers
+	uintptr_t eip;				// Instruction pointer
 	page_directory_t *page_dir;
-	uint32_t brk;					// Heap end
-	uint32_t brk_actual;			// Actual end of the memory allocated for
+	uintptr_t brk;				// Heap end
+	uintptr_t brk_actual;		// Actual end of the memory allocated for
 								// the heap
-	uint32_t start;				// Image start
+	uintptr_t start;			// Image start
 	int8_t nice;
 	int ruid, euid, suid;
 	int rgid, egid, sgid;
@@ -57,13 +57,12 @@ typedef struct task {
 	struct task *next;			// Next task in linked list
 } task_t;
 
-void init_tasking(void);
+void init_tasking(uintptr_t ebp);
 int switch_task(void);
 void exit_task(void);
 int fork(void);
 void globalize_table(uint32_t i, page_table_t *table);
 int nice(int inc);
-void move_stack(void *new_stack_start, uint32_t size);
 int getpid(void);
 void switch_user_mode(uint32_t entry, int argc, char **argv, char **envp,
 		uint32_t stack);

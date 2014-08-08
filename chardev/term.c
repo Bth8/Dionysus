@@ -135,7 +135,7 @@ static void kbd_isr(registers_t *regs) {
 		update_leds(leds);
 }
 
-static uint32_t read(struct fs_node *node, void *dest, size_t count,
+static ssize_t read(struct fs_node *node, void *dest, size_t count,
 		off_t off) {
 	// Block if we're up to date
 	while (readbufpos == writebufpos)
@@ -154,7 +154,7 @@ static uint32_t read(struct fs_node *node, void *dest, size_t count,
 	return i;
 }
 
-static uint32_t write(struct fs_node *node, const void *src, size_t count,
+static ssize_t write(struct fs_node *node, const void *src, size_t count,
 		off_t off) {
 	node = node;
 	off = off;

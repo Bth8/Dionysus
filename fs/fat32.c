@@ -47,8 +47,8 @@ struct file_system_type fat32 = {
 
 static int open(fs_node_t *file, uint32_t flags);
 static int close(fs_node_t *file);
-static uint32_t read(fs_node_t *file, void *buff, size_t count, off_t off);
-static uint32_t write(fs_node_t *file, const void *buff, size_t count,
+static ssize_t read(fs_node_t *file, void *buff, size_t count, off_t off);
+static ssize_t write(fs_node_t *file, const void *buff, size_t count,
 		off_t off);
 static int readdir(fs_node_t *file, struct dirent *dirp, uint32_t index);
 static fs_node_t *finddir(fs_node_t *file, const char *name);
@@ -310,7 +310,7 @@ static int update_dirent(fs_node_t *file) {
 	return 0;
 }
 
-static uint32_t read(fs_node_t *file, void *buff, size_t count, off_t off) {
+static ssize_t read(fs_node_t *file, void *buff, size_t count, off_t off) {
 	if (count == 0)
 		return 0;
 
@@ -371,7 +371,7 @@ static uint32_t read(fs_node_t *file, void *buff, size_t count, off_t off) {
 	return read;
 }
 
-static uint32_t write(fs_node_t *file, const void *buff, size_t count,
+static ssize_t write(fs_node_t *file, const void *buff, size_t count,
 		off_t off) {
 	if (count == 0)
 		return 0;

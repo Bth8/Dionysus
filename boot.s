@@ -87,7 +87,8 @@ start:
 
 higherHalfBegin:
 	mov esp, stack_top
-	push esp
+	mov ebp, stack_top
+	push ebp
 	push ebx
 	push eax
 

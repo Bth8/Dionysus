@@ -96,7 +96,7 @@ uint32_t read_blkdev(uint32_t major, uint32_t minor, size_t count, off_t off,
 uint32_t write_blkdev(uint32_t major, uint32_t minor, size_t count, off_t off,
 		const char *buf);
 
-static uint32_t read(fs_node_t *node, void *buf, size_t count, off_t off) {
+static ssize_t read(fs_node_t *node, void *buf, size_t count, off_t off) {
 	if (node->flags & VFS_CHARDEV) {
 		if (char_drivers[MAJOR(node->impl) - 1].ops.read)
 			return char_drivers[MAJOR(node->impl) - 1].ops.read(node,
@@ -108,7 +108,7 @@ static uint32_t read(fs_node_t *node, void *buf, size_t count, off_t off) {
 	return 0;
 }
 
-static uint32_t write(fs_node_t *node, const void *buf, size_t count,
+static ssize_t write(fs_node_t *node, const void *buf, size_t count,
 		off_t off) {
 	if (node->flags & VFS_CHARDEV) {
 		if (char_drivers[MAJOR(node->impl) - 1].ops.write)

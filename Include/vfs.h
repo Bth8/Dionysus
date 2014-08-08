@@ -68,14 +68,15 @@ struct dirent {
 };
 
 struct file_ops {
-	uint32_t(*read)(struct fs_node*, void*, size_t, off_t);
-	uint32_t(*write)(struct fs_node*, const void*, size_t, off_t);
+	ssize_t(*read)(struct fs_node*, void*, size_t, off_t);
+	ssize_t(*write)(struct fs_node*, const void*, size_t, off_t);
 	int(*open)(struct fs_node*, uint32_t);
 	int(*close)(struct fs_node*);
 	struct fs_node*(*create)(struct fs_node*, const char*, uint32_t, uint32_t,
 			uint32_t);
 	int(*readdir)(struct fs_node*, struct dirent*, uint32_t);
 	struct fs_node*(*finddir)(struct fs_node*, const char*);
+	int (*mkdir)(struct fs_node*, char*, uint32_t);
 	int (*stat)(struct fs_node*, struct stat*);
 	int (*unlink)(struct fs_node*);
 	int32_t (*ioctl)(struct fs_node*, uint32_t, void*);
@@ -97,7 +98,6 @@ typedef struct fs_node {
 	void *private_data;
 } fs_node_t;
 
-struct file_system_type;
 struct superblock {
 	fs_node_t *dev;
 	void *private_data;

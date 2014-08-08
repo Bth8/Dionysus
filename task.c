@@ -44,34 +44,31 @@ volatile task_t *current_task = NULL;
 volatile task_t *ready_queue;
 uint32_t next_pid = 1;
 
-void move_stack(void *new_stack_start, uint32_t size) {
-	uint32_t i;
+static void move_stack(void *new_stack_start, void *old_stack_start, size_t size) {
+	uintptr_t i;
 	// Allocate space
-	for (i = (uint32_t)new_stack_start; i >= (uint32_t)new_stack_start - size;
+	for (i = (uintptr_t)new_stack_start; i >= (uintptr_t)new_stack_start - size;
 			i -= 0x1000)
 		alloc_frame(get_page(i, 1, current_dir), 1, 1);
 
-	// Flush TLB
-	switch_page_dir(current_dir);
-
-	uint32_t old_esp;
-	uint32_t old_ebp;
+	uintptr_t old_esp;
+	uintptr_t old_ebp;
 
 	asm volatile("mov %%esp, %0" : "=r" (old_esp));
 	asm volatile("mov %%ebp, %0" : "=r" (old_ebp));
 
-	off_t offset = (uint32_t)new_stack_start - initial_esp;
+	off_t offset = (uintptr_t)(new_stack_start - old_stack_start);
 	uint32_t new_esp = old_esp + offset;
 	uint32_t new_ebp = old_ebp + offset;
 
 	// Copy old stack contents into new one
-	memcpy((void *)new_esp, (void *)old_esp, initial_esp - old_esp);
+	memcpy((void *)new_esp, (void *)old_esp, (uintptr_t)old_stack_start - old_esp);
 
-	// Fix ebps (and hopefully not much else)
+	// Fix pointers (and hopefully not much else)
 	for (i = (uint32_t)new_stack_start; i > (uint32_t)new_stack_start - size;
 			i -= 4) {
-		uint32_t tmp = *(uint32_t *)i;
-		if (old_esp < tmp && tmp < initial_esp) {
+		uintptr_t tmp = *(uintptr_t *)i;
+		if (old_esp < tmp && tmp < (uintptr_t)old_stack_start) {
 			tmp += offset;
 			uint32_t *tmp2 = (uint32_t *)i;
 			*tmp2 = tmp;
@@ -83,11 +80,11 @@ void move_stack(void *new_stack_start, uint32_t size) {
 	asm volatile("mov %0, %%ebp" :: "r" (new_ebp));
 }
 
-void init_tasking(void) {
+void init_tasking(uintptr_t ebp) {
 	asm volatile("cli");
 	int i;
 	// Relocate stack
-	move_stack((void *)0xF0000000, 0x2000);
+	move_stack((void *)0xF0000000, (void *)ebp, 0x2000);
 
 	// Init first task (kernel task)
 	current_task = ready_queue = (task_t *)kmalloc(sizeof(task_t));
@@ -104,10 +101,10 @@ void init_tasking(void) {
 	current_task->egid = current_task->rgid = current_task->sgid = 0;
 	current_task->next = NULL;
 
-	// Create a user stack
+/*	// Create a user stack
 	for (i = USER_STACK_BOTTOM; i < USER_STACK_TOP; i += 0x1000)
 		alloc_frame(get_page(i, 1, current_dir), 0, 1);
-
+*/
 	switch_page_dir(current_dir);
 
 	// No open files yet
@@ -181,21 +178,6 @@ int fork(void) {
 	}
 }
 
-void globalize_table(uint32_t i, page_table_t *table) {
-	uint32_t flags;
-	asm volatile("pushf; popl %%eax": "=a"(flags));
-	asm volatile("cli");
-	ASSERT(!(kernel_dir->tables[i]) || kernel_dir->tables[i] == table);
-	kernel_dir->tables[i] = table;
-	if (current_task) {
-		task_t *task_i;
-		for (task_i = (task_t*)ready_queue; task_i != NULL;
-				task_i = task_i->next)
-			task_i->page_dir->tables[i] = table;
-	}
-	asm volatile("pushl %%eax; popf":: "a"(flags));
-}
-
 int getpid(void) {
 	return current_task->id;
 }
@@ -234,7 +216,7 @@ int switch_task(void) {
 		set_kernel_stack(esp);
 
 		// Put new eip in ecx, load stack/base pointers, change page dir, put
-		// dummy value in eax, restart interrupts, jump to [ecx]
+		// dummy value in eax, jump to [ecx]
 		asm volatile("mov %0, %%ecx; \
 				mov %1, %%esp; \
 				mov %2, %%ebp; \

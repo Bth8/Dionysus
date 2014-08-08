@@ -44,12 +44,10 @@ extern uintptr_t kend;
 extern time_t current_time;
 
 uintptr_t placement_address = (uint32_t)&kend;
-uintptr_t initial_esp;
 
 void print_time(struct tm *time);
 
-void kmain(uint32_t magic, multiboot_info_t *mboot, uint32_t esp) {
-	initial_esp = esp;
+void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	monitor_clear();
 	printf("Booting Dionysus!\n");
 	ASSERT(magic == MULTIBOOT_BOOTLOADER_MAGIC &&
@@ -81,7 +79,7 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uint32_t esp) {
 		mboot->mmap_length);
 
 	printf("Starting task scheduling\n");
-	init_tasking();
+	init_tasking(ebp);
 	init_syscalls();
 
 	init_pci();
@@ -112,6 +110,9 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uint32_t esp) {
 	char *envp[] = {NULL};
 	if (pid == 0)
 		sys_execve("/real_root/init", argv, envp);
+
+	printf("Uh... tada?");
+
 
 	halt();
 }
