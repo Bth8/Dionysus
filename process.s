@@ -47,7 +47,7 @@ copy_page_physical:
 .continue:
 	; Disable paging so that we can access physical addresses
 	mov edx, cr0
-	and edx, 0x7FFFFFFF
+	btr edx, 31
 	mov cr0, edx
 
 	; copy page
@@ -55,7 +55,7 @@ copy_page_physical:
 	rep movsd
 
 	; reenable paging
-	or edx, 0x80000000
+	bts edx, 31
 	mov cr0, edx
 
 	lea eax, [.higher]
