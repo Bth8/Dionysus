@@ -102,14 +102,13 @@ void alloc_frame(page_t *page, int kernel, int rw) {
 // Directly map a page
 void dm_frame(page_t *page, int kernel, int rw, uintptr_t addr) {
 	spin_lock(&frame_lock);
+	if ((addr / PAGE_SIZE) < nframes)
+		set_frame(addr);
 	page->present = 1;
 	page->rw = rw ? 1 : 0;
 	page->user = kernel ? 0 : 1;
 	page->global = 0;
 	page->frame = addr / PAGE_SIZE;
-
-	if (addr / PAGE_SIZE < nframes)
-		set_frame(addr);
 	spin_unlock(&frame_lock);
 }
 
@@ -274,7 +273,6 @@ page_directory_t *clone_directory(page_directory_t *src) {
 	dir->physical_address = phys;
 	int i;
 	for (i = 0; i < 1024; i++) {
-		// TODO: Fix this shit
 		if (src->tables[i]) {
 			// If it's already in the kernel directory (the first MB),
 			// link rather than copy.

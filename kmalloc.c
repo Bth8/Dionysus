@@ -209,7 +209,7 @@ static void *liballoc_alloc(size_t npages) {
 	uint32_t i;
 	for (i = 0; i < npages; i++) {
 		alloc_frame(get_page((uintptr_t)address + i * PAGE_SIZE, 1, kernel_dir), 1, 1);
-		set_heap_frame((uintptr_t)address + npages * PAGE_SIZE);
+		set_heap_frame((uintptr_t)address + i * PAGE_SIZE);
 	}
 
 	return address;
