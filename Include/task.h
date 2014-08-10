@@ -33,8 +33,8 @@
 #define SEEK_CUR 1
 #define SEEK_END 2
 
-#define USER_STACK_BOTTOM	0x10000000
-#define USER_STACK_TOP		0X10010000
+#define USER_STACK_BOTTOM 0x10000000
+#define USER_STACK_TOP 0x10004000
 
 struct filep {
 	fs_node_t *file;
@@ -80,11 +80,11 @@ int setresgid(int new_rgid, int new_egid, int new_sgid);
 int getgid(void);
 int getegid(void);
 int getresgid(int *ruid, int *euid, int *suid);
-int lseek(int fd, off_t off, int whence);
-int user_pread(int fd, char *buf, size_t nbytes, off_t off);
-int user_read(int fd, char *buf, size_t nbytes);
-int user_pwrite(int fd, const char *buf, size_t nbytes, off_t off);
-int user_write(int fd, const char *buf, size_t nbytes);
+off_t lseek(int fd, off_t off, int whence);
+ssize_t user_pread(int fd, char *buf, size_t nbytes, off_t off);
+ssize_t user_read(int fd, char *buf, size_t nbytes);
+ssize_t user_pwrite(int fd, const char *buf, size_t nbytes, off_t off);
+ssize_t user_write(int fd, const char *buf, size_t nbytes);
 int user_open(const char *path, uint32_t flags, uint32_t mode);
 int user_close(int fd);
 int user_ioctl(int fd, uint32_t request, void *ptr);
@@ -93,6 +93,6 @@ int user_mount(const char *src, const char *target, const char *fs_name,
 int user_readdir(int fd, struct dirent *dirp, uint32_t index);
 int user_fstat(int fd, struct stat *buff);
 int user_unlink(const char *path);
-int sbrk(uint32_t inc);
+void *sbrk(uintptr_t inc);
 
 #endif /* TASK_H */

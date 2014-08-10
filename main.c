@@ -82,8 +82,10 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	init_tasking(ebp);
 	init_syscalls();
 
+	printf("Enumerating PCI bus(ses)\n");
 	init_pci();
 	dump_pci();
+
 	init_rootfs();
 	init_devfs();
 	init_term();
@@ -108,11 +110,9 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	int pid = sys_fork();
 	char *argv[] = {NULL};
 	char *envp[] = {NULL};
-	if (pid == 0)
+	if (pid == 0) {
 		sys_execve("/real_root/init", argv, envp);
-
-	printf("Uh... tada?");
-
+	}
 
 	halt();
 }

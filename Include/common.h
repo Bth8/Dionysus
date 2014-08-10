@@ -40,7 +40,7 @@
 #include <stdint.h>
 
 typedef uint64_t size_t;
-typedef uint64_t off_t;
+typedef int64_t off_t;
 typedef int64_t ssize_t;
 
 // Bochs magic breakpoint. Doesn't actually do anything on a real system

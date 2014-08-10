@@ -101,11 +101,9 @@ void init_tasking(uintptr_t ebp) {
 	current_task->egid = current_task->rgid = current_task->sgid = 0;
 	current_task->next = NULL;
 
-/*	// Create a user stack
-	for (i = USER_STACK_BOTTOM; i < USER_STACK_TOP; i += 0x1000)
+	// Create a user stack
+	for (i = USER_STACK_BOTTOM; i < USER_STACK_TOP; i += PAGE_SIZE);
 		alloc_frame(get_page(i, 1, current_dir), 0, 1);
-*/
-	switch_page_dir(current_dir);
 
 	// No open files yet
 	for (i = 0; i < MAX_OF; i++)
@@ -504,7 +502,7 @@ static int valid_fd(int fd) {
 	return 1;
 }
 
-int lseek(int fd, off_t off, int whence) {
+off_t lseek(int fd, off_t off, int whence) {
 	if (!valid_fd(fd))
 		return -EBADF;
 
@@ -526,7 +524,7 @@ int lseek(int fd, off_t off, int whence) {
 	return current_task->files[fd].off;
 }
 
-int user_pread(int fd, char *buf, size_t nbytes, off_t off) {
+ssize_t user_pread(int fd, char *buf, size_t nbytes, off_t off) {
 	if (!valid_fd(fd))
 		return -EBADF;
 
@@ -539,7 +537,7 @@ int user_pread(int fd, char *buf, size_t nbytes, off_t off) {
 	return read_vfs(current_task->files[fd].file, buf, nbytes, off);
 }
 
-int user_read(int fd, char *buf, size_t nbytes) {
+ssize_t user_read(int fd, char *buf, size_t nbytes) {
 	if (!valid_fd(fd))
 		return -EBADF;
 
@@ -549,13 +547,13 @@ int user_read(int fd, char *buf, size_t nbytes) {
 	if (!(current_task->files[fd].file->mask & O_RDONLY))
 		return -EINVAL;
 
-	uint32_t ret = read_vfs(current_task->files[fd].file, buf, nbytes,
+	ssize_t ret = read_vfs(current_task->files[fd].file, buf, nbytes,
 			current_task->files[fd].off);
 	current_task->files[fd].off += ret;
 	return ret;
 }
 
-int user_pwrite(int fd, const char *buf, size_t nbytes, off_t off) {
+ssize_t user_pwrite(int fd, const char *buf, size_t nbytes, off_t off) {
 	if (!valid_fd(fd))
 		return -EBADF;
 
@@ -568,7 +566,7 @@ int user_pwrite(int fd, const char *buf, size_t nbytes, off_t off) {
 	return write_vfs(current_task->files[fd].file, buf, nbytes, off);
 }
 
-int user_write(int fd, const char *buf, size_t nbytes) {
+ssize_t user_write(int fd, const char *buf, size_t nbytes) {
 	if (!valid_fd(fd))
 		return -EBADF;
 
@@ -730,12 +728,14 @@ int user_unlink(const char *path) {
 	return ret;
 }
 
-int sbrk(uint32_t inc) {
-	uint32_t ret = current_task->brk;
+void *sbrk(uintptr_t inc) {
+	uintptr_t ret = current_task->brk;
 	while (current_task->brk_actual < current_task->brk + inc) {
 		current_task->brk_actual += 0x1000;
 		alloc_frame(get_page(current_task->brk_actual, 1, current_dir), 0, 1);
 	}
 
-	return ret;
+	current_task->brk += inc;
+
+	return (void *)ret;
 }

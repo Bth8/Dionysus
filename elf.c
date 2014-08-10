@@ -83,32 +83,37 @@ static int int_exec(const char *filename, uint32_t argc, char *argv[],
 			header->e_phoff);
 
 	// Deallocate memory of old process (not stack, we reuse it)
-	uint32_t i;
-	for (i = current_task->start; i < current_task->brk_actual; i += 0x1000)
+	uintptr_t i;
+	for (i = current_task->start; i < current_task->brk_actual; i += PAGE_SIZE)
 		free_frame(get_page(i, 0, current_dir));
 
 	// Allocate memory for new process
-	uint32_t start = 0xFFFFFFFF;
-	uint32_t size = 0;
-	uint32_t entry = header->e_entry;
+	uintptr_t start = 0xFFFFFFFF;
+	uintptr_t end = 0;
+	uintptr_t entry = header->e_entry;
 
 	for (i = 0; i < header->e_phnum; i++) {
 		if (prog_headers[i].p_type != PT_LOAD)
 			continue;
 
 		if (prog_headers[i].p_vaddr < start)
-			start = prog_headers[i].p_vaddr;
+			start = prog_headers[i].p_vaddr & ~(PAGE_SIZE - 1);
 
-		uint32_t j;
+		if (prog_headers[i].p_vaddr + prog_headers[i].p_memsz > end) {
+			end = prog_headers[i].p_vaddr + prog_headers[i].p_memsz;
+			if (end & (PAGE_SIZE - 1)) {
+				end &= ~(PAGE_SIZE - 1);
+				end += PAGE_SIZE;
+			}
+		}
+
+		uintptr_t j;
 		for (j = prog_headers[i].p_vaddr;
 				j < prog_headers[i].p_vaddr + prog_headers[i].p_memsz;
-				j += 0x1000)
+				j += PAGE_SIZE)
 			alloc_frame(get_page(j, 1, current_dir), 0,
 					(prog_headers[i].p_flags & PF_W) ? 1 : 0);
 
-		switch_page_dir(current_dir);
-
-		size += prog_headers[i].p_memsz;
 
 		void *seg_start = (void*)prog_headers[i].p_vaddr;
 		read_vfs(file, seg_start, prog_headers[i].p_filesz,
@@ -122,10 +127,9 @@ static int int_exec(const char *filename, uint32_t argc, char *argv[],
 
 	current_task->start = start;
 
-	uint32_t heap = start + size;
+	uintptr_t heap = end;
 	alloc_frame(get_page(heap, 1, current_dir), 0, 1);
-	uint32_t heap_actual = heap + 0x1000;
-	switch_page_dir(current_dir);
+	uint32_t heap_actual = heap + PAGE_SIZE;
 
 	// Move everything to user space
 	char **argv_ = (char**)heap;
