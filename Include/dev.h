@@ -82,7 +82,7 @@ struct blkdev_driver {
 };
 
 void init_devfs(void);
-uint32_t get_dev(fs_node_t *dev);
+dev_t get_dev(fs_node_t *dev);
 int32_t devfs_register(const char *name, uint32_t flags, uint32_t major,
 		uint32_t minor, uint32_t mode, uint32_t uid, uint32_t gid);
 int32_t register_chrdev(uint32_t major, const char *name, struct file_ops fops);

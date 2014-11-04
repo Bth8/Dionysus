@@ -25,283 +25,587 @@
 #include <string.h>
 #include <kmalloc.h>
 #include <errno.h>
+#include <dev.h>
+#include <list.h>
+#include <tree.h>
+#include <task.h>
 
 fs_node_t *vfs_root = NULL;
-struct file_system_type *fs_types = NULL;
+list_t *fs_types = NULL;
+tree_t *filesystem = NULL;
 
-fs_node_t mnt_pts[MAX_MNT_PTS];
-uint32_t nmnts = 0;
+extern volatile task_t *current_task;
 
-uint32_t read_vfs(fs_node_t *node, void *buf, size_t count, off_t off) {
+volatile uint8_t vfs_lock = 0;
+volatile uint8_t refcount_lock = 0;
+
+// tokenizes path in place, returns depth
+static uint32_t vfs_tokenize(char *path) {
+	ASSERT(path);
+
+	uint32_t len = strlen(path);
+	char *off;
+	uint32_t depth = 1;
+
+	for (off = path; off < path + len + 1; off++)
+		if (*off == PATH_DELIMITER) {
+			*off = '\0';
+			depth++;
+		}
+
+	return depth;
+}
+
+// Converts relative paths to absolute. Leaves absolute paths alone
+static char *fix_path(const char *cwd, const char *relpath) {
+	ASSERT(relpath && cwd);
+
+	list_t *fifo = list_create();
+	if (!fifo)
+		return NULL;
+
+	// relative path
+	if (relpath[0] != PATH_DELIMITER) {
+		char *cwd_cpy = (char *)kmalloc(strlen(cwd) + 1);
+		if (!cwd_cpy)
+			goto error;
+
+		char *off = cwd_cpy;
+		strcpy(cwd_cpy, cwd);
+		uint32_t depth;
+		for (depth = vfs_tokenize(cwd_cpy); depth > 0; depth--) {
+			if (*off == '\0') {
+				off++;
+				continue;
+			}
+			char *s = (char *)kmalloc(strlen(off) + 1);
+			if (!s) {
+				kfree(cwd_cpy);
+				goto error;
+			}
+
+			strcpy(s, off);
+			list_insert(fifo, s);
+			off += strlen(off) + 1;
+		}
+		kfree(cwd_cpy);
+	}
+
+	char *path_cpy = (char *)kmalloc(strlen(relpath) + 1);
+	if (!path_cpy)
+		goto error;
+
+	char *off = path_cpy;
+	strcpy(path_cpy, relpath);
+	uint32_t depth;
+	for (depth = vfs_tokenize(path_cpy); depth > 0; depth--) {
+		if (*off == '\0') {
+			off++;
+			continue;
+		}
+		char *s = (char *)kmalloc(strlen(off) + 1);
+		if (!s) {
+			kfree(path_cpy);
+			goto error;
+		}
+
+		strcpy(s, off);
+		list_insert(fifo, s);
+		off += strlen(off) + 1;
+	}
+	kfree(path_cpy);
+
+	node_t *element;
+	size_t size = 0;
+	foreach(element, fifo) {
+		size += strlen((char *)element->data) + 1;
+	}
+
+	char *canonical = (char *)kmalloc(size + 1);
+	off = canonical;
+	if (!canonical)
+		goto error;
+
+	if (size == 0) {
+		if (krealloc(canonical, 2) == NULL) {
+			kfree(canonical);
+			goto error;
+		}
+		canonical[0] = PATH_DELIMITER;
+		canonical[1] = '\0';
+	} else
+		foreach(element, fifo) {
+			*(off++) = PATH_DELIMITER;
+			strcpy(off, element->data);
+			off += strlen((char *)element->data);
+		}
+
+	list_destroy(fifo);
+	return canonical;
+
+error:
+	list_destroy(fifo);
+	return NULL;
+}
+
+ssize_t read_vfs(fs_node_t *node, void *buf, size_t count, off_t off) {
 	if (!node)
-		return 0;
+		return -EBADF;
 	if (node->flags & VFS_DIR)
-		return 0;
+		return -EINVAL;
 	if (node->ops.read)
 		return node->ops.read(node, buf, count, off);
 	else
-		return 0;
+		return -1;
 }
 
-uint32_t write_vfs(fs_node_t *node, const void *buf, size_t count, off_t off) {
+ssize_t write_vfs(fs_node_t *node, const void *buf, size_t count, off_t off) {
 	if (!node)
-		return 0;
+		return -EBADF;
 	if (node->flags & VFS_DIR)
-		return 0;
+		return -EINVAL;
 	if (node->ops.write)
 		return node->ops.write(node, buf, count, off);
 	else
+		return -1;
+}
+
+int32_t open_vfs(fs_node_t *node, uint32_t flags) {
+	if (!node)
+		return -EBADF;
+
+	if (node->refcount == -1)
 		return 0;
-}
 
-// Determines if the fs node passed to it is a mountpoint
-// Returns the root if it is
-static fs_node_t *get_mnt(fs_node_t *node) {
-	uint32_t i;
-	for (i = 0; i < nmnts; i++) {
-		if (node->fs_sb != mnt_pts[i].fs_sb)
-			continue;
-		if (node->inode != mnt_pts[i].inode)
-			continue;
-		break;
-	}
-	if (i != nmnts)
-		return mnt_pts[i].ptr_sb->root;
-
-	return node;
-}
-
-int open_vfs(fs_node_t *node, uint32_t flags) {
-	if (!node)
-		return -1;
-	fs_node_t *mnt = get_mnt(node);
-	if (mnt->ops.open)
-		return mnt->ops.open(mnt, flags);
+	spin_lock(&refcount_lock);
+	int32_t ret = -1;
+	if (node->ops.open)
+		ret = node->ops.open(node, flags);
 	else
-		return -EACCES;
+		ret = -EACCES;
+
+	if (node->refcount >= 0 && ret >= 0) {
+		node->refcount++;
+	}
+	spin_unlock(&refcount_lock);
+
+	return ret;
 }
 
-int close_vfs(fs_node_t *node) {
+int32_t close_vfs(fs_node_t *node) {
 	if (!node)
-		return -1;
+		return -EBADF;
 	if (node == vfs_root)
 		PANIC("Tried closing root");
 
-	fs_node_t *mnt = get_mnt(node);
-	if (mnt->ops.close)
-		return mnt->ops.close(mnt);
+	if (node->refcount == -1) {
+		kfree(node);
+		return 0;
+	}
+
+	spin_lock(&refcount_lock);
+
+	node->refcount--;
+	int ret = 0;
+	if (node->refcount == 0) {
+		if (node->ops.close)
+			ret = node->ops.close(node);
+
+		kfree(node);
+	}
+
+	spin_unlock(&refcount_lock);
+
+	return ret;
+}
+
+int32_t readdir_vfs(fs_node_t *node, struct dirent *dirp, uint32_t index) {
+	if (!node)
+		return -EBADF;
+	if (!(node->flags & VFS_DIR))
+		return -ENOTDIR;
+	if (node->ops.readdir)
+		return node->ops.readdir(node, dirp, index);
+	return -1;
+}
+
+static fs_node_t *finddir_vfs(fs_node_t *node, const char *name) {
+	if (!node)
+		return NULL;
+	if ((node->flags & VFS_DIR) && node->ops.finddir)
+		return node->ops.finddir(node, name);
+	else
+		return NULL;
+}
+
+int32_t stat_vfs(fs_node_t *node, struct stat *buff) {
+	ASSERT(buff);
+	if (!node)
+		return -EBADF;
+
+	buff->st_dev = get_dev(node->fs_sb->dev);
+	buff->st_ino = node->inode;
+	buff->st_mode = node->mode;
+	buff->st_nlink = node->nlink;
+	buff->st_uid = node->uid;
+	buff->st_gid = node->gid;
+	buff->st_rdev = get_dev(node);
+	buff->st_size = node->len;
+	buff->st_atime = node->atime;
+	buff->st_mtime = node->mtime;
+	buff->st_ctime = node->ctime;
+	buff->st_blksize = node->fs_sb->blocksize;
+	buff->st_blocks = buff->st_size / buff->st_blksize;
 
 	return 0;
 }
 
-int readdir_vfs(fs_node_t *node, struct dirent *dirp, uint32_t index) {
+int32_t chmod_vfs(fs_node_t *node, uint32_t mode) {
 	if (!node)
-		return -1;
-	if (!(node->flags & VFS_DIR))
-		return -ENOTDIR;
-	fs_node_t *mnt = get_mnt(node);
-	if (mnt->ops.readdir)
-		return mnt->ops.readdir(mnt, dirp, index);
-	return -1;
+		return -EBADF;
+
+	if (node->ops.chmod)
+		return node->ops.chmod(node, mode);
+	return 0;
 }
 
-fs_node_t *finddir_vfs(fs_node_t *node, const char *name) {
+int32_t chown_vfs(fs_node_t *node, int32_t uid, int32_t gid) {
 	if (!node)
-		return NULL;
-	if (!(node->flags & VFS_DIR))
-		return NULL;
-	fs_node_t *mnt = get_mnt(node);
-	if (mnt->ops.finddir)
-		return mnt->ops.finddir(mnt, name);
-	else
-		return NULL;
-}
+		return -EBADF;
 
-int stat_vfs(fs_node_t *node, struct stat *buff) {
-	ASSERT(buff);
-	if (!node)
-		return -1;
-
-	fs_node_t *mnt = get_mnt(node);
-	if (mnt->ops.stat)
-		return mnt->ops.stat(mnt, buff);
-	else
-		return -EACCES;
+	if (node->ops.chmod)
+		return node->ops.chown(node, uid, gid);
+	return 0;
 }
 
 int32_t ioctl_vfs(fs_node_t *node, uint32_t request, void *ptr) {
 	if (!node)
-		return -1;
-	if (!(node->flags & VFS_CHARDEV) && !(node->flags & VFS_BLOCKDEV))
+		return -EBADF;
+	if (!(node->flags & (VFS_CHARDEV | VFS_BLOCKDEV)))
 		return -ENOTTY;
-	if (node->flags & VFS_DIR)
-		return -1;
 	if (node->ops.ioctl)
 		return node->ops.ioctl(node, request, ptr);
 	return -EINVAL;
 }
 
-int unlink_vfs(struct fs_node *node) {
-	if (!node)
-		return -1;
-	if (node->flags & VFS_DIR)
-		return -EISDIR;
+int32_t create_vfs(fs_node_t *parent, const char *fname, uint32_t uid, 
+		uint32_t gid, uint32_t flags, uint32_t mode) {
+	if (!parent)
+		return -EBADF;
 
-	if (node->ops.unlink)
-		return node->ops.unlink(node);
+	if (parent->ops.create)
+		return parent->ops.create(parent, fname, uid, gid, flags, mode);
+	return -EACCES;
+}
+
+int32_t unlink_vfs(fs_node_t *parent, const char *fname) {
+	if (!parent)
+		return -EBADF;
+
+	if (parent->ops.unlink)
+		return parent->ops.unlink(parent, fname);
 	return -EACCES;
 }
 
 int32_t register_fs(struct file_system_type *fs) {
-	struct file_system_type *fsi = fs_types;
-	fs->next = NULL;
-	if (fsi == NULL) {
-		fs_types = fs;
-		return 0;
-	}
-	for (; fsi->next != NULL; fsi = fsi->next)
-		if (strcmp(fsi->name, fs->name) == 0)
+	if (!fs_types)
+		fs_types = list_create();
+
+	node_t *node;
+	foreach(node, fs_types)
+		if (strcmp(((struct file_system_type *)(node->data))->name, fs->name) 
+			== 0)
 			return -1;
 
-	fsi->next = fs;
+	if (!list_insert(fs_types, fs))
+		return -ENOMEM;
+
 	return 0;
 }
 
-// TODO: Return error codes slightly more useful than -1
-int32_t mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name,
-		uint32_t flags) {
-	struct file_system_type *fsi = fs_types;
-	struct superblock *sb = NULL;
-	if (dest == NULL) {
-		if (vfs_root != NULL)
-			return -ENOENT;
-	} else {
-		if (!(dest->flags & VFS_DIR))
-			return -ENOTDIR;
-	}
+static void vfs_prune(tree_node_t *node) {
+	ASSERT(node && !(((struct mountpoint *)(node->data))->sb));
 
-	if (nmnts >= MAX_MNT_PTS)
-		return -ENOMEM;
-	if (fsi == NULL)
-		return -ENODEV;
-	for (; fsi->next != NULL; fsi = fsi->next)
-		if (strcmp(fsi->name, fs_name) == 0)
+	while (1) {
+		tree_node_t *parent = node->parent;
+
+		// We're freeing the root node?
+		if (parent == NULL)
+			return tree_destroy(filesystem);
+		// more than one child, we can't delete it
+		if (parent->children->head != parent->children->tail)
 			break;
-	if (fsi == NULL)
-		return -ENODEV;
-	if (fsi->flags & FS_NODEV) {
-		if (dev)
-			return -ENODEV;
-	} else {
-		if (!dev)
-			return -ENOTBLK;
+		// Also can't delete if it's an active mountpoint
+		if (((struct mountpoint *)(parent->data))->sb)
+			break;
+
+		node = parent;
 	}
 
-	if ((sb = fsi->get_super(flags, dev)) != NULL) {
-		if (dest == vfs_root) {
-			vfs_root = sb->root;
-			vfs_root->ptr_sb = sb;
-		} else {
-			dest->flags |= VFS_MOUNT;
-			dest->ptr_sb = sb;
-			memcpy(&mnt_pts[nmnts++], dest, sizeof(fs_node_t));
-		}
-		return 0;
-	}
-	return -EINVAL;
+	tree_delete_branch(filesystem, node);
 }
 
-// Traverses the path to get the correct file
-fs_node_t *get_path(const char *path) {
-	// Sanity check
-	if (!path || path[0] != '/')
-		return NULL;
+static int32_t root_mount(fs_node_t *dev, file_system_t *fs, uint32_t flags) {
+	if (!filesystem) {
+		filesystem = tree_create();
+		if (!filesystem)
+			return -ENOMEM;
 
-	int path_len = strlen(path);
-	if (path_len == 1) { // It's just root
-		fs_node_t *ret = kmalloc(sizeof(fs_node_t));
-		memcpy(ret, vfs_root, sizeof(fs_node_t));
+		struct mountpoint *root =
+			(struct mountpoint *)kmalloc(sizeof(struct mountpoint));
+		if (!root) {
+			tree_destroy(filesystem);
+			filesystem = NULL;
+			return -ENOMEM;
+		}
+
+		root->name = "[root]";
+		root->sb = NULL;
+		tree_set_root(filesystem, root);
+	}
+
+	struct mountpoint *fsroot = (struct mountpoint *)filesystem->root->data;
+
+	if (fsroot->sb)
+		return -EBUSY;
+
+	fsroot->sb = fs->get_super(flags, dev);
+	return 0;
+}
+
+int32_t mount(fs_node_t *dev, const char *relpath, const char *fs_name,
+		uint32_t flags) {
+	if (!fs_types)
+		return -ENOENT;
+
+	if (!relpath || !fs_name)
+		return -ENOENT;
+
+	if (!filesystem)
+		return -EACCES;
+
+	node_t *fs;
+	foreach(fs, fs_types) {
+		if (strcmp(fs_name, ((file_system_t *)fs->data)->name) == 0)
+			break;
+	}
+	if (!fs)
+		return -ENODEV;
+
+	if (!dev && !(((file_system_t *)(fs->data))->flags & FS_NODEV))
+		return -ENODEV;
+
+	spin_lock(&vfs_lock);
+
+	if (relpath[0] == PATH_DELIMITER && relpath[1] == '\0') {
+		int32_t ret = root_mount(dev, (file_system_t *)fs, flags);
+		spin_unlock(&vfs_lock);
 		return ret;
 	}
 
-	char *path_cpy = (char *)kmalloc(path_len + 1);
-	strcpy(path_cpy, path);
+	char *path = fix_path(current_task->cwd, relpath);
+	if (!path) {
+		spin_unlock(&vfs_lock);
+		return -ENOMEM;
+	}
+
 	char *off;
-	int depth = 0;
+	uint32_t depth = vfs_tokenize(path);
 
-	// Breaks the path into several strings with / as its delimiter
-	for (off = path_cpy; off < path_cpy + path_len + 1; off++)
-		if (*off == '/') {
-			*off = '\0';
-			depth++;
-		}
+	struct mountpoint *entry = NULL;
+	tree_node_t *node = filesystem->root;
 
-	off = path_cpy + 1;
-	fs_node_t *cur_node = (fs_node_t *)kmalloc(sizeof(fs_node_t));
-	memcpy(cur_node, vfs_root, sizeof(fs_node_t));
-	uint32_t opened = open_vfs(cur_node, O_RDONLY);
-	fs_node_t *next_node;
-	int i;
-	for (i = 0; i < depth; i++) {
-		next_node = finddir_vfs(cur_node, off);
-		close_vfs(cur_node);
-		kfree(cur_node);
-		cur_node = next_node;
-		if (!cur_node) {
-			kfree(path_cpy);
-			return NULL;
-		} else if (i == depth - 1) {
-			kfree(path_cpy);
-			return cur_node;
-		} else if (opened != 0) {
-			kfree(path_cpy);
-			kfree(cur_node);
-			return NULL;
+	for (off = path; depth > 0; depth--) {
+		if (strlen(off) == 0) {
+			off++;
+			continue;
 		}
-		opened = open_vfs(cur_node, O_RDONLY);
+		node_t *child;
+		int exist = 0;
+		foreach(child, node->children) {
+			entry = (struct mountpoint *)((tree_node_t *)child->data)->data;
+			if (strcmp(entry->name, off) == 0) {
+				exist = 1;
+				node = (tree_node_t *)child->data;
+				break;
+			}
+		}
+		if (!exist) {
+			entry = (struct mountpoint *)kmalloc(sizeof(struct mountpoint));
+			if (!entry) {
+				kfree(path);
+				vfs_prune(node);
+				spin_unlock(&vfs_lock);
+				return -ENOMEM;
+			}
+			entry->name = (char *)kmalloc(strlen(off) + 1);
+			if (!entry->name) {
+				kfree(entry);
+				kfree(path);
+				vfs_prune(node);
+				spin_unlock(&vfs_lock);
+				return -ENOMEM;
+			}
+			strcpy(entry->name, off);
+			entry->sb = NULL;
+			node = tree_insert_node(filesystem, node, entry);
+		}
 		off += strlen(off) + 1;
 	}
 
-	// Shouldn't be reached
-	kfree(path_cpy);
+	kfree(path);
+
+	if (entry->sb) {
+		vfs_prune(node);
+		spin_unlock(&vfs_lock);
+		return -EBUSY;
+	}
+
+	struct superblock *sb = ((file_system_t *)fs->data)->get_super(flags, dev);
+	if (!sb) {
+		spin_unlock(&vfs_lock);
+		vfs_prune(node);
+		return -ENODEV;
+	}
+
+	sb->root->refcount = -1;
+	entry->sb = sb;
+	spin_unlock(&vfs_lock);
+	return 0;
+}
+
+fs_node_t *get_local_root(char **path, uint32_t *path_depth) {
+	tree_node_t *node = filesystem->root;
+	fs_node_t *local_root = (fs_node_t *)node->data;
+	uint32_t final_depth = 0;
+	char *off = *path;
+	char *final_off = off;
+
+	uint32_t depth;
+	for (depth = 0; depth < *path_depth; depth++) {
+		int exist = 0;
+		node_t *child;
+		foreach (child, node->children) {
+			struct mountpoint *entry =
+				(struct mountpoint *)((tree_node_t *)child->data)->data;
+			if (strcmp(off, entry->name) == 0) {
+				exist = 1;
+				node = (tree_node_t *)child->data;
+				if (entry->sb) {
+					final_depth = depth;
+					final_off = off;
+					local_root = entry->sb->root;
+				}
+				break;
+			}
+		}
+		if (!exist)
+			break;
+		off += strlen(off) + 1;
+	}
+
+	*path = final_off;
+	*path_depth -= final_depth;
+
+	if (local_root) {
+		fs_node_t *ret = (fs_node_t *)kmalloc(sizeof(fs_node_t));
+		if (!ret)
+			return NULL;
+		memcpy(ret, local_root, sizeof(fs_node_t));
+		return ret;
+	}
 	return NULL;
 }
 
-fs_node_t *create_vfs(const char *path, uint32_t uid, uint32_t gid, uint32_t mode) {
-	if (!path || path[0] != '/')
+// Traverses the path to get the correct file
+fs_node_t *kopen(const char *relpath, int32_t flags, int32_t *openret) {
+	// Sanity check
+	if (!relpath)
 		return NULL;
 
-	int i = strlen(path);
-	// Just passed '/'
-	if (i == 1)
+	char *path = fix_path(current_task->cwd, relpath);
+	if (!path)
 		return NULL;
 
-	// Ensure no trailing '/'
-	if (path[i - 1] == '/')
-		return NULL;
 
-	char *parent_path = kmalloc(i + 1);
-	strcpy(parent_path, path);
+	uint32_t depth = vfs_tokenize(path);
+	char *off = path;
 
-	// Create the parent directory
-	for ( i -= 1; i >= 0; i--)
-		if (parent_path[i] == '/') {
-			parent_path[i] = '\0';
-			break;
+	spin_lock(&vfs_lock);
+
+	if (depth == 1) {
+		fs_node_t *root = (fs_node_t *)kmalloc(sizeof(fs_node_t));
+		memcpy(root, (fs_node_t *)filesystem->root->data, sizeof(fs_node_t));
+		kfree(path);
+		int32_t ret = open_vfs(root, flags);
+		spin_unlock(&vfs_lock);
+		if (ret < 0) {
+			kfree(root);
+			root = NULL;
 		}
+		if (openret)
+			*openret = ret;
+		return root;
+	}
 
-	fs_node_t *parent;
-	if (i >= 0)
-		parent = get_path(parent_path);
-	else
-		parent = get_path("/");
+	fs_node_t *cur_node = get_local_root(&off, &depth);
+	fs_node_t *next_node;
 
-	kfree(parent_path);
+	if (!cur_node) {
+		kfree(path);
+		spin_unlock(&vfs_lock);
+		if (openret)
+			*openret = -ENOENT;
+		return NULL;
+	}
 
-	fs_node_t *node = NULL;
-	if (parent && (parent->flags & VFS_DIR) && parent->ops.create)
-		node = parent->ops.create(parent, path + i + 1, uid, gid, mode);
+	for (; depth > 0; depth--) {
+		next_node = finddir_vfs(cur_node, off);
+		kfree(cur_node);
+		cur_node = next_node;
+		if (!cur_node) {
+			kfree(path);
+			spin_unlock(&vfs_lock);
+			if (openret)
+				*openret = -ENOENT;
+			return NULL;
+		} else if (depth == 1) {
+			kfree(path);
+			int32_t ret = open_vfs(cur_node, flags);
+			if (ret < 0) {
+				kfree(cur_node);
+				cur_node = NULL;
+			}
+			spin_unlock(&vfs_lock);
+			if (openret)
+				*openret = ret;
+			return cur_node;
+		}
+		off += strlen(off) + 1;
+	}
 
-	kfree(parent);
+	kfree(path);
+	spin_unlock(&vfs_lock);
+	return NULL;
+}
+
+fs_node_t *clone_file(fs_node_t *node) {
+	if (!node)
+		return NULL;
+
+	if (node->refcount == -1) {
+		fs_node_t *node_cpy = (fs_node_t *)kmalloc(sizeof(fs_node_t));
+		if (node_cpy)
+			memcpy(node_cpy, node, sizeof(fs_node_t));
+
+		return node_cpy;
+	}
+
+	spin_lock(&refcount_lock);
+	if (node->refcount >= 0) {
+		node->refcount++;
+	}
+	spin_unlock(&refcount_lock);
+
 	return node;
 }

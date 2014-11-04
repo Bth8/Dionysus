@@ -24,102 +24,157 @@
 #include <common.h>
 #include <vfs.h>
 
-#define DECL_SYSCALL0(fn) int sys_##fn(void);
-#define DECL_SYSCALL1(fn,p1) int sys_##fn(p1);
-#define DECL_SYSCALL2(fn,p1,p2) int sys_##fn(p1,p2);
-#define DECL_SYSCALL3(fn,p1,p2,p3) int sys_##fn(p1,p2,p3);
-#define DECL_SYSCALL4(fn,p1,p2,p3,p4) int sys_##fn(p1,p2,p3,p4);
-#define DECL_SYSCALL5(fn,p1,p2,p3,p4,p5) int sys_##fn(p1,p2,p3,p4,p5);
-#define DECL_SYSCALL6(fn,p1,p2,p3,p4,p5,p6) int sys_##fn(p1,p2,p3,p4,p5,p6);
+#define DECL_SYSCALL0(fn) int32_t sys_##fn(void);
+#define DECL_SYSCALL1(fn,p1) int32_t sys_##fn(p1);
+#define DECL_SYSCALL2(fn,p1,p2) int32_t sys_##fn(p1,p2);
+#define DECL_SYSCALL3(fn,p1,p2,p3) int32_t sys_##fn(p1,p2,p3);
+#define DECL_SYSCALL4(fn,p1,p2,p3,p4) int32_t sys_##fn(p1,p2,p3,p4);
+#define DECL_SYSCALL5(fn,p1,p2,p3,p4,p5) int32_t sys_##fn(p1,p2,p3,p4,p5);
+#define DECL_SYSCALL6(fn,p1,p2,p3,p4,p5,p6) int32_t sys_##fn(p1,p2,p3,p4,p5,p6);
+#define DECL64_SYSCALL0(fn) int64_t sys_##fn(void);
+#define DECL64_SYSCALL1(fn,p1) int64_t sys_##fn(p1);
+#define DECL64_SYSCALL2(fn,p1,p2) int64_t sys_##fn(p1,p2);
+#define DECL64_SYSCALL3(fn,p1,p2,p3) int64_t sys_##fn(p1,p2,p3);
+#define DECL64_SYSCALL4(fn,p1,p2,p3,p4) int64_t sys_##fn(p1,p2,p3,p4);
+#define DECL64_SYSCALL5(fn,p1,p2,p3,p4,p5) int64_t sys_##fn(p1,p2,p3,p4,p5);
+#define DECL64_SYSCALL6(fn,p1,p2,p3,p4,p5,p6) int64_t sys_##fn(p1,p2,p3,p4,p5,p6);
 
 #define DEFN_SYSCALL0(fn, num) \
-int sys_##fn(void) { \
-	int a; \
+int32_t sys_##fn(void) { \
+	int32_t a; \
 	asm volatile("int $0x80" : "=a"(a) : "0"(num)); \
 	return a; \
 }
 
 #define DEFN_SYSCALL1(fn, num, P1) \
-int sys_##fn(P1 p1) { \
-	int a; \
-	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1)); \
+int32_t sys_##fn(P1 p1) { \
+	int32_t a; \
+	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((uint32_t)p1)); \
 	return a; \
 }
 
 #define DEFN_SYSCALL2(fn, num, P1, P2) \
-int sys_##fn(P1 p1, P2 p2) { \
-	int a; \
-	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), \
-			"c"((int)p2)); \
+int32_t sys_##fn(P1 p1, P2 p2) { \
+	int32_t a; \
+	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((uint32_t)p1), \
+			"c"((uint32_t)p2)); \
 	return a; \
 }
 
 #define DEFN_SYSCALL3(fn, num, P1, P2, P3) \
-int sys_##fn(P1 p1, P2 p2, P3 p3) { \
-	int a; \
-	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), \
-			"c"((int)p2), "d"((int)p3)); \
+int32_t sys_##fn(P1 p1, P2 p2, P3 p3) { \
+	int32_t a; \
+	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((uint32_t)p1), \
+			"c"((uint32_t)p2), "d"((uint32_t)p3)); \
 	return a; \
 }
 
 #define DEFN_SYSCALL4(fn, num, P1, P2, P3, P4) \
-int sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4) { \
-	int a; \
-	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), \
-			"c"((int)p2), "d"((int)p3), "S"((int)p4)); \
+int32_t sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4) { \
+	int32_t a; \
+	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((uint32_t)p1), \
+			"c"((uint32_t)p2), "d"((uint32_t)p3), "S"((uint32_t)p4)); \
 	return a; \
 }
 
 #define DEFN_SYSCALL5(fn, num, P1, P2, P3, P4, P5) \
-int sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) { \
-	int a; \
-	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((int)p1), \
-			"c"((int)p2), "d"((int)p3), "S"((int)p4), "D"((int)p5)); \
+int32_t sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) { \
+	int32_t a; \
+	asm volatile("int $0x80" : "=a"(a) : "0"(num), "b"((uint32_t)p1), \
+			"c"((uint32_t)p2), "d"((uint32_t)p3), "S"((uint32_t)p4), \
+			"D"((uint32_t)p5)); \
 	return a; \
 }
 
 #define DEFN_SYSCALL6(fn, num, P1, P2, P3, P4, P5, P6) \
-int sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5, P6 p6) { \
-	int a; \
+int32_t sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5, P6 p6) { \
+	int32_t a; \
 	asm volatile("pushl %%ebp; movl %7, %%ebp; int $0x80; popl %%ebp;" :\
 			"=a"(a) : \
-			"0"(num), "b"((int)p1), "c"((int)p2), "d"((int)p3), \
-			"S"((int)p4), "D"((int)p5), "g"((int)p6)); \
+			"0"(num), "b"((uint32_t)p1), "c"((uint32_t)p2), "d"((uint32_t)p3), \
+			"S"((uint32_t)p4), "D"((uint32_t)p5), "g"((uint32_t)p6)); \
 	return a; \
+}
+
+#define DEFN64_SYSCALL0(fn, num) \
+int64_t sys_##fn(void) { \
+	int32_t a, d; \
+	asm volatile("int $0x80" : "=a"(a), "=d"(d) : "0"(num)); \
+	return ((int64_t)d << 32) | ((int64_t)a & 0xFFFFFFFF); \
+}
+
+#define DEFN64_SYSCALL1(fn, num, P1) \
+int64_t sys_##fn(P1 p1) { \
+	int32_t a, d; \
+	asm volatile("int $0x80" : "=a"(a), "=d"(d) : "0"(num), "b"((uint32_t)p1)); \
+	return ((int64_t)d << 32) | ((int64_t)a & 0xFFFFFFFF); \
+}
+#define DEFN64_SYSCALL2(fn, num, P1, P2) \
+int64_t sys_##fn(P1 p1, P2 p2) { \
+	int32_t a, d; \
+	asm volatile("int $0x80" : "=a"(a), "=d"(d) : "0"(num), "b"((uint32_t)p1), \
+			"c"((uint32_t)p2)); \
+	return ((int64_t)d << 32) | ((int64_t)a & 0xFFFFFFFF); \
+}
+
+#define DEFN64_SYSCALL3(fn, num, P1, P2, P3) \
+int64_t sys_##fn(P1 p1, P2 p2, P3 p3) { \
+	int32_t a, d; \
+	asm volatile("int $0x80" : "=a"(a), "=d"(d) : "0"(num), "b"((uint32_t)p1), \
+			"c"((uint32_t)p2), "1"((uint32_t)p3)); \
+	return ((int64_t)d << 32) | ((int64_t)a & 0xFFFFFFFF); \
+}
+
+#define DEFN64_SYSCALL4(fn, num, P1, P2, P3, P4) \
+int64_t sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4) { \
+	int32_t a, d; \
+	asm volatile("int $0x80" : "=a"(a), "=d"(d) : "0"(num), "b"((uint32_t)p1), \
+			"c"((uint32_t)p2), "1"((uint32_t)p3), "S"((uint32_t)p4)); \
+	return ((int64_t)d << 32) | ((int64_t)a & 0xFFFFFFFF); \
+}
+
+#define DEFN64_SYSCALL5(fn, num, P1, P2, P3, P4, P5) \
+int64_t sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5) { \
+	int32_t a, d; \
+	asm volatile("int $0x80" : "=a"(a), "=d"(d) : "0"(num), "b"((uint32_t)p1), \
+			"c"((uint32_t)p2), "1"((uint32_t)p3), "S"((uint32_t)p4), \
+			"D"((uint32_t)p5)); \
+	return ((int64_t)d << 32) | ((int64_t)a & 0xFFFFFFFF); \
+}
+
+#define DEFN64_SYSCALL6(fn, num, P1, P2, P3, P4, P5, P6) \
+int64_t sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5, P6 p6) { \
+	int32_t a, d; \
+	asm volatile("pushl %%ebp; movl %7, %%ebp; int $0x80; popl %%ebp;" :\
+			"=a"(a), "=d"(d) : \
+			"0"(num), "b"((uint32_t)p1), "c"((uint32_t)p2), "1"((uint32_t)p3), \
+			"S"((uint32_t)p4), "D"((uint32_t)p5), "g"((uint32_t)p6)); \
+	return ((int64_t)d << 32) | ((int64_t)a & 0xFFFFFFFF); \
 }
 
 DECL_SYSCALL0(fork);
 DECL_SYSCALL0(exit);
 DECL_SYSCALL0(getpid);
-DECL_SYSCALL1(nice, int);
-DECL_SYSCALL1(setuid, int);
-DECL_SYSCALL1(seteuid, int);
-DECL_SYSCALL2(setreuid, int, int);
-DECL_SYSCALL3(setresuid, int, int, int);
-DECL_SYSCALL0(getuid);
-DECL_SYSCALL0(geteuid);
-DECL_SYSCALL3(getresuid, int*, int*, int*);
-DECL_SYSCALL1(setgid, int);
-DECL_SYSCALL1(setegid, int);
-DECL_SYSCALL2(setregid, int, int);
-DECL_SYSCALL3(setresgid, int, int, int);
-DECL_SYSCALL0(getgid);
-DECL_SYSCALL0(getegid);
-DECL_SYSCALL3(getresgid, int*, int*, int*);
-DECL_SYSCALL3(open, const char*, unsigned int, unsigned int);
-DECL_SYSCALL1(close, int);
-DECL_SYSCALL6(pread, int, char*, unsigned int, unsigned int, unsigned int,
-		unsigned int);
-DECL_SYSCALL4(read, int, char*, unsigned int, unsigned int);
-DECL_SYSCALL6(pwrite, int, const char*, unsigned int, unsigned int,
-		unsigned int, unsigned int);
-DECL_SYSCALL4(write, int, const char*, unsigned int, unsigned int);
+DECL_SYSCALL1(nice, int32_t);
+DECL_SYSCALL3(setresuid, int32_t, int32_t, int32_t);
+DECL_SYSCALL3(getresuid, int32_t*, int32_t*, int32_t*);
+DECL_SYSCALL3(setresgid, int32_t, int32_t, int32_t);
+DECL_SYSCALL3(getresgid, int32_t*, int32_t*, int32_t*);
+DECL64_SYSCALL4(lseek, int32_t, uint32_t, uint32_t, int32_t);
+DECL64_SYSCALL6(pread, int32_t, char*, uint32_t, uint32_t, uint32_t, uint32_t);
+DECL64_SYSCALL4(read, int32_t, char*, uint32_t, uint32_t);
+DECL64_SYSCALL6(pwrite, int32_t, const char*, uint32_t, uint32_t, uint32_t,
+	uint32_t);
+DECL64_SYSCALL4(write, int32_t, const char*, uint32_t, uint32_t);
+DECL_SYSCALL3(open, const char*, uint32_t, uint32_t);
+DECL_SYSCALL1(close, int32_t);
+DECL_SYSCALL3(readdir, int32_t, void*, uint32_t);
+DECL_SYSCALL2(fstat, int32_t, void*);
+DECL_SYSCALL2(chmod, int32_t, uint32_t);
+DECL_SYSCALL3(chown, int32_t, int32_t, int32_t);
 DECL_SYSCALL3(ioctl, int, unsigned int, void*);
-DECL_SYSCALL4(lseek, int, unsigned int, unsigned int, int);
-DECL_SYSCALL4(mount, const char*, const char*, const char*, unsigned int);
-DECL_SYSCALL3(readdir, int, void*, unsigned int);
-DECL_SYSCALL2(fstat, int, void*);
 DECL_SYSCALL1(unlink, const char*);
+DECL_SYSCALL4(mount, const char*, const char*, const char*, unsigned int);
 DECL_SYSCALL1(sbrk, unsigned int);
 DECL_SYSCALL3(execve, const char*, char *const*, char *const*);
 

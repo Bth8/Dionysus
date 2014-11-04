@@ -29,9 +29,14 @@ void tree_delete_node(tree_t *tree, tree_node_t *node) {
 void tree_delete_branch(tree_t *tree, tree_node_t *node) {
 	ASSERT(node->owner == tree);
 
-	node_t *child;
-	foreach(child, node->children)
+	// We can't use foreach because the child deletes itself from our list
+	node_t *child = node->children->head;
+	node_t *next_child;
+	while (child) {
+		next_child = child->next;
 		tree_delete_branch(tree, child->data);
+		child = next_child;
+	}
 
 	list_destroy(node->children);
 

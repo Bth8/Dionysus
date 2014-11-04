@@ -28,37 +28,28 @@
 DEFN_SYSCALL0(fork, 0);
 DEFN_SYSCALL0(exit, 1);
 DEFN_SYSCALL0(getpid, 2);
-DEFN_SYSCALL1(nice, 3, int);
-DEFN_SYSCALL1(setuid, 4, int);
-DEFN_SYSCALL1(seteuid, 5, int);
-DEFN_SYSCALL2(setreuid, 6, int, int);
-DEFN_SYSCALL3(setresuid, 7, int, int, int);
-DEFN_SYSCALL0(getuid, 8);
-DEFN_SYSCALL0(geteuid, 9);
-DEFN_SYSCALL3(getresuid, 10, int*, int*, int*);
-DEFN_SYSCALL1(setgid, 11, int);
-DEFN_SYSCALL1(setegid, 12, int);
-DEFN_SYSCALL2(setregid, 13, int, int);
-DEFN_SYSCALL3(setresgid, 14, int, int, int);
-DEFN_SYSCALL0(getgid, 15);
-DEFN_SYSCALL0(getegid, 16);
-DEFN_SYSCALL3(getresgid, 17, int*, int*, int*);
-DEFN_SYSCALL3(open, 18, const char*, unsigned int, unsigned int);
-DEFN_SYSCALL1(close, 19, int);
-DEFN_SYSCALL6(pread, 20, int, char*, unsigned int, unsigned int,
-		unsigned int, unsigned int);
-DEFN_SYSCALL4(read, 21, int, char*, unsigned int, unsigned int);
-DEFN_SYSCALL6(pwrite, 22, int, const char*, unsigned int,
-		unsigned int, unsigned int, unsigned int);
-DEFN_SYSCALL4(write, 23, int, const char*, unsigned int, unsigned int);
-DEFN_SYSCALL3(ioctl, 24, int, unsigned int, void*);
-DEFN_SYSCALL4(lseek, 25, int, unsigned int, unsigned int, int);
-DEFN_SYSCALL4(mount, 26, const char*, const char*, const char*, unsigned int);
-DEFN_SYSCALL3(readdir, 27, int, void*, unsigned int);
-DEFN_SYSCALL2(fstat, 28, int, void*);
-DEFN_SYSCALL1(unlink, 29, const char*);
-DEFN_SYSCALL1(sbrk, 30, unsigned int);
-DEFN_SYSCALL3(execve, 31, const char*, char *const*, char *const*);
+DEFN_SYSCALL1(nice, 3, int32_t);
+DEFN_SYSCALL3(setresuid, 4, int32_t, int32_t, int32_t);
+DEFN_SYSCALL3(getresuid, 5, int32_t*, int32_t*, int32_t*);
+DEFN_SYSCALL3(setresgid, 6, int32_t, int32_t, int32_t);
+DEFN_SYSCALL3(getresgid, 7, int32_t*, int32_t*, int32_t*);
+DEFN64_SYSCALL4(lseek, 8, int32_t, uint32_t, uint32_t, int32_t);
+DEFN64_SYSCALL6(pread, 9, int32_t, char*, uint32_t, uint32_t, uint32_t, uint32_t);
+DEFN64_SYSCALL4(read, 10, int32_t, char*, uint32_t, uint32_t);
+DEFN64_SYSCALL6(pwrite, 11, int32_t, const char*, uint32_t, uint32_t, uint32_t,
+	uint32_t);
+DEFN64_SYSCALL4(write, 12, int32_t, const char*, uint32_t, uint32_t);
+DEFN_SYSCALL3(open, 13, const char*, uint32_t, uint32_t);
+DEFN_SYSCALL1(close, 14, int32_t);
+DEFN_SYSCALL3(readdir, 15, int32_t, void*, uint32_t);
+DEFN_SYSCALL2(fstat, 16, int32_t, void*);
+DEFN_SYSCALL2(chmod, 17, int32_t, uint32_t);
+DEFN_SYSCALL3(chown, 18, int32_t, int32_t, int32_t);
+DEFN_SYSCALL3(ioctl, 19, int, unsigned int, void*);
+DEFN_SYSCALL1(unlink, 20, const char*);
+DEFN_SYSCALL4(mount, 21, const char*, const char*, const char*, unsigned int);
+DEFN_SYSCALL1(sbrk, 22, unsigned int);
+DEFN_SYSCALL3(execve, 23, const char*, char *const*, char *const*);
 
 static void *syscalls[] = {
 	// Defined in task.c
@@ -66,32 +57,24 @@ static void *syscalls[] = {
 	exit_task,
 	getpid,
 	nice,
-	setuid,
-	seteuid,
-	setreuid,
 	setresuid,
-	getuid,
-	geteuid,
 	getresuid,
-	setgid,
-	setegid,
-	setregid,
 	setresgid,
-	getgid,
-	getegid,
 	getresgid,
-	user_open,
-	user_close,
+	lseek,
 	user_pread,
 	user_read,
 	user_pwrite,
 	user_write,
-	user_ioctl,
-	lseek,
-	user_mount,
+	user_open,
+	user_close,
 	user_readdir,
 	user_fstat,
+	user_chmod,
+	user_chown,
+	user_ioctl,
 	user_unlink,
+	user_mount,
 	sbrk,
 	execve
 };
@@ -100,31 +83,33 @@ uint32_t num_syscalls;
 void syscall_handler(registers_t *regs) {
 	if (regs->eax < num_syscalls) {
 		void *location = syscalls[regs->eax];
-		int ret;
+		int32_t reta, retd;
 
 		// Push all of the parameters
-		asm volatile("push %1; \
-				push %2; \
-				push %3; \
-				push %4; \
-				push %5; \
-				push %6; \
+		asm volatile("pushl %1; \
+				pushl %2; \
+				pushl %3; \
+				pushl %4; \
+				pushl %5; \
+				pushl %6; \
 				call *%7; \
-				pop %%ebx; \
-				pop %%ebx; \
-				pop %%ebx; \
-				pop %%ebx; \
-				pop %%ebx; \
-				pop %%ebx;" :
-				"=a"(ret) :
+				popl %%ebx; \
+				popl %%ebx; \
+				popl %%ebx; \
+				popl %%ebx; \
+				popl %%ebx; \
+				popl %%ebx;" :
+				"=a"(reta), "=d"(retd) :
 				"g"(regs->ebp), "g"(regs->edi), "g"(regs->esi),
 				"g"(regs->edx), "g"(regs->ecx), "g"(regs->ebx),
 				"g"(location) :
-				"ebx", "edx", "ecx");
+				"ebx", "ecx");
 		// cdecl states that eax, edx and ecx have to be callee saved.
-		// eax is covered in the "=a". We have to tell gcc about the rest.
+		// eax is covered in the "=a" and edx in "=d".
+		// We have to tell gcc about the rest.
 
-		regs->eax = ret;
+		regs->eax = reta;
+		regs->edx = retd;
 	}
 }
 

@@ -53,46 +53,38 @@ typedef struct task {
 	int8_t nice;
 	int ruid, euid, suid;
 	int rgid, egid, sgid;
+	char *cwd;
 	struct filep files[MAX_OF];
 	struct task *next;			// Next task in linked list
 } task_t;
 
 void init_tasking(uintptr_t ebp);
+int32_t fork(void);
+int32_t getpid(void);
 int switch_task(void);
 void exit_task(void);
-int fork(void);
-void globalize_table(uint32_t i, page_table_t *table);
-int nice(int inc);
-int getpid(void);
-void switch_user_mode(uint32_t entry, int argc, char **argv, char **envp,
+void switch_user_mode(uint32_t entry, int32_t argc, char **argv, char **envp,
 		uint32_t stack);
-int setuid(int uid);
-int seteuid(int new_euid);
-int setreuid(int new_ruid, int new_euid);
-int setresuid(int new_ruid, int new_euid, int new_suid);
-int getuid(void);
-int geteuid(void);
-int getresuid(int *ruid, int *euid, int *suid);
-int setgid(int gid);
-int setegid(int new_egid);
-int setregid(int new_rgid, int new_egid);
-int setresgid(int new_rgid, int new_egid, int new_sgid);
-int getgid(void);
-int getegid(void);
-int getresgid(int *ruid, int *euid, int *suid);
-off_t lseek(int fd, off_t off, int whence);
-ssize_t user_pread(int fd, char *buf, size_t nbytes, off_t off);
-ssize_t user_read(int fd, char *buf, size_t nbytes);
-ssize_t user_pwrite(int fd, const char *buf, size_t nbytes, off_t off);
-ssize_t user_write(int fd, const char *buf, size_t nbytes);
-int user_open(const char *path, uint32_t flags, uint32_t mode);
-int user_close(int fd);
-int user_ioctl(int fd, uint32_t request, void *ptr);
-int user_mount(const char *src, const char *target, const char *fs_name,
+int32_t nice(int32_t inc);
+int32_t setresuid(int32_t new_ruid, int32_t new_euid, int32_t new_suid);
+int32_t getresuid(int32_t *ruid, int32_t *euid, int32_t *suid);
+int32_t setresgid(int32_t new_rgid, int32_t new_egid, int32_t new_sgid);
+int32_t getresgid(int32_t *ruid, int32_t *euid, int32_t *suid);
+off_t lseek(int32_t fd, off_t off, int32_t whence);
+ssize_t user_pread(int32_t fd, char *buf, size_t nbytes, off_t off);
+ssize_t user_read(int32_t fd, char *buf, size_t nbytes);
+ssize_t user_pwrite(int32_t fd, const char *buf, size_t nbytes, off_t off);
+ssize_t user_write(int32_t fd, const char *buf, size_t nbytes);
+int32_t user_open(const char *path, uint32_t flags, uint32_t mode);
+int32_t user_close(int32_t fd);
+int32_t user_readdir(int32_t fd, struct dirent *dirp, uint32_t index);
+int32_t user_fstat(int32_t fd, struct stat *buff);
+int32_t user_chmod(int32_t fd, uint32_t mode);
+int32_t user_chown(int32_t fd, int32_t uid, int32_t gid);
+int32_t user_ioctl(int32_t fd, uint32_t request, void *ptr);
+int32_t user_unlink(const char *path);
+int32_t user_mount(const char *src, const char *target, const char *fs_name,
 		uint32_t flags);
-int user_readdir(int fd, struct dirent *dirp, uint32_t index);
-int user_fstat(int fd, struct stat *buff);
-int user_unlink(const char *path);
-void *sbrk(uintptr_t inc);
+uintptr_t sbrk(uintptr_t inc);
 
 #endif /* TASK_H */

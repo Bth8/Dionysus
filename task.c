@@ -100,6 +100,9 @@ void init_tasking(uintptr_t ebp) {
 	current_task->euid = current_task->suid = current_task->ruid = 0;
 	current_task->egid = current_task->rgid = current_task->sgid = 0;
 	current_task->next = NULL;
+	current_task->cwd = kmalloc(2);
+	current_task->cwd[0] = '/';
+	current_task->cwd[1] = '\0';
 
 	// Create a user stack
 	for (i = USER_STACK_BOTTOM; i < USER_STACK_TOP; i += PAGE_SIZE);
@@ -112,7 +115,7 @@ void init_tasking(uintptr_t ebp) {
 	asm volatile("sti");
 }
 
-int fork(void) {
+int32_t fork(void) {
 	asm volatile("cli");
 	int i;
 	page_directory_t *directory = clone_directory(current_dir);
@@ -138,14 +141,15 @@ int fork(void) {
 	new_task->rgid = current_task->rgid;
 	new_task->sgid = current_task->sgid;
 	new_task->next = NULL;
+	new_task->cwd = (char *)kmalloc(strlen(current_task->cwd) + 1);
+	strcpy(new_task->cwd, current_task->cwd);
 
 	// Copy open files
 	for (i = 0; i < MAX_OF; i++) {
 		if (current_task->files[i].file != NULL) {
 			new_task->files[i].file =
 				(fs_node_t *)kmalloc(sizeof(fs_node_t));
-			memcpy(new_task->files[i].file, current_task->files[i].file,
-					sizeof(fs_node_t));
+			new_task->files[i].file = clone_file(current_task->files[i].file);
 			new_task->files[i].off = current_task->files[i].off;
 		} else
 			new_task->files[i].file = NULL;
@@ -176,7 +180,7 @@ int fork(void) {
 	}
 }
 
-int getpid(void) {
+int32_t getpid(void) {
 	return current_task->id;
 }
 
@@ -257,9 +261,10 @@ void exit_task(void) {
 
 	// Free everything
 	for (i = 0; i < MAX_OF; i++)
-		if (current_cache->files[i].file != NULL)
-			kfree(current_cache->files[i].file);
+		if (current_cache->files[i].file)
+			close_vfs(current_cache->files[i].file);
 	free_dir(current_cache->page_dir);
+	kfree(current_cache->cwd);
 	kfree((void *)current_cache);
 
 	// Context switching time
@@ -274,7 +279,7 @@ void exit_task(void) {
 			"ecx", "esp", "ebp", "eax");
 }
 
-void switch_user_mode(uint32_t entry, int argc, char **argv, char **envp,
+void switch_user_mode(uint32_t entry, int32_t argc, char **argv, char **envp,
 		uint32_t stack) {
 	set_kernel_stack(current_task->esp);
 
@@ -305,7 +310,7 @@ void switch_user_mode(uint32_t entry, int argc, char **argv, char **envp,
 			"esp", "eax");
 }
 
-int nice(int inc) {
+int32_t nice(int32_t inc) {
 	if (inc < 0 && !current_task->euid)
 		return -1;
 	if (current_task->nice + inc > 19)
@@ -317,181 +322,113 @@ int nice(int inc) {
 	return current_task->nice;
 }
 
-int seteuid(int new_euid) {
-	int suid = current_task->euid;
-	if (current_task->euid)
-		if (new_euid == current_task->suid ||
-				new_euid == current_task->ruid ||
-				new_euid == current_task->euid)
-			current_task->euid = new_euid;
-		else
-			return -EPERM;
-	else
-		current_task->euid = new_euid;
+int32_t setresuid(int32_t new_ruid, int32_t new_euid, int32_t new_suid) {
+	int32_t set_ruid = current_task->ruid;
+	int32_t set_euid = current_task->euid;
+	int32_t set_suid = current_task->suid;
 
-	current_task->suid = suid;
-	return 0;
-}
-
-int setreuid(int new_ruid, int new_euid) {
-	int suid = current_task->euid;
-	if (current_task->euid) {
+	if (set_euid != 0) {
 		if (new_ruid > -1) {
-			if (new_ruid == current_task->euid ||
-					new_ruid == current_task->ruid)
-				current_task->ruid = new_ruid;
+			if (new_ruid == set_ruid ||
+					new_ruid == set_euid ||
+					new_ruid == set_suid)
+				set_ruid = new_ruid;
 			else
 				return -EPERM;
 		}
-		if (new_euid > -1 && seteuid(new_euid) < 0)
-			return -EPERM;
-	} else {
-		if (new_ruid > -EPERM)
-			current_task->ruid = new_ruid;
-		if (new_euid > -1)
-			current_task->euid = new_euid;
-	}
-
-	current_task->suid = suid;
-	return 0;
-}
-
-int setresuid(int new_ruid, int new_euid, int new_suid) {
-	if (current_task->euid) {
+		if (new_euid > -1) {
+			if (new_euid == set_ruid ||
+					new_euid == set_euid ||
+					new_euid == set_suid)
+				set_euid = new_euid;
+			else
+				return -EPERM;
+		}
 		if (new_suid > -1) {
-			if (new_suid == current_task->euid ||
-					new_suid == current_task->ruid ||
-					new_suid == current_task->suid)
-				current_task->suid = new_suid;
+			if (new_suid == set_ruid ||
+					new_suid == set_euid ||
+					new_suid == set_suid)
+				set_suid = new_suid;
 			else
 				return -EPERM;
 		}
-		if ((new_euid > -1 || new_ruid > -1) && setreuid(new_ruid, new_euid))
-			return -EPERM;
 	} else {
 		if (new_ruid > -1)
-			current_task->ruid = new_ruid;
+			set_ruid = new_ruid;
 		if (new_euid > -1)
-			current_task->euid = new_euid;
+			set_euid = new_euid;
 		if (new_suid > -1)
-			current_task->suid = new_suid;
+			set_suid = new_suid;
 	}
 
-	return 0;
-}
-
-int setuid(int uid) {
-	if (!current_task->euid)
-		current_task->ruid = current_task->suid = current_task->euid = uid;
-	else
-		return seteuid(uid);
+	current_task->ruid = set_ruid;
+	current_task->euid = set_euid;
+	current_task->suid = set_suid;
 
 	return 0;
 }
 
-int getuid(void) {
-	return current_task->ruid;
-}
-
-int geteuid(void) {
-	return current_task->euid;
-}
-
-int getresuid(int *ruid, int *euid, int *suid) {
+int32_t getresuid(int32_t *ruid, int32_t *euid, int32_t *suid) {
 	*ruid = current_task->ruid;
 	*euid = current_task->euid;
 	*suid = current_task->suid;
 	return 0;
 }
 
-int setegid(int new_egid) {
-	int sgid = current_task->egid;
-	if (current_task->egid)
-		if (new_egid == current_task->sgid ||
-				new_egid == current_task->rgid ||
-				new_egid == current_task->egid)
-			current_task->egid = new_egid;
-		else
-			return -EPERM;
-	else
-		current_task->egid = new_egid;
+int32_t setresgid(int32_t new_rgid, int32_t new_egid, int32_t new_sgid) {
+	int32_t set_rgid = current_task->rgid;
+	int32_t set_egid = current_task->egid;
+	int32_t set_sgid = current_task->sgid;
 
-	current_task->sgid = sgid;
-	return 0;
-}
-
-int setregid(int new_rgid, int new_egid) {
-	int sgid = current_task->egid;
-	if (current_task->egid) {
+	if (set_egid != 0) {
 		if (new_rgid > -1) {
-			if (new_rgid == current_task->egid ||
-					new_rgid == current_task->rgid)
-				current_task->rgid = new_rgid;
+			if (new_rgid == set_rgid ||
+					new_rgid == set_egid ||
+					new_rgid == set_sgid)
+				set_rgid = new_rgid;
 			else
 				return -EPERM;
 		}
-		if (new_egid > -1 && setegid(new_egid) < 0)
-			return -EPERM;
-	} else {
-		if (new_rgid > -1)
-			current_task->rgid = new_rgid;
-		if (new_egid > -1)
-			current_task->egid = new_egid;
-	}
-
-	current_task->sgid = sgid;
-	return 0;
-}
-
-int setresgid(int new_rgid, int new_egid, int new_sgid) {
-	if (current_task->egid) {
+		if (new_egid > -1) {
+			if (new_egid == set_rgid ||
+					new_egid == set_egid ||
+					new_egid == set_sgid)
+				set_egid = new_egid;
+			else
+				return -EPERM;
+		}
 		if (new_sgid > -1) {
-			if (new_sgid == current_task->egid ||
-					new_sgid == current_task->rgid ||
-					new_sgid == current_task->sgid)
-				current_task->sgid = new_sgid;
+			if (new_sgid == set_rgid ||
+					new_sgid == set_egid ||
+					new_sgid == set_sgid)
+				set_sgid = new_sgid;
 			else
 				return -EPERM;
 		}
-		if ((new_egid > -1 || new_rgid > -1) && setregid(new_rgid, new_egid))
-			return -EPERM;
 	} else {
 		if (new_rgid > -1)
-			current_task->rgid = new_rgid;
+			set_rgid = new_rgid;
 		if (new_egid > -1)
-			current_task->egid = new_egid;
+			set_egid = new_egid;
 		if (new_sgid > -1)
-			current_task->sgid = new_sgid;
+			set_sgid = new_sgid;
 	}
 
-	return 0;
-}
-
-int setgid(int gid) {
-	if (!current_task->egid)
-		current_task->rgid = current_task->sgid = current_task->egid = gid;
-	else
-		return setegid(gid);
+	current_task->rgid = set_rgid;
+	current_task->egid = set_egid;
+	current_task->sgid = set_sgid;
 
 	return 0;
 }
 
-int getgid(void) {
-	return current_task->rgid;
-}
-
-int getegid(void) {
-	return current_task->egid;
-}
-
-int getresgid(int *rgid, int *egid, int *sgid) {
+int32_t getresgid(int32_t *rgid, int32_t *egid, int32_t *sgid) {
 	*rgid = current_task->rgid;
 	*egid = current_task->egid;
 	*sgid = current_task->sgid;
 	return 0;
 }
 
-static int valid_fd(int fd) {
+static int32_t valid_fd(int32_t fd) {
 	if (fd < 0)
 		return 0;
 	if (fd > MAX_OF)
@@ -502,7 +439,7 @@ static int valid_fd(int fd) {
 	return 1;
 }
 
-off_t lseek(int fd, off_t off, int whence) {
+off_t lseek(int32_t fd, off_t off, int32_t whence) {
 	if (!valid_fd(fd))
 		return -EBADF;
 
@@ -524,27 +461,27 @@ off_t lseek(int fd, off_t off, int whence) {
 	return current_task->files[fd].off;
 }
 
-ssize_t user_pread(int fd, char *buf, size_t nbytes, off_t off) {
+ssize_t user_pread(int32_t fd, char *buf, size_t nbytes, off_t off) {
 	if (!valid_fd(fd))
 		return -EBADF;
 
 	if (!buf)
 		return -EFAULT;
 
-	if (!(current_task->files[fd].file->mask & O_RDONLY))
+	if (!(current_task->files[fd].file->mode & O_RDONLY))
 		return -EINVAL;
 
 	return read_vfs(current_task->files[fd].file, buf, nbytes, off);
 }
 
-ssize_t user_read(int fd, char *buf, size_t nbytes) {
+ssize_t user_read(int32_t fd, char *buf, size_t nbytes) {
 	if (!valid_fd(fd))
 		return -EBADF;
 
 	if (!buf)
 		return -EFAULT;
 
-	if (!(current_task->files[fd].file->mask & O_RDONLY))
+	if (!(current_task->files[fd].file->mode & O_RDONLY))
 		return -EINVAL;
 
 	ssize_t ret = read_vfs(current_task->files[fd].file, buf, nbytes,
@@ -553,27 +490,27 @@ ssize_t user_read(int fd, char *buf, size_t nbytes) {
 	return ret;
 }
 
-ssize_t user_pwrite(int fd, const char *buf, size_t nbytes, off_t off) {
+ssize_t user_pwrite(int32_t fd, const char *buf, size_t nbytes, off_t off) {
 	if (!valid_fd(fd))
 		return -EBADF;
 
 	if (!buf)
 		return -EFAULT;
 
-	if (!(current_task->files[fd].file->mask & O_WRONLY))
+	if (!(current_task->files[fd].file->mode & O_WRONLY))
 		return -EINVAL;
 
 	return write_vfs(current_task->files[fd].file, buf, nbytes, off);
 }
 
-ssize_t user_write(int fd, const char *buf, size_t nbytes) {
+ssize_t user_write(int32_t fd, const char *buf, size_t nbytes) {
 	if (!valid_fd(fd))
 		return -EBADF;
 
 	if (!buf)
 		return -EFAULT;
 
-	if (!(current_task->files[fd].file->mask & O_WRONLY))
+	if (!(current_task->files[fd].file->mode & O_WRONLY))
 		return -EINVAL;
 
 	uint32_t ret = write_vfs(current_task->files[fd].file, buf, nbytes,
@@ -590,23 +527,23 @@ static int check_flags(fs_node_t *file, uint32_t flags) {
 		return acceptable;
 
 	if (flags & O_RDONLY) {
-		if (!(file->mask & VFS_O_READ)) {
+		if (!(file->mode & VFS_O_READ)) {
 			acceptable = 0;
-			if (current_task->euid == file->uid && file->mask & VFS_U_READ)
+			if (current_task->euid == file->uid && file->mode & VFS_U_READ)
 				acceptable = 1;
 			else if (current_task->egid == file->gid &&
-					file->mask & VFS_G_READ)
+					file->mode & VFS_G_READ)
 				acceptable = 1;
 		}
 	}
 
 	if (flags & O_WRONLY && acceptable == 1) {
-		if (!(file->mask & VFS_O_WRITE)) {
+		if (!(file->mode & VFS_O_WRITE)) {
 			acceptable = 0;
-			if (current_task->euid == file->uid && file->mask & VFS_U_WRITE)
+			if (current_task->euid == file->uid && file->mode & VFS_U_WRITE)
 				acceptable = 1;
 			else if (current_task->egid == file->gid &&
-					file->mask & VFS_G_WRITE)
+					file->mode & VFS_G_WRITE)
 				acceptable = 1;
 		}
 	}
@@ -614,7 +551,48 @@ static int check_flags(fs_node_t *file, uint32_t flags) {
 	return acceptable;
 }
 
-int user_open(const char *path, uint32_t flags, uint32_t mode) {
+static fs_node_t *getparent(const char *path, char *child) {
+	if (!path)
+		return NULL;
+
+	char *path_cpy = (char *)kmalloc(strlen(path) + 1);
+	if (!path_cpy)
+		return NULL;
+	strcpy(path_cpy, path);
+
+	fs_node_t *parent;
+	char *fname;
+
+	for (fname = path_cpy + strlen(path_cpy); fname > path_cpy; fname--) {
+		if (*fname == PATH_DELIMITER) {
+			*fname = '\0';
+			break;
+		}
+	}
+
+	int32_t ret;
+	if (fname == path_cpy) {
+		char *name = ".";
+		parent = kopen(name, O_WRONLY, &ret);
+	} else 
+		parent = kopen(path, O_WRONLY, &ret);
+
+	fname++;
+
+	if (strlen(fname) > NAME_MAX) {
+		kfree(path_cpy);
+		return NULL;
+	}
+
+	if (child) {
+		strcpy(child, fname);
+	}
+
+	kfree(path_cpy);
+	return parent;
+}
+
+int32_t user_open(const char *path, uint32_t flags, uint32_t mode) {
 	if (!path)
 		return -EFAULT;
 
@@ -626,76 +604,51 @@ int user_open(const char *path, uint32_t flags, uint32_t mode) {
 	if (i == MAX_OF)
 		return -ENFILE;
 
-	int ret = -EACCES;
-	fs_node_t *file = get_path(path);
-	if (file && !(flags & O_EXCL) && check_flags(file, flags)) {
-		if ((ret = open_vfs(file, flags)) == 0) {
-			current_task->files[i].file = file;
-			current_task->files[i].off = 0;
-			if (flags & O_APPEND)
-				lseek(i, 0, SEEK_END);
-			return i;
+	int32_t ret;
+
+	if (flags & O_CREAT) {
+		char fname[NAME_MAX];
+		fs_node_t *parent = getparent(path, fname);
+		if (!parent)
+			return -ENOENT;
+		if (!check_flags(parent, O_WRONLY)) {
+			close_vfs(parent);
+			return -EACCES;
 		}
-	} else if (!file && (flags & O_CREAT)) {
-		ret = -EEXIST;
-		file = create_vfs(path, current_task->euid, current_task->egid, mode);
-		if (file != NULL) {
-			current_task->files[i].file = file;
-			current_task->files[i].off = 0;
-			return i;
-		}
+
+		ret = create_vfs(parent, fname, current_task->euid, current_task->egid,
+			flags, mode);
+		close_vfs(parent);
+
+		if (ret == -EEXIST && O_EXCL)
+			return -EEXIST;
+		else if (ret < 0 && ret != -EEXIST)
+			return ret;
 	}
 
-	kfree(file);
+	fs_node_t *file = kopen(path, flags, &ret);
+	if (file && check_flags(file, flags)) {
+		current_task->files[i].file = file;
+		return i;
+	} else if (file) {
+		close_vfs(file);
+		ret = -EINVAL;
+	}
+
 	return ret;
 }
 
-int user_close(int fd) {
+int32_t user_close(int32_t fd) {
 	if (!valid_fd(fd))
 		return -EBADF;
 
 	uint32_t ret = close_vfs(current_task->files[fd].file);
-	if (ret == 0) {
-		kfree(current_task->files[fd].file);
+	if (ret == 0)
 		current_task->files[fd].file = NULL;
-	}
 	return ret;
 }
 
-int user_ioctl(int fd, uint32_t request, void *ptr) {
-	if (!valid_fd(fd))
-		return -EBADF;
-
-	return ioctl_vfs(current_task->files[fd].file, request, ptr);
-}
-
-int user_mount(const char *src, const char *target, const char *fs_name, uint32_t flags) {
-	if (current_task->euid != 0)
-		return -EPERM;
-
-	if (!target || !fs_name)
-		return -EFAULT;
-
-	fs_node_t *src_node = get_path(src);
-	if (src && !src_node)
-		return -EACCES;
-
-	fs_node_t *dest_node = get_path(target);
-	if (!dest_node) {
-		kfree(src_node);
-		return -EACCES;
-	}
-
-	uint32_t ret = mount(src_node, dest_node, fs_name, flags);
-
-	if (ret != 0)
-		kfree(src_node);
-
-	kfree(dest_node);
-	return ret;
-}
-
-int user_readdir(int fd, struct dirent *dirp, uint32_t index) {
+int32_t user_readdir(int32_t fd, struct dirent *dirp, uint32_t index) {
 	if (!valid_fd(fd))
 		return -EBADF;
 
@@ -705,7 +658,7 @@ int user_readdir(int fd, struct dirent *dirp, uint32_t index) {
 	return readdir_vfs(current_task->files[fd].file, dirp, index);
 }
 
-int user_fstat(int fd, struct stat *buff) {
+int32_t user_fstat(int32_t fd, struct stat *buff) {
 	if (!valid_fd(fd))
 		return -EBADF;
 
@@ -715,20 +668,75 @@ int user_fstat(int fd, struct stat *buff) {
 	return stat_vfs(current_task->files[fd].file, buff);
 }
 
-int user_unlink(const char *path) {
+int32_t user_chmod(int32_t fd, uint32_t mode) {
+	if (!valid_fd(fd))
+		return -EBADF;
+
+	if (current_task->euid == current_task->files[fd].file->uid ||
+			current_task->euid == 0)
+		return chmod_vfs(current_task->files[fd].file, mode);
+
+	return -EPERM;
+}
+
+int32_t user_chown(int32_t fd, int32_t uid, int32_t gid) {
+	if (!valid_fd(fd))
+		return -EBADF;
+	
+	if (current_task->euid == current_task->files[fd].file->uid ||
+			current_task->euid == 0)
+		return chown_vfs(current_task->files[fd].file, uid, gid);
+
+	return -EPERM;
+}
+
+int32_t user_ioctl(int32_t fd, uint32_t request, void *ptr) {
+	if (!valid_fd(fd))
+		return -EBADF;
+
+	return ioctl_vfs(current_task->files[fd].file, request, ptr);
+}
+
+int32_t user_unlink(const char *path) {
 	if (!path)
 		return -EFAULT;
 
-	fs_node_t *file = get_path(path);
-	if (!file)
+	char fname[NAME_MAX];
+	fs_node_t *parent = getparent(path, fname);
+	if (!parent)
+		return -ENOENT;
+	if (!check_flags(parent, O_WRONLY)) {
+		close_vfs(parent);
 		return -EACCES;
+	}
 
-	int ret = unlink_vfs(file);
-	kfree(file);
+	int32_t ret = unlink_vfs(parent, fname);
+	close_vfs(parent);
 	return ret;
 }
 
-void *sbrk(uintptr_t inc) {
+int32_t user_mount(const char *src, const char *target, const char *fs_name,
+		uint32_t flags) {
+	if (current_task->euid != 0)
+		return -EPERM;
+
+	if (!target || !fs_name)
+		return -EFAULT;
+
+	int32_t ret;
+	fs_node_t *src_node = kopen(src, flags, &ret);
+	if (src && !src_node)
+		return ret;
+
+	ret = mount(src_node, target, fs_name, flags);
+
+	if (ret != 0)
+		close_vfs(src_node);
+
+	return ret;
+}
+
+uintptr_t sbrk(uintptr_t inc) {
 	uintptr_t ret = current_task->brk;
 	while (current_task->brk_actual < current_task->brk + inc) {
 		current_task->brk_actual += 0x1000;
@@ -737,5 +745,5 @@ void *sbrk(uintptr_t inc) {
 
 	current_task->brk += inc;
 
-	return (void *)ret;
+	return ret;
 }

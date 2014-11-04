@@ -58,6 +58,11 @@
 
 #define FS_NODEV		0x01
 
+#define MNT_RDONLY		0x01
+#define MNT_RDWR		0x02
+
+#define PATH_DELIMITER	'/'
+
 #define EOF				-1
 
 struct fs_node;
@@ -68,53 +73,62 @@ struct dirent {
 };
 
 struct file_ops {
-	ssize_t(*read)(struct fs_node*, void*, size_t, off_t);
-	ssize_t(*write)(struct fs_node*, const void*, size_t, off_t);
-	int(*open)(struct fs_node*, uint32_t);
-	int(*close)(struct fs_node*);
-	struct fs_node*(*create)(struct fs_node*, const char*, uint32_t, uint32_t,
-			uint32_t);
-	int(*readdir)(struct fs_node*, struct dirent*, uint32_t);
+	ssize_t (*read)(struct fs_node*, void*, size_t, off_t);
+	ssize_t (*write)(struct fs_node*, const void*, size_t, off_t);
+	int32_t (*open)(struct fs_node*, uint32_t);
+	int32_t (*close)(struct fs_node*);
+	int32_t (*readdir)(struct fs_node*, struct dirent*, uint32_t);
 	struct fs_node*(*finddir)(struct fs_node*, const char*);
-	int (*mkdir)(struct fs_node*, char*, uint32_t);
-	int (*stat)(struct fs_node*, struct stat*);
-	int (*unlink)(struct fs_node*);
+	int32_t (*chmod)(struct fs_node*, uint32_t);
+	int32_t (*chown)(struct fs_node*, int32_t, int32_t);
 	int32_t (*ioctl)(struct fs_node*, uint32_t, void*);
+	int32_t (*create)(struct fs_node*, const char*, uint32_t, uint32_t,
+		uint32_t, uint32_t);
+	int32_t (*unlink)(struct fs_node*, const char*);
 };
 
 typedef struct fs_node {
-	char name[NAME_MAX];
-	uint32_t mask;				// Permissions mask
-	int gid;
-	int uid;
+	uint32_t inode;
+	int32_t uid;
+	int32_t gid;
+	uint32_t mode;				// Permissions mask
 	uint32_t flags;				// Includes node type
-	uint32_t inode;				// Way for individual FSs to differentiate
-								// between files
 	size_t len;
 	uint32_t impl;				// Implementation-defined
+
+	time_t atime;
+	time_t mtime;
+	time_t ctime;
+
 	struct file_ops ops;
 	struct superblock *fs_sb;	// Parent fs
-	struct superblock *ptr_sb;	// For mount points
 	void *private_data;
+	int32_t refcount;
+	uint32_t nlink;
 } fs_node_t;
 
 struct superblock {
 	fs_node_t *dev;
 	void *private_data;
 	fs_node_t *root;
+	size_t blocksize;
 	uint32_t flags;
 };
 
-struct file_system_type {
+struct mountpoint {
+	char *name;
+	struct superblock *sb;
+};
+
+typedef struct file_system_type {
 	const char *name;
 	uint32_t flags;
 	struct superblock *(*get_super)(uint32_t, fs_node_t*);
-	struct file_system_type *next;
-};
+} file_system_t;
 
 // Spares are such that it matches newlib's definition
 struct stat {
-	uint32_t st_dev;
+	dev_t st_dev;
 	uint32_t st_ino;
 	uint32_t st_mode;
 	uint16_t st_nlink;
@@ -135,20 +149,22 @@ struct stat {
 
 extern fs_node_t *vfs_root;
 
-uint32_t read_vfs(fs_node_t *node, void *buf, size_t count, off_t off);
-uint32_t write_vfs(fs_node_t *node, const void *buf, size_t count, off_t off);
-int open_vfs(fs_node_t *node, uint32_t flags);
-int close_vfs(fs_node_t *node);
-int readdir_vfs(fs_node_t *node, struct dirent *dirp, uint32_t index);
-fs_node_t *finddir_vfs(fs_node_t *node, const char *name);
-int stat_vfs(struct fs_node *node, struct stat *buff);
+ssize_t read_vfs(fs_node_t *node, void *buf, size_t count, off_t off);
+ssize_t write_vfs(fs_node_t *node, const void *buf, size_t count, off_t off);
+int32_t open_vfs(fs_node_t *node, uint32_t flags);
+int32_t close_vfs(fs_node_t *node);
+int32_t readdir_vfs(fs_node_t *node, struct dirent *dirp, uint32_t index);
+int32_t stat_vfs(struct fs_node *node, struct stat *buff);
+int32_t chmod_vfs(fs_node_t *node, uint32_t mode);
+int32_t chown_vfs(fs_node_t *node, int32_t uid, int32_t gid);
 int32_t ioctl_vfs(fs_node_t *node, uint32_t, void *);
-fs_node_t *get_path(const char *path);
-fs_node_t *create_vfs(const char *path, uint32_t uid, uint32_t gid,
-		uint32_t mode);
-int unlink_vfs(struct fs_node *node);
+int32_t create_vfs(fs_node_t *parent, const char *fname, uint32_t uid, 
+		uint32_t gid, uint32_t flags, uint32_t mode);
+int32_t unlink_vfs(fs_node_t *parent, const char *fname);
+fs_node_t *kopen(const char *relpath, int32_t flags, int32_t *openret);
 int32_t register_fs(struct file_system_type *fs);
-int32_t mount(fs_node_t *dev, fs_node_t *dest, const char *fs_name,
+int32_t mount(fs_node_t *dev, const char *path, const char *fs_name,
 		uint32_t flags);
+fs_node_t *clone_file(fs_node_t *node);
 
 #endif /* VFS_H */
