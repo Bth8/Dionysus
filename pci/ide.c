@@ -19,7 +19,7 @@
  */
 
 #include <common.h>
-#include <ide.h>
+#include <pci/ide.h>
 #include <printf.h>
 #include <timer.h>
 #include <idt.h>

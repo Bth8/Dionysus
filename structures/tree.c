@@ -1,7 +1,7 @@
 #include <common.h>
-#include <tree.h>
+#include <structures/tree.h>
 #include <kmalloc.h>
-#include <list.h>
+#include <structures/list.h>
 
 tree_t *tree_create(void) {
 	tree_t *tree = (tree_t *)kmalloc(sizeof(tree_t));

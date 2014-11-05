@@ -26,8 +26,8 @@
 #include <kmalloc.h>
 #include <errno.h>
 #include <dev.h>
-#include <list.h>
-#include <tree.h>
+#include <structures/list.h>
+#include <structures/tree.h>
 #include <task.h>
 
 fs_node_t *vfs_root = NULL;

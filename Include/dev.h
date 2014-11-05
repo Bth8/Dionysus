@@ -23,7 +23,7 @@
 
 #include <common.h>
 #include <vfs.h>
-#include <ordered_array.h>
+#include <structures/ordered_array.h>
 
 #define KERNEL_BLOCKSIZE	512
 

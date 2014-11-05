@@ -23,7 +23,7 @@
 #include <dev.h>
 #include <string.h>
 #include <kmalloc.h>
-#include <ordered_array.h>
+#include <structures/ordered_array.h>
 #include <printf.h>
 #include <errno.h>
 
@@ -80,12 +80,10 @@ static struct superblock *return_sb(uint32_t flags, fs_node_t *dev) {
 	return &dev_sb;
 }
 
-uint32_t get_dev(fs_node_t *dev) {
+dev_t get_dev(fs_node_t *dev) {
 	if (!dev)
 		return 0;
-	if (dev->impl == 0)
-		return 0;
-	if (!(dev->flags & VFS_BLOCKDEV))
+	if (!(dev->flags & (VFS_BLOCKDEV | VFS_CHARDEV)))
 		return 0;
 
 	return dev->impl;

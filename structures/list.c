@@ -1,5 +1,5 @@
 #include <common.h>
-#include <list.h>
+#include <structures/list.h>
 #include <kmalloc.h>
 
 list_t *list_create(void) {

@@ -1,13 +1,19 @@
 SOURCES_MAIN=boot.o main.o common.o monitor.o string.o gdt.o idt.o \
-	descriptor_tables.o interrupt.o paging.o ordered_array.o process.o \
-	task.o fileops.o timer.o syscall.o time.o port.o ide.o vfs.o pci.o dev.o \
-	elf.o kmalloc.o list.o tree.o printf.o
+	descriptor_tables.o interrupt.o paging.o process.o task.o fileops.o \
+	timer.o syscall.o time.o port.o elf.o vfs.o pci.o dev.o kmalloc.o printf.o
+
 SOURCES_FS=rootfs.o fat32.o
 
 SOURCES_CHARDEV=term.o
 
+SOURCES_PCI=ide.o
+
+SOURCES_STRUCTURES=tree.o list.o ordered_array.o
+
 SOURCES_ALL=$(SOURCES_MAIN) $(addprefix fs/, $(SOURCES_FS)) \
-			$(addprefix chardev/, $(SOURCES_CHARDEV))
+			$(addprefix chardev/, $(SOURCES_CHARDEV)) \
+			$(addprefix pci/, $(SOURCES_PCI)) \
+			$(addprefix structures/, $(SOURCES_STRUCTURES))
 
 CC=i686-pc-dionysus-gcc
 CFLAGS=-Wall -Wextra -Werror -Wno-unused-parameter \
@@ -26,7 +32,7 @@ clean:
 	rm *.o fs/*.o chardev/*.o kernel
 
 kernel: $(SOURCES_ALL)
-	$(LD) $(LDFLAGS) -o kernel $(SOURCES_ALL) $(LIBS)
+	$(LD) $(LDFLAGS) -o $@ $(SOURCES_ALL) $(LIBS)
 
 %.o: %.s
 	$(AS) $(ASFLAGS) $<

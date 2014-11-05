@@ -19,7 +19,7 @@
  */
 
 #include <common.h>
-#include <ordered_array.h>
+#include <structures/ordered_array.h>
 #include <kmalloc.h>
 #include <string.h>
 

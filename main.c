@@ -32,10 +32,11 @@
 #include <fs/rootfs.h>
 #include <dev.h>
 #include <vfs.h>
-#include <ide.h>
+#include <pci/ide.h>
 #include <printf.h>
 #include <fs/fat32.h>
 #include <elf.h>
+#include <fileops.h>
 
 // LOOK HERE
 // Defined in linker script
@@ -91,8 +92,8 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	init_term();
 	init_ide(0, 0, 0, 0, 0);
 
-	mount(NULL, vfs_root, "rootfs", 0);
-	user_mount(NULL, "/dev", "dev", 0);
+	mount(NULL, "/", "rootfs", 0);
+	mount(NULL, "/dev", "dev", 0);
 
 	init_fat32();
 

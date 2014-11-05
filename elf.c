@@ -35,18 +35,17 @@ extern task_t *current_task;
 
 static int int_exec(const char *filename, uint32_t argc, char *argv[],
 		uint32_t envc, char *envp[]) {
-	fs_node_t *file = get_path(filename);
+
+	int32_t ret;
+	fs_node_t *file = kopen(filename, O_RDONLY, &ret);
 	if (!file)
-		return -EACCES;
+		return ret;
 
 	if (file->mask & VFS_SETUID)
 		current_task->euid = file->uid;
 
 	if (file->mask & VFS_SETGID)
 		current_task->euid = file->gid;
-
-	if (open_vfs(file, O_RDONLY))
-		goto error;
 
 	Elf32_Ehdr *header = (Elf32_Ehdr*)kmalloc(sizeof(Elf32_Ehdr));
 	if (!header)
@@ -68,7 +67,6 @@ static int int_exec(const char *filename, uint32_t argc, char *argv[],
 			header->e_machine != EM_386 ||
 			header->e_version != EV_CURRENT) {
 		close_vfs(file);
-		kfree(file);
 		kfree(header);
 		return -ENOEXEC;
 	}
@@ -121,7 +119,6 @@ static int int_exec(const char *filename, uint32_t argc, char *argv[],
 	}
 
 	close_vfs(file);
-	kfree(file);
 	kfree(header);
 	kfree(prog_headers);
 
@@ -167,7 +164,7 @@ error:
 	return -ENOMEM;
 }
 
-int execve(const char *filename, char *const argv[], char *const envp[]) {
+int32_t execve(const char *filename, char *const argv[], char *const envp[]) {
 	if (!filename)
 		return -EFAULT;
 
