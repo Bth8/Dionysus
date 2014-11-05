@@ -61,64 +61,6 @@ off_t lseek(int32_t fd, off_t off, int32_t whence) {
 	return current_task->files[fd].off;
 }
 
-ssize_t user_pread(int32_t fd, char *buf, size_t nbytes, off_t off) {
-	if (!valid_fd(fd))
-		return -EBADF;
-
-	if (!buf)
-		return -EFAULT;
-
-	if (!(current_task->files[fd].file->mode & O_RDONLY))
-		return -EINVAL;
-
-	return read_vfs(current_task->files[fd].file, buf, nbytes, off);
-}
-
-ssize_t user_read(int32_t fd, char *buf, size_t nbytes) {
-	if (!valid_fd(fd))
-		return -EBADF;
-
-	if (!buf)
-		return -EFAULT;
-
-	if (!(current_task->files[fd].file->mode & O_RDONLY))
-		return -EINVAL;
-
-	ssize_t ret = read_vfs(current_task->files[fd].file, buf, nbytes,
-			current_task->files[fd].off);
-	current_task->files[fd].off += ret;
-	return ret;
-}
-
-ssize_t user_pwrite(int32_t fd, const char *buf, size_t nbytes, off_t off) {
-	if (!valid_fd(fd))
-		return -EBADF;
-
-	if (!buf)
-		return -EFAULT;
-
-	if (!(current_task->files[fd].file->mode & O_WRONLY))
-		return -EINVAL;
-
-	return write_vfs(current_task->files[fd].file, buf, nbytes, off);
-}
-
-ssize_t user_write(int32_t fd, const char *buf, size_t nbytes) {
-	if (!valid_fd(fd))
-		return -EBADF;
-
-	if (!buf)
-		return -EFAULT;
-
-	if (!(current_task->files[fd].file->mode & O_WRONLY))
-		return -EINVAL;
-
-	uint32_t ret = write_vfs(current_task->files[fd].file, buf, nbytes,
-			current_task->files[fd].off);
-	current_task->files[fd].off += ret;
-	return ret;
-}
-
 static int check_flags(fs_node_t *file, uint32_t flags) {
 	int acceptable = 1;
 
@@ -149,6 +91,64 @@ static int check_flags(fs_node_t *file, uint32_t flags) {
 	}
 
 	return acceptable;
+}
+
+ssize_t user_pread(int32_t fd, char *buf, size_t nbytes, off_t off) {
+	if (!valid_fd(fd))
+		return -EBADF;
+
+	if (!buf)
+		return -EFAULT;
+
+	if (!(current_task->files[fd].file->flags & O_RDONLY))
+		return -EINVAL;
+
+	return read_vfs(current_task->files[fd].file, buf, nbytes, off);
+}
+
+ssize_t user_read(int32_t fd, char *buf, size_t nbytes) {
+	if (!valid_fd(fd))
+		return -EBADF;
+
+	if (!buf)
+		return -EFAULT;
+
+	if (!(current_task->files[fd].file->flags & O_RDONLY))
+		return -EINVAL;
+
+	ssize_t ret = read_vfs(current_task->files[fd].file, buf, nbytes,
+			current_task->files[fd].off);
+	current_task->files[fd].off += ret;
+	return ret;
+}
+
+ssize_t user_pwrite(int32_t fd, const char *buf, size_t nbytes, off_t off) {
+	if (!valid_fd(fd))
+		return -EBADF;
+
+	if (!buf)
+		return -EFAULT;
+
+	if (!(current_task->files[fd].file->flags & O_WRONLY))
+		return -EINVAL;
+
+	return write_vfs(current_task->files[fd].file, buf, nbytes, off);
+}
+
+ssize_t user_write(int32_t fd, const char *buf, size_t nbytes) {
+	if (!valid_fd(fd))
+		return -EBADF;
+
+	if (!buf)
+		return -EFAULT;
+
+	if (!(current_task->files[fd].file->flags & O_WRONLY))
+		return -EINVAL;
+
+	uint32_t ret = write_vfs(current_task->files[fd].file, buf, nbytes,
+			current_task->files[fd].off);
+	current_task->files[fd].off += ret;
+	return ret;
 }
 
 static fs_node_t *getparent(const char *path, char *child) {

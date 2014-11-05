@@ -151,7 +151,7 @@ error:
 ssize_t read_vfs(fs_node_t *node, void *buf, size_t count, off_t off) {
 	if (!node)
 		return -EBADF;
-	if (node->flags & VFS_DIR)
+	if (node->mode & VFS_DIR)
 		return -EINVAL;
 	if (node->ops.read)
 		return node->ops.read(node, buf, count, off);
@@ -162,7 +162,7 @@ ssize_t read_vfs(fs_node_t *node, void *buf, size_t count, off_t off) {
 ssize_t write_vfs(fs_node_t *node, const void *buf, size_t count, off_t off) {
 	if (!node)
 		return -EBADF;
-	if (node->flags & VFS_DIR)
+	if (node->mode & VFS_DIR)
 		return -EINVAL;
 	if (node->ops.write)
 		return node->ops.write(node, buf, count, off);
@@ -173,6 +173,8 @@ ssize_t write_vfs(fs_node_t *node, const void *buf, size_t count, off_t off) {
 int32_t open_vfs(fs_node_t *node, uint32_t flags) {
 	if (!node)
 		return -EBADF;
+
+	node->flags = flags;
 
 	if (node->refcount == -1)
 		return 0;
@@ -222,7 +224,7 @@ int32_t close_vfs(fs_node_t *node) {
 int32_t readdir_vfs(fs_node_t *node, struct dirent *dirp, uint32_t index) {
 	if (!node)
 		return -EBADF;
-	if (!(node->flags & VFS_DIR))
+	if (!(node->mode & VFS_DIR))
 		return -ENOTDIR;
 	if (node->ops.readdir)
 		return node->ops.readdir(node, dirp, index);
@@ -232,7 +234,9 @@ int32_t readdir_vfs(fs_node_t *node, struct dirent *dirp, uint32_t index) {
 static fs_node_t *finddir_vfs(fs_node_t *node, const char *name) {
 	if (!node)
 		return NULL;
-	if ((node->flags & VFS_DIR) && node->ops.finddir)
+	if (!(node->mode & VFS_DIR))
+		return NULL;
+	if (node->ops.finddir)
 		return node->ops.finddir(node, name);
 	else
 		return NULL;
@@ -281,7 +285,7 @@ int32_t chown_vfs(fs_node_t *node, int32_t uid, int32_t gid) {
 int32_t ioctl_vfs(fs_node_t *node, uint32_t request, void *ptr) {
 	if (!node)
 		return -EBADF;
-	if (!(node->flags & (VFS_CHARDEV | VFS_BLOCKDEV)))
+	if (!(node->mode & (VFS_CHARDEV | VFS_BLOCKDEV)))
 		return -ENOTTY;
 	if (node->ops.ioctl)
 		return node->ops.ioctl(node, request, ptr);
@@ -292,7 +296,8 @@ int32_t create_vfs(fs_node_t *parent, const char *fname, uint32_t uid,
 		uint32_t gid, uint32_t mode, dev_t dev) {
 	if (!parent)
 		return -EBADF;
-
+	if (!(parent->mode & VFS_DIR))
+		return -ENOTDIR;
 	if (parent->ops.create)
 		return parent->ops.create(parent, fname, uid, gid, mode, dev);
 	return -EACCES;
@@ -301,7 +306,8 @@ int32_t create_vfs(fs_node_t *parent, const char *fname, uint32_t uid,
 int32_t unlink_vfs(fs_node_t *parent, const char *fname) {
 	if (!parent)
 		return -EBADF;
-
+	if (!(parent->mode & VFS_DIR))
+		return -ENOTDIR;
 	if (parent->ops.unlink)
 		return parent->ops.unlink(parent, fname);
 	return -EACCES;

@@ -26,14 +26,15 @@
 #define NAME_MAX		256
 #define MAX_MNT_PTS		32
 
-#define VFS_FILE		0x01
-#define VFS_DIR			0x02
-#define VFS_CHARDEV		0x04
-#define VFS_BLOCKDEV	0x08
-#define VFS_PIPE		0x10
-#define VFS_MOUNT		0x20
-#define VFS_LINK		0x40
-#define VFS_UNKNOWN		0x80
+#define VFS_FILE		0x010000
+#define VFS_DIR			0x020000
+#define VFS_CHARDEV		0x040000
+#define VFS_BLOCKDEV	0x080000
+#define VFS_PIPE		0x100000
+#define VFS_MOUNT		0x200000
+#define VFS_LINK		0x400000
+#define VFS_UNKNOWN		0x800000
+#define VFS_TYPE_MASK	0xFF0000
 
 #define O_RDONLY		0x01
 #define O_WRONLY		0x02
@@ -55,6 +56,7 @@
 #define VFS_STICKY		01000
 #define VFS_SETGID		02000
 #define VFS_SETUID		04000
+#define VFS_PERM_MASK	07777
 
 #define FS_NODEV		0x01
 
@@ -91,8 +93,9 @@ typedef struct fs_node {
 	uint32_t inode;
 	int32_t uid;
 	int32_t gid;
-	uint32_t mode;				// Permissions mask
-	uint32_t flags;				// Includes node type
+	uint32_t mode;				// Permissions mask and node type
+	uint32_t flags;				// Flags used to open file. Tells us
+								// what restrictions we've put on ourselves
 	size_t len;
 	uint32_t impl;				// Implementation-defined
 

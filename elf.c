@@ -41,10 +41,10 @@ static int int_exec(const char *filename, uint32_t argc, char *argv[],
 	if (!file)
 		return ret;
 
-	if (file->mask & VFS_SETUID)
+	if (file->mode & VFS_SETUID)
 		current_task->euid = file->uid;
 
-	if (file->mask & VFS_SETGID)
+	if (file->mode & VFS_SETGID)
 		current_task->euid = file->gid;
 
 	Elf32_Ehdr *header = (Elf32_Ehdr*)kmalloc(sizeof(Elf32_Ehdr));

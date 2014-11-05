@@ -1,6 +1,6 @@
 SOURCES_MAIN=boot.o main.o common.o monitor.o string.o gdt.o idt.o \
 	descriptor_tables.o interrupt.o paging.o process.o task.o fileops.o \
-	timer.o syscall.o time.o port.o elf.o vfs.o pci.o dev.o kmalloc.o printf.o
+	timer.o syscall.o time.o port.o vfs.o elf.o pci.o dev.o kmalloc.o printf.o
 
 SOURCES_FS=rootfs.o fat32.o
 
