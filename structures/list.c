@@ -13,6 +13,9 @@ list_t *list_create(void) {
 
 // Frees contents of list followed by the list itself
 void list_destroy(list_t *list) {
+	if (!list)
+		return;
+
 	node_t *node = list->head;
 
 	while(node) {
@@ -29,6 +32,9 @@ void list_destroy(list_t *list) {
 }
 
 node_t *list_insert(list_t *list, void *data) {
+	if (!list)
+		return NULL;
+
 	node_t *node = (node_t *)kmalloc(sizeof(node_t));
 	if (!node)
 		return NULL;
@@ -51,6 +57,9 @@ node_t *list_insert(list_t *list, void *data) {
 }
 
 void list_remove(list_t *list, node_t *node) {
+	if (!list || !node)
+		return;
+
 	ASSERT(node->owner == list);
 
 	if (list->head == node)
@@ -68,6 +77,9 @@ void list_remove(list_t *list, node_t *node) {
 }
 
 node_t *list_find(list_t *list, void *key) {
+	if (!list || !key)
+		return NULL;
+
 	node_t *element;
 	foreach(element, list) {
 		if (element->data == key)
@@ -79,6 +91,9 @@ node_t *list_find(list_t *list, void *key) {
 
 // appends src onto dest
 void list_merge(list_t *dest, list_t *src) {
+	if (!dest || !src)
+		return;
+
 	node_t *node;
 	foreach(node, src)
 		node->owner = dest;

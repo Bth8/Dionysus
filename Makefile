@@ -8,7 +8,7 @@ SOURCES_CHARDEV=term.o
 
 SOURCES_PCI=ide.o
 
-SOURCES_STRUCTURES=tree.o list.o ordered_array.o
+SOURCES_STRUCTURES=tree.o list.o ordered_array.o hashmap.o
 
 SOURCES_ALL=$(SOURCES_MAIN) $(addprefix fs/, $(SOURCES_FS)) \
 			$(addprefix chardev/, $(SOURCES_CHARDEV)) \

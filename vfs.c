@@ -26,12 +26,13 @@
 #include <kmalloc.h>
 #include <errno.h>
 #include <dev.h>
+#include <structures/hashmap.h>
 #include <structures/list.h>
 #include <structures/tree.h>
 #include <task.h>
 
 fs_node_t *vfs_root = NULL;
-list_t *fs_types = NULL;
+hashmap_t *fs_types = NULL;
 tree_t *filesystem = NULL;
 
 extern volatile task_t *current_task;
@@ -316,20 +317,11 @@ int32_t unlink_vfs(fs_node_t *parent, const char *fname) {
 	return -EACCES;
 }
 
-int32_t register_fs(struct file_system_type *fs) {
+int32_t register_fs(const char *name, struct file_system_type *fs) {
 	if (!fs_types)
-		fs_types = list_create();
+		fs_types = hashmap_create(32, NULL);
 
-	node_t *node;
-	foreach(node, fs_types)
-		if (strcmp(((struct file_system_type *)(node->data))->name, fs->name) 
-			== 0)
-			return -1;
-
-	if (!list_insert(fs_types, fs))
-		return -ENOMEM;
-
-	return 0;
+	return hashmap_insert(fs_types, name, fs);
 }
 
 static void vfs_prune(tree_node_t *node) {
@@ -393,21 +385,17 @@ int32_t mount(fs_node_t *dev, const char *relpath, const char *fs_name,
 	if (!filesystem)
 		return -EACCES;
 
-	node_t *fs;
-	foreach(fs, fs_types) {
-		if (strcmp(fs_name, ((file_system_t *)fs->data)->name) == 0)
-			break;
-	}
+	file_system_t *fs = hashmap_find(fs_types, fs_name);
 	if (!fs)
 		return -ENODEV;
 
-	if (!dev && !(((file_system_t *)(fs->data))->flags & FS_NODEV))
+	if (!dev && !(fs->flags & FS_NODEV))
 		return -ENODEV;
 
 	spin_lock(&vfs_lock);
 
 	if (relpath[0] == PATH_DELIMITER && relpath[1] == '\0') {
-		int32_t ret = root_mount(dev, (file_system_t *)fs, flags);
+		int32_t ret = root_mount(dev, fs, flags);
 		spin_unlock(&vfs_lock);
 		return ret;
 	}
@@ -470,7 +458,7 @@ int32_t mount(fs_node_t *dev, const char *relpath, const char *fs_name,
 		return -EBUSY;
 	}
 
-	struct superblock *sb = ((file_system_t *)fs->data)->get_super(flags, dev);
+	struct superblock *sb = fs->get_super(flags, dev);
 	if (!sb) {
 		spin_unlock(&vfs_lock);
 		vfs_prune(node);

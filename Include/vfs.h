@@ -123,7 +123,6 @@ struct mountpoint {
 };
 
 typedef struct file_system_type {
-	const char *name;
 	uint32_t flags;
 	struct superblock *(*get_super)(uint32_t, fs_node_t*);
 } file_system_t;
@@ -164,7 +163,7 @@ int32_t create_vfs(fs_node_t *parent, const char *fname, uint32_t uid,
 		uint32_t gid, uint32_t mode, dev_t dev);
 int32_t unlink_vfs(fs_node_t *parent, const char *fname);
 fs_node_t *kopen(const char *relpath, int32_t flags, int32_t *openret);
-int32_t register_fs(struct file_system_type *fs);
+int32_t register_fs(const char *name, struct file_system_type *fs);
 int32_t mount(fs_node_t *dev, const char *path, const char *fs_name,
 		uint32_t flags);
 fs_node_t *clone_file(fs_node_t *node);
