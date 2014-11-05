@@ -258,14 +258,20 @@ int32_t user_readdir(int32_t fd, struct dirent *dirp, uint32_t index) {
 	return readdir_vfs(current_task->files[fd].file, dirp, index);
 }
 
-int32_t user_fstat(int32_t fd, struct stat *buff) {
-	if (!valid_fd(fd))
-		return -EBADF;
-
+int32_t user_stat(const char *path, struct stat *buff) {
+	if (!path)
+		return -EFAULT;
 	if (!buff)
 		return -EFAULT;
 
-	return stat_vfs(current_task->files[fd].file, buff);
+	int32_t ret;
+	fs_node_t *file = kopen(path, O_RDONLY, &ret);
+	if (!file)
+		return ret;
+
+	ret = stat_vfs(file, buff);
+	close_vfs(file);
+	return ret;
 }
 
 int32_t user_chmod(int32_t fd, uint32_t mode) {

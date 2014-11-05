@@ -174,6 +174,9 @@ int32_t open_vfs(fs_node_t *node, uint32_t flags) {
 	if (!node)
 		return -EBADF;
 
+	if (!(node->fs_sb->flags & MNT_WRITE) && flags & O_WRONLY)
+		return -EINVAL;
+
 	node->flags = flags;
 
 	if (node->refcount == -1)
