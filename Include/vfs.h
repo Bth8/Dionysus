@@ -96,7 +96,7 @@ typedef struct fs_node {
 	uint32_t flags;				// Flags used to open file. Tells us
 								// what restrictions we've put on ourselves
 	size_t len;
-	uint32_t impl;				// Implementation-defined
+	dev_t dev;					// Implementation-defined
 
 	time_t atime;
 	time_t mtime;
@@ -150,6 +150,7 @@ struct stat {
 
 extern fs_node_t *vfs_root;
 
+char *canonicalize_path(const char *cwd, const char *relpath);
 ssize_t read_vfs(fs_node_t *node, void *buf, size_t count, off_t off);
 ssize_t write_vfs(fs_node_t *node, const void *buf, size_t count, off_t off);
 int32_t open_vfs(fs_node_t *node, uint32_t flags);

@@ -439,3 +439,16 @@ uintptr_t sbrk(uintptr_t inc) {
 
 	return ret;
 }
+
+// Not much error checking, but if we're in a bad place, other
+// permissions will save the day
+uint32_t chdir(const char *path) {
+	if (!path)
+		return -EFAULT;
+
+	char *new_cwd = canonicalize_path(current_task->cwd, path);
+	kfree(current_task->cwd);
+	current_task->cwd = new_cwd;
+
+	return 0;
+}

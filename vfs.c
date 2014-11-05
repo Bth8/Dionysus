@@ -58,7 +58,7 @@ static uint32_t vfs_tokenize(char *path) {
 }
 
 // Converts relative paths to absolute. Leaves absolute paths alone
-static char *fix_path(const char *cwd, const char *relpath) {
+char *canonicalize_path(const char *cwd, const char *relpath) {
 	ASSERT(relpath && cwd);
 
 	list_t *fifo = list_create();
@@ -99,9 +99,19 @@ static char *fix_path(const char *cwd, const char *relpath) {
 	char *off = path_cpy;
 	strcpy(path_cpy, relpath);
 	uint32_t depth;
+	node_t *prev = fifo->tail;
 	for (depth = vfs_tokenize(path_cpy); depth > 0; depth--) {
 		if (*off == '\0') {
 			off++;
+			continue;
+		}
+		if (strcmp(off, ".") == 0) {
+			off += 2;
+			continue;
+		}
+		if (strcmp(off, "..") == 0) {
+			list_remove(fifo, prev);
+			off += 3;
 			continue;
 		}
 		char *s = (char *)kmalloc(strlen(off) + 1);
@@ -111,7 +121,7 @@ static char *fix_path(const char *cwd, const char *relpath) {
 		}
 
 		strcpy(s, off);
-		list_insert(fifo, s);
+		prev = list_insert(fifo, s);
 		off += strlen(off) + 1;
 	}
 	kfree(path_cpy);
@@ -400,7 +410,7 @@ int32_t mount(fs_node_t *dev, const char *relpath, const char *fs_name,
 		return ret;
 	}
 
-	char *path = fix_path(current_task->cwd, relpath);
+	char *path = canonicalize_path(current_task->cwd, relpath);
 	if (!path) {
 		spin_unlock(&vfs_lock);
 		return -ENOMEM;
@@ -520,7 +530,7 @@ fs_node_t *kopen(const char *relpath, int32_t flags, int32_t *openret) {
 	if (!relpath)
 		return NULL;
 
-	char *path = fix_path(current_task->cwd, relpath);
+	char *path = canonicalize_path(current_task->cwd, relpath);
 	if (!path)
 		return NULL;
 

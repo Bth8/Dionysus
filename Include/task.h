@@ -70,5 +70,6 @@ int32_t getresuid(int32_t *ruid, int32_t *euid, int32_t *suid);
 int32_t setresgid(int32_t new_rgid, int32_t new_egid, int32_t new_sgid);
 int32_t getresgid(int32_t *ruid, int32_t *euid, int32_t *suid);
 uintptr_t sbrk(uintptr_t inc);
+uint32_t chdir(const char *path);
 
 #endif /* TASK_H */

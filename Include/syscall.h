@@ -178,6 +178,7 @@ DECL_SYSCALL3(mknod, const char*, uint32_t, dev_t);
 DECL_SYSCALL4(mount, const char*, const char*, const char*, unsigned int);
 DECL_SYSCALL1(sbrk, unsigned int);
 DECL_SYSCALL3(execve, const char*, char *const*, char *const*);
+DECL_SYSCALL1(chdir, const char*);
 
 void init_syscalls(void);
 

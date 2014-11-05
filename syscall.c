@@ -52,6 +52,7 @@ DEFN_SYSCALL3(mknod, 21, const char*, uint32_t, dev_t);
 DEFN_SYSCALL4(mount, 22, const char*, const char*, const char*, unsigned int);
 DEFN_SYSCALL1(sbrk, 23, unsigned int);
 DEFN_SYSCALL3(execve, 24, const char*, char *const*, char *const*);
+DEFN_SYSCALL1(chdir, 25, const char*);
 
 static void *syscalls[] = {
 	// Defined in task.c
@@ -79,7 +80,8 @@ static void *syscalls[] = {
 	mknod,
 	user_mount,
 	sbrk,
-	execve
+	execve,
+	chdir
 };
 uint32_t num_syscalls;
 
