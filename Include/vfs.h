@@ -83,7 +83,7 @@ struct file_ops {
 	int32_t (*chown)(struct fs_node*, int32_t, int32_t);
 	int32_t (*ioctl)(struct fs_node*, uint32_t, void*);
 	int32_t (*create)(struct fs_node*, const char*, uint32_t, uint32_t,
-		uint32_t, uint32_t);
+		uint32_t, dev_t);
 	int32_t (*unlink)(struct fs_node*, const char*);
 };
 
@@ -159,7 +159,7 @@ int32_t chmod_vfs(fs_node_t *node, uint32_t mode);
 int32_t chown_vfs(fs_node_t *node, int32_t uid, int32_t gid);
 int32_t ioctl_vfs(fs_node_t *node, uint32_t, void *);
 int32_t create_vfs(fs_node_t *parent, const char *fname, uint32_t uid, 
-		uint32_t gid, uint32_t flags, uint32_t mode);
+		uint32_t gid, uint32_t mode, dev_t dev);
 int32_t unlink_vfs(fs_node_t *parent, const char *fname);
 fs_node_t *kopen(const char *relpath, int32_t flags, int32_t *openret);
 int32_t register_fs(struct file_system_type *fs);

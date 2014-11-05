@@ -289,12 +289,12 @@ int32_t ioctl_vfs(fs_node_t *node, uint32_t request, void *ptr) {
 }
 
 int32_t create_vfs(fs_node_t *parent, const char *fname, uint32_t uid, 
-		uint32_t gid, uint32_t flags, uint32_t mode) {
+		uint32_t gid, uint32_t mode, dev_t dev) {
 	if (!parent)
 		return -EBADF;
 
 	if (parent->ops.create)
-		return parent->ops.create(parent, fname, uid, gid, flags, mode);
+		return parent->ops.create(parent, fname, uid, gid, mode, dev);
 	return -EACCES;
 }
 

@@ -1,7 +1,7 @@
-SOURCES_MAIN=boot.o main.o common.o monitor.o string.o gdt.o \
-	descriptor_tables.o idt.o interrupt.o paging.o ordered_array.o process.o \
-	task.o timer.o syscall.o time.o port.o ide.o vfs.o pci.o dev.o printf.o \
-	elf.o kmalloc.o list.o tree.o
+SOURCES_MAIN=boot.o main.o common.o monitor.o string.o gdt.o idt.o \
+	descriptor_tables.o interrupt.o paging.o ordered_array.o process.o \
+	task.o fileops.o timer.o syscall.o time.o port.o ide.o vfs.o pci.o dev.o \
+	elf.o kmalloc.o list.o tree.o printf.o
 SOURCES_FS=rootfs.o fat32.o
 
 SOURCES_CHARDEV=term.o

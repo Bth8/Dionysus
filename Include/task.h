@@ -1,5 +1,4 @@
-/* task.h - task data types and declarations for initialization, creation
- * and management */
+/* task.h - task data types and permissions operations */
 
 /* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
@@ -70,21 +69,6 @@ int32_t setresuid(int32_t new_ruid, int32_t new_euid, int32_t new_suid);
 int32_t getresuid(int32_t *ruid, int32_t *euid, int32_t *suid);
 int32_t setresgid(int32_t new_rgid, int32_t new_egid, int32_t new_sgid);
 int32_t getresgid(int32_t *ruid, int32_t *euid, int32_t *suid);
-off_t lseek(int32_t fd, off_t off, int32_t whence);
-ssize_t user_pread(int32_t fd, char *buf, size_t nbytes, off_t off);
-ssize_t user_read(int32_t fd, char *buf, size_t nbytes);
-ssize_t user_pwrite(int32_t fd, const char *buf, size_t nbytes, off_t off);
-ssize_t user_write(int32_t fd, const char *buf, size_t nbytes);
-int32_t user_open(const char *path, uint32_t flags, uint32_t mode);
-int32_t user_close(int32_t fd);
-int32_t user_readdir(int32_t fd, struct dirent *dirp, uint32_t index);
-int32_t user_fstat(int32_t fd, struct stat *buff);
-int32_t user_chmod(int32_t fd, uint32_t mode);
-int32_t user_chown(int32_t fd, int32_t uid, int32_t gid);
-int32_t user_ioctl(int32_t fd, uint32_t request, void *ptr);
-int32_t user_unlink(const char *path);
-int32_t user_mount(const char *src, const char *target, const char *fs_name,
-		uint32_t flags);
 uintptr_t sbrk(uintptr_t inc);
 
 #endif /* TASK_H */
