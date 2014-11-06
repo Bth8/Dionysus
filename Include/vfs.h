@@ -61,6 +61,8 @@
 #define FS_NODEV		0x01
 
 #define MNT_WRITE		0x01
+#define MNT_FORCE		0x02
+#define MNT_DETACH		0x04
 
 #define PATH_DELIMITER	'/'
 
@@ -85,6 +87,7 @@ struct file_ops {
 	int32_t (*ioctl)(struct fs_node*, uint32_t, void*);
 	int32_t (*create)(struct fs_node*, const char*, uint32_t, uint32_t,
 		uint32_t, dev_t);
+	int32_t (*link)(struct fs_node *, struct fs_node *, const char*);
 	int32_t (*unlink)(struct fs_node*, const char*);
 };
 
@@ -162,6 +165,7 @@ int32_t chown_vfs(fs_node_t *node, int32_t uid, int32_t gid);
 int32_t ioctl_vfs(fs_node_t *node, uint32_t, void *);
 int32_t create_vfs(fs_node_t *parent, const char *fname, uint32_t uid, 
 		uint32_t gid, uint32_t mode, dev_t dev);
+int32_t link_vfs(fs_node_t *parent, fs_node_t *child, const char *fname);
 int32_t unlink_vfs(fs_node_t *parent, const char *fname);
 fs_node_t *kopen(const char *relpath, int32_t flags, int32_t *openret);
 int32_t register_fs(const char *name, struct file_system_type *fs);

@@ -101,7 +101,7 @@ void init_tasking(uintptr_t ebp) {
 	current_task->egid = current_task->rgid = current_task->sgid = 0;
 	current_task->next = NULL;
 	current_task->cwd = kmalloc(2);
-	current_task->cwd[0] = '/';
+	current_task->cwd[0] = PATH_DELIMITER;
 	current_task->cwd[1] = '\0';
 
 	// Create a user stack

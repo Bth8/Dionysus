@@ -1,5 +1,6 @@
 /* time.c - get and play with time. Bits borrowed from minix source and
- * linux v0.01 */
+ * linux v0.01
+ */
 
 /* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *

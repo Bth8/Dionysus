@@ -1,3 +1,23 @@
+/* list.c - list management functions */
+
+/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
+ *
+ *  This file is part of Dionysus.
+ *
+ *  Dionysus is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  Dionysus is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with Dionysus.  If not, see <http://www.gnu.org/licenses/>
+ */
+
 #include <common.h>
 #include <structures/list.h>
 #include <kmalloc.h>
@@ -87,6 +107,21 @@ node_t *list_find(list_t *list, void *key) {
 	}
 
 	return NULL;
+}
+
+node_t *list_get_index(list_t *list, uint32_t index) {
+	if (!list)
+		return NULL;
+
+	node_t *node = list->head;
+	uint32_t i;
+	for (i = 0; i < index; i++) {
+		if (!node)
+			return NULL;
+		node = node->next;
+	}
+
+	return node;
 }
 
 // appends src onto dest

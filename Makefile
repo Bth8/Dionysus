@@ -29,7 +29,7 @@ ASFLAGS=-felf32
 all: kernel
 
 clean:
-	rm *.o fs/*.o chardev/*.o kernel
+	rm -f $(SOURCES_ALL) kernel
 
 kernel: $(SOURCES_ALL)
 	$(LD) $(LDFLAGS) -o $@ $(SOURCES_ALL) $(LIBS)

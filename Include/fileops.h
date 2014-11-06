@@ -38,6 +38,7 @@ int32_t user_fstat(int32_t fd, struct stat *buff);
 int32_t user_chmod(int32_t fd, uint32_t mode);
 int32_t user_chown(int32_t fd, int32_t uid, int32_t gid);
 int32_t user_ioctl(int32_t fd, uint32_t request, void *ptr);
+int32_t user_link(const char *oldpath, const char *newpath);
 int32_t user_unlink(const char *path);
 int32_t mknod(const char *path, uint32_t mode, dev_t dev);
 int32_t user_mount(const char *src, const char *target, const char *fs_name,

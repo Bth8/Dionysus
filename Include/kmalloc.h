@@ -1,4 +1,3 @@
-
 /* kmalloc.h - kernel heap allocation/management 
  * This is an adaptation of liballoc, written by Durand, released to the public
  * domain. Still, I feel it bears repeating: I did not write this. I only

@@ -186,7 +186,7 @@ int32_t open_vfs(fs_node_t *node, uint32_t flags) {
 		return -EBADF;
 
 	if (!(node->fs_sb->flags & MNT_WRITE) && flags & O_WRONLY)
-		return -EINVAL;
+		return -EROFS;
 
 	node->flags = flags;
 
@@ -211,8 +211,6 @@ int32_t open_vfs(fs_node_t *node, uint32_t flags) {
 int32_t close_vfs(fs_node_t *node) {
 	if (!node)
 		return -EBADF;
-	if (node == vfs_root)
-		PANIC("Tried closing root");
 
 	if (node->refcount == -1) {
 		kfree(node);
@@ -312,9 +310,31 @@ int32_t create_vfs(fs_node_t *parent, const char *fname, uint32_t uid,
 		return -EBADF;
 	if (!(parent->mode & VFS_DIR))
 		return -ENOTDIR;
+	fs_node_t *exist = finddir_vfs(parent, fname);
+	if (exist) {
+		kfree(exist);
+		return -EEXIST;
+	}
 	if (parent->ops.create)
 		return parent->ops.create(parent, fname, uid, gid, mode, dev);
 	return -EACCES;
+}
+
+int32_t link_vfs(fs_node_t *parent, fs_node_t *child, const char *fname) {
+	if (!child || !parent)
+		return -EBADF;
+	if (!(parent->mode & VFS_DIR))
+		return -ENOTDIR;
+	if (parent->fs_sb != child->fs_sb)
+		return -EXDEV;
+	fs_node_t *exist = finddir_vfs(parent, fname);
+	if (exist) {
+		kfree(exist);
+		return -EEXIST;
+	}
+	if (parent->ops.link)
+		return parent->ops.link(parent, child, fname);
+	return -EPERM;
 }
 
 int32_t unlink_vfs(fs_node_t *parent, const char *fname) {

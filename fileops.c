@@ -151,7 +151,7 @@ ssize_t user_write(int32_t fd, const char *buf, size_t nbytes) {
 	return ret;
 }
 
-static fs_node_t *getparent(const char *path, char *child) {
+static fs_node_t *getparent(const char *path, char *child, int32_t *retval) {
 	if (!path)
 		return NULL;
 
@@ -176,6 +176,9 @@ static fs_node_t *getparent(const char *path, char *child) {
 		parent = kopen(name, O_WRONLY, &ret);
 	} else 
 		parent = kopen(path, O_WRONLY, &ret);
+
+	if (retval)
+		*retval = ret;
 
 	fname++;
 
@@ -208,9 +211,9 @@ int32_t user_open(const char *path, uint32_t flags, uint32_t mode) {
 
 	if (flags & O_CREAT) {
 		char fname[NAME_MAX];
-		fs_node_t *parent = getparent(path, fname);
+		fs_node_t *parent = getparent(path, fname, &ret);
 		if (!parent)
-			return -ENOENT;
+			return ret;
 		if (!check_flags(parent, O_WRONLY)) {
 			close_vfs(parent);
 			return -EACCES;
@@ -303,20 +306,46 @@ int32_t user_ioctl(int32_t fd, uint32_t request, void *ptr) {
 	return ioctl_vfs(current_task->files[fd].file, request, ptr);
 }
 
+int32_t user_link(const char *oldpath, const char *newpath) {
+	if (!oldpath || !newpath)
+		return -EFAULT;
+
+	int32_t ret;
+	fs_node_t *child = kopen(oldpath, O_WRONLY, &ret);
+	if (!child)
+		return ret;
+
+	if (current_task->euid != child->uid && current_task->euid != 0) {
+		close_vfs(child);
+		return -EPERM;
+	}
+
+	char fname[NAME_MAX];
+	fs_node_t *parent = getparent(newpath, fname, &ret);
+	if (!parent)
+		return ret;
+
+	ret = link_vfs(parent, child, fname);
+	close_vfs(parent);
+	close_vfs(child);
+	return ret;
+}
+
 int32_t user_unlink(const char *path) {
 	if (!path)
 		return -EFAULT;
 
+	int32_t ret;
 	char fname[NAME_MAX];
-	fs_node_t *parent = getparent(path, fname);
+	fs_node_t *parent = getparent(path, fname, &ret);
 	if (!parent)
-		return -ENOENT;
+		return ret;
 	if (!check_flags(parent, O_WRONLY)) {
 		close_vfs(parent);
 		return -EACCES;
 	}
 
-	int32_t ret = unlink_vfs(parent, fname);
+	ret = unlink_vfs(parent, fname);
 	close_vfs(parent);
 	return ret;
 }
@@ -325,17 +354,18 @@ int32_t mknod(const char *path, uint32_t mode, dev_t dev) {
 	if (!path)
 		return -EFAULT;
 
+	int32_t ret;
 	char nname[NAME_MAX];
-	fs_node_t *parent = getparent(path, nname);
+	fs_node_t *parent = getparent(path, nname, &ret);
 	if (!parent)
-		return -ENOENT;
+		return ret;
 	if (!check_flags(parent, O_WRONLY)) {
 		close_vfs(parent);
 		return -EACCES;
 	}
 
-	int32_t ret = create_vfs(parent, nname, current_task->euid,
-		current_task->egid, mode, dev);
+	ret = create_vfs(parent, nname, current_task->euid, current_task->egid,
+		mode, dev);
 	close_vfs(parent);
 	return ret;
 }
