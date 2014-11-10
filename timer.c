@@ -27,7 +27,7 @@
 // Defined in time.c
 extern time_t current_time;
 
-uint32_t tick = 0;
+uint64_t tick = 0;
 int32_t task_tick = 20;
 uint32_t rtc_tick = 1024;
 
@@ -42,27 +42,30 @@ static void rtc_callback(registers_t *regs) {
 		current_time++;
 		rtc_tick = 1024;
 	}
-	READ_CMOS(0x0C);
+	// Re-enables RTC interrupts
+	READ_CMOS(CMOS_RTC_STAT_C);
 }
 
-void init_timer(uint32_t freq) {
+void init_timer(void) {
 	asm volatile("cli");
 	// PIT
 	register_interrupt_handler(IRQ0, &pit_callback);
 
-	uint32_t divisor = 1193182 / freq;
+	uint32_t divisor = 1193182 / HZ;
 
 	// Command byte
-	outb(0x43, 0x36);
+	outb(PIT_CMD, PIT_CHAN0 | PIT_LOHI | PIT_MODE3 | PIT_BIN);
 
-	outb(0x40, divisor & 0xFF);
-	outb(0x40, divisor >> 8);
+	outb(PIT_PORT0, divisor & 0xFF);
+	outb(PIT_PORT0, divisor >> 8);
 
 	// RTC
 	register_interrupt_handler(IRQ8, &rtc_callback);
+
+	uint8_t prev = READ_CMOS(CMOS_RTC_STAT_B);
+	WRITE_CMOS(CMOS_RTC_STAT_B, prev | CMOS_RTC_INT);
+
 	// Enable interrupts
-	uint8_t prev = READ_CMOS(0x0B);
-	WRITE_CMOS(0x0B, prev | 0x40);
 	asm volatile("sti");
 }
 

@@ -28,14 +28,6 @@
 #define ASSERT(b) (b) ? NULL : PANIC("ASSERT failed")
 #define BCD2HEX(bcd) ((bcd) = (((bcd) & 0xF0) >> 1) + \
 		(((bcd) & 0xF0) >> 3) + ((bcd) & 0xf))
-#define READ_CMOS(addr) ({ \
-		outb(0x70, 0x80 | addr); \
-		inb(0x71); \
-})
-#define WRITE_CMOS(addr, val) ({ \
-		outb(0x70, 0x80 | addr); \
-		outb(0x71, val); \
-})
 
 #include <stdint.h>
 

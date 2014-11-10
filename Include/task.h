@@ -25,7 +25,8 @@
 #include <paging.h>
 #include <vfs.h>
 
-#define KERNEL_STACK_SIZE 2048
+#define KERNEL_STACK_TOP 0xF0000000
+#define KERNEL_STACK_SIZE 0x2000
 #define MAX_OF 32
 
 #define SEEK_SET 0

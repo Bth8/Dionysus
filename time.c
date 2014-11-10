@@ -113,25 +113,25 @@ void init_time(void) {
 	int pm, century;
 
 	do {
-		time.tm_sec = READ_CMOS(0);
-		time.tm_min = READ_CMOS(2);
-		time.tm_hour = READ_CMOS(4);
-		time.tm_mday = READ_CMOS(7);
-		time.tm_mon = READ_CMOS(8)-1;
-		time.tm_year = READ_CMOS(9);
-		century = READ_CMOS(0x32);
-	} while (time.tm_sec != READ_CMOS(0));
+		time.tm_sec = READ_CMOS(CMOS_RTC_SEC);
+		time.tm_min = READ_CMOS(CMOS_RTC_MIN);
+		time.tm_hour = READ_CMOS(CMOS_RTC_HOUR);
+		time.tm_mday = READ_CMOS(CMOS_RTC_DOM);
+		time.tm_mon = READ_CMOS(CMOS_RTC_MONTH);
+		time.tm_year = READ_CMOS(CMOS_RTC_YEAR);
+		century = READ_CMOS(CMOS_RTC_CENT);
+	} while (time.tm_sec != READ_CMOS(CMOS_RTC_SEC));
 
-	if (!(READ_CMOS(0xB) & 2)) {
+	if (!(READ_CMOS(CMOS_RTC_STAT_B) & CMOS_RTC_24HR)) {
 		pm = time.tm_hour & 0x80;
 		time.tm_hour &= ~0x80;
 		if (time.tm_hour == 0x12 || time.tm_hour == 12)
 			time.tm_hour = 0;
-		time.tm_hour += pm ? ((READ_CMOS(0xB) & 4) ? 12 : 0x12) : 0;
+		time.tm_hour += pm ? ((READ_CMOS(CMOS_RTC_STAT_B) & CMOS_RTC_BIN) ? 12 : 0x12) : 0;
 	}
 
 	// BCD mode
-	if (!(READ_CMOS(0xB) & 4)) {
+	if (!(READ_CMOS(CMOS_RTC_STAT_B) & CMOS_RTC_BIN)) {
 		BCD2HEX(time.tm_sec);
 		BCD2HEX(time.tm_min);
 		BCD2HEX(time.tm_hour);
@@ -143,6 +143,7 @@ void init_time(void) {
 
 	century = (century * 100) - 1900;
 	time.tm_year += century;
+	time.tm_mon--;
 
 	current_time = start_time = mktime(&time);
 }

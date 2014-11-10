@@ -40,6 +40,12 @@
 #define YELLOW		14
 #define WHITE		15
 
+#define CURSOR_REG	0x03D4
+#define CURSOR_SEL	0x03D5
+
+#define CURSOR_LOC_HI	0x0E
+#define CURSOR_LOC_LO	0x0F
+
 void monitor_put(char c);
 void monitor_clear(void);
 void setcolor(uint8_t bg, uint8_t fg);

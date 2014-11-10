@@ -44,18 +44,18 @@ off_t lseek(int32_t fd, off_t off, int32_t whence) {
 		return -EBADF;
 
 	switch (whence) {
-		case SEEK_SET:
-			current_task->files[fd].off = off;
-			break;
-		case SEEK_CUR:
-			current_task->files[fd].off += off;
-			break;
-		case SEEK_END:
-			current_task->files[fd].off =
-				current_task->files[fd].file->len + off;
-			break;
-		default:
-			return -EINVAL;
+	case SEEK_SET:
+		current_task->files[fd].off = off;
+		break;
+	case SEEK_CUR:
+		current_task->files[fd].off += off;
+		break;
+	case SEEK_END:
+		current_task->files[fd].off =
+			current_task->files[fd].file->len + off;
+		break;
+	default:
+		return -EINVAL;
 	}
 
 	return current_task->files[fd].off;

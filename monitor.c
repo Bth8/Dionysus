@@ -22,7 +22,9 @@
 #include <monitor.h>
 #include <string.h>
 
-uint8_t attrByte = (BLACK << 4) | (WHITE & 0x0F), cursor_x = 0, cursor_y = 0;
+uint8_t attrByte = (BLACK << 4) | (WHITE & 0x0F);
+uint8_t cursor_x = 0;
+uint8_t cursor_y = 0;
 uint16_t *vmem = (uint16_t *)0x0B8000;
 
 void setcolor(uint8_t bg, uint8_t fg) {
@@ -32,11 +34,11 @@ void setcolor(uint8_t bg, uint8_t fg) {
 static void update_cursor(void) {
 	uint16_t cursorLocation = cursor_y * 80 + cursor_x;
 	// Setting high cursor byte
-	outb(0x03D4, 14);
-	outb(0x03D5, cursorLocation >> 8);
+	outb(CURSOR_REG, CURSOR_LOC_HI);
+	outb(CURSOR_SEL, cursorLocation >> 8);
 	// Setting low cursor byte
-	outb(0x03D4, 15);
-	outb(0x03D5, cursorLocation);
+	outb(CURSOR_REG, CURSOR_LOC_LO);
+	outb(CURSOR_SEL, cursorLocation & 0xFF);
 }
 
 void move_cursor(uint32_t x, uint32_t y) {

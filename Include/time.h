@@ -21,6 +21,35 @@
 #ifndef TIME_H
 #define TIME_H
 
+#define CMOS_REGISTER	0x70
+#define CMOS_SELECTED	0x71
+
+#define CMOS_RTC_DNMI	0x80
+#define CMOS_RTC_SEC	0x00
+#define CMOS_RTC_MIN	0x02
+#define CMOS_RTC_HOUR	0x04
+#define CMOS_RTC_DOW	0x06
+#define CMOS_RTC_DOM	0x07
+#define CMOS_RTC_MONTH	0x08
+#define CMOS_RTC_YEAR	0x09
+#define CMOS_RTC_CENT	0x32
+#define CMOS_RTC_STAT_A	0x0A
+#define CMOS_RTC_STAT_B	0x0B
+#define CMOS_RTC_STAT_C	0x0C
+
+#define CMOS_RTC_24HR	0x02
+#define CMOS_RTC_BIN	0X04
+#define CMOS_RTC_INT	0x40
+
+#define READ_CMOS(addr) ({ \
+		outb(CMOS_REGISTER, CMOS_RTC_DNMI | addr); \
+		inb(CMOS_SELECTED); \
+})
+#define WRITE_CMOS(addr, val) ({ \
+		outb(CMOS_REGISTER, CMOS_RTC_DNMI | addr); \
+		outb(CMOS_SELECTED, val); \
+})
+
 #ifndef TIME_T
 #define TIME_T
 typedef unsigned int time_t;

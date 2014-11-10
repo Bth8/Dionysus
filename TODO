@@ -1,6 +1,18 @@
 Practically everything. Very little's actually been implemented.
 
 Immediate concerns:
+Some kind of PCI registration. IDE would be the first, easiest part.
+
+Finish devfs rewrite.
+
+Rewrite other filesystems.
+
+FAT32 needs to be finished. It would be nice if we could get EXT2, too.
+
+User input sanitization.
+
+Waiting.
+
 Processes need to have children and parents.
 
 IPC would be nice.
@@ -14,13 +26,11 @@ write to ATAPI, need to implement DMA, etc.
 
 Race conditions need to be brought into consideration.
 
-Better error reporting.
-
-FAT32 needs to be finished. It would be nice if we could get EXT2, too.
-
 Improvements with ELF. Relocatable code, dynamic linking, etc.
 
 Modules, which goes hand in hand with relocatable code.
+
+Page swapping, but we need good disk access first.
 
 Later, other features such as USB support and the like may be implemented, but
 we'll cross those bridges when we get to them.

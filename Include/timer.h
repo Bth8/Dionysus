@@ -22,7 +22,32 @@
 #define TIMER_H
 #include <common.h>
 
-void init_timer(uint32_t freq);
+#define PIT_PORT0	0x40
+#define PIT_PORT1	0x41
+#define PIT_PORT2	0x42
+#define PIT_CMD		0x43
+
+#define PIT_CHAN0	0x00
+#define PIT_CHAN1	0x40
+#define PIT_CHAN2	0x80
+#define PIT_READBCK	0xC0
+#define PIT_LATCH	0x00
+#define PIT_LOW		0x10
+#define PIT_HIGH	0x20
+#define PIT_LOHI	0x30
+#define PIT_MODE0	0x00
+#define PIT_MODE1	0x02
+#define PIT_MODE2	0x04
+#define PIT_MODE3	0x06
+#define PIT_MODE4	0x08
+#define PIT_MODE5	0x0C
+#define PIT_BIN		0x00
+#define PIT_BCD		0x01
+
+#define HZ			100
+
+
+void init_timer(void);
 void wait(uint32_t ms);
 void sleep_thread(void);
 

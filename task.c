@@ -42,7 +42,23 @@ extern page_directory_t *kernel_dir;
 
 volatile task_t *current_task = NULL;
 volatile task_t *ready_queue;
-uint32_t next_pid = 1;
+uint32_t pid_counter = 1;
+uint8_t pid_lock = 0;
+
+static uint32_t nextpid(void) {
+	spin_lock(&pid_lock);
+	task_t *iter = ready_queue;
+	while (iter) {
+		if (iter->id == pid_counter) {
+			pid_counter++;
+			iter = ready_queue;
+			continue;
+		}
+		iter = iter->next;
+	}
+	spin_unlock(&pid_lock);
+	return pid_counter++;
+}
 
 static void move_stack(void *new_stack_start, void *old_stack_start, size_t size) {
 	uintptr_t i;
@@ -84,12 +100,13 @@ void init_tasking(uintptr_t ebp) {
 	asm volatile("cli");
 	int i;
 	// Relocate stack
-	move_stack((void *)0xF0000000, (void *)ebp, 0x2000);
+	move_stack((void *)KERNEL_STACK_TOP, (void *)ebp, KERNEL_STACK_SIZE);
 
 	// Init first task (kernel task)
 	current_task = ready_queue = (task_t *)kmalloc(sizeof(task_t));
 	ASSERT(current_task);
-	current_task->id = next_pid++;
+
+	current_task->id = nextpid();
 	current_task->esp = current_task->ebp = 0;
 	current_task->eip = 0;
 	current_task->page_dir = current_dir;
@@ -101,6 +118,7 @@ void init_tasking(uintptr_t ebp) {
 	current_task->egid = current_task->rgid = current_task->sgid = 0;
 	current_task->next = NULL;
 	current_task->cwd = kmalloc(2);
+	ASSERT(current_task->cwd);
 	current_task->cwd[0] = PATH_DELIMITER;
 	current_task->cwd[1] = '\0';
 
@@ -122,10 +140,12 @@ int32_t fork(void) {
 
 	// Create a new process
 	task_t *new_task = (task_t *)kmalloc(sizeof(task_t));
-	if (!new_task)
+	if (!new_task) {
+		free_dir(directory);
 		return -ENOMEM;
+	}
 
-	new_task->id = next_pid++;
+	new_task->id = nextpid();
 	new_task->esp = new_task->ebp = 0;
 	new_task->eip = 0;
 	new_task->page_dir = directory;
@@ -142,13 +162,16 @@ int32_t fork(void) {
 	new_task->sgid = current_task->sgid;
 	new_task->next = NULL;
 	new_task->cwd = (char *)kmalloc(strlen(current_task->cwd) + 1);
+	if (!new_task->cwd) {
+		free_dir(directory);
+		kfree(new_task);
+		return -ENOMEM;
+	}
 	strcpy(new_task->cwd, current_task->cwd);
 
 	// Copy open files
 	for (i = 0; i < MAX_OF; i++) {
 		if (current_task->files[i].file != NULL) {
-			new_task->files[i].file =
-				(fs_node_t *)kmalloc(sizeof(fs_node_t));
 			new_task->files[i].file = clone_file(current_task->files[i].file);
 			new_task->files[i].off = current_task->files[i].off;
 		} else
@@ -167,7 +190,7 @@ int32_t fork(void) {
 	asm volatile("mov %%ebp, %0" : "=r" (ebp));
 	uint32_t eip = read_eip();
 
-	// Are we parent or child?
+	// Are we parent or child? See switch_task for explanation
 	if (eip != 0x12345) {
 		new_task->esp = esp;
 		new_task->ebp = ebp;
@@ -175,7 +198,7 @@ int32_t fork(void) {
 		return new_task->id;
 	} else {
 		// Send EOI to PIC. Otherwise, PIT won't fire again.
-		outb(0x20, 0x20);
+		outb(PIC_MASTER_A, PIC_COMMAND_EOI);
 		return 0;
 	}
 }
@@ -191,12 +214,13 @@ int switch_task(void) {
 		asm volatile("mov %%esp, %0" : "=r" (esp));
 		asm volatile("mov %%ebp, %0" : "=r" (ebp));
 
-		// Cunning logic time!
-		// We're going to be in one of 2 states after this call
-		// Either read_eip just returned, or we've just switched tasks and
-		// have come back here
-		// If it's the latter, we need to return. To detect it, the former
-		// will return 0x12345
+		/* Cunning logic time!
+		 * We're going to be in one of 2 states after this call
+		 * Either read_eip just returned, or we've just switched tasks and
+		 * have come back here
+		 * If it's the latter, we need to return. To detect it, the former
+		 * will return 0x12345
+		 */
 		eip = read_eip();
 		if (eip == 0x12345)
 			return current_task->nice;
@@ -225,7 +249,8 @@ int switch_task(void) {
 				mov %3, %%cr3; \
 				mov $0x12345, %%eax; \
 				jmp *%%ecx" : : "r"(eip), "r"(esp), "r"(ebp),
-				"r"(current_dir->physical_address));
+				"r"(current_dir->physical_address) : 
+				"ecx", "esp", "ebp", "eax");
 	}
 
 	return 0;
@@ -234,38 +259,39 @@ int switch_task(void) {
 void exit_task(void) {
 	asm volatile("cli");
 	int i;
-	task_t *task_i = (task_t *)ready_queue, *current_cache =
-		(task_t *)current_task;
+	task_t *iter = ready_queue
+	task_t *current_cache = current_task;
 
 	// Make sure we're not the only task
-	ASSERT(task_i->next != NULL);
+	ASSERT(iter->next != NULL);
 
 	// Not the first task in the run queue
-	if (task_i != current_task) {
+	if (iter != current_task) {
 		// Find the previous task
-		while (task_i->next != current_task)
-			task_i = task_i->next;
+		while (iter->next != current_task)
+			iter = iter->next;
 		// Point it to the next one. We're out of the run queue
-		task_i->next = current_task->next;
+		iter->next = current_task->next;
 	} else {
 		// Move the run queue to its second task
-		task_i = task_i->next;
-		ready_queue = task_i;
+		iter = iter->next;
+		ready_queue = iter;
 	}
 	// Prepare for a context switch
-	current_task = task_i;
+	current_task = iter;
 	current_dir = current_task->page_dir;
 	set_kernel_stack(current_task->esp);
 	// Use new current_task's paging dir, because we're about to trash ours
-	asm volatile("mov %0, %%cr3":: "r"(current_dir->physical_address));
+	asm volatile("mov %0, %%cr3" : : "r"(current_dir->physical_address));
 
 	// Free everything
 	for (i = 0; i < MAX_OF; i++)
 		if (current_cache->files[i].file)
 			close_vfs(current_cache->files[i].file);
+
 	free_dir(current_cache->page_dir);
 	kfree(current_cache->cwd);
-	kfree((void *)current_cache);
+	kfree(current_cache);
 
 	// Context switching time
 	asm volatile("mov %0, %%ecx; \
@@ -311,7 +337,7 @@ void switch_user_mode(uint32_t entry, int32_t argc, char **argv, char **envp,
 }
 
 int32_t nice(int32_t inc) {
-	if (inc < 0 && !current_task->euid)
+	if (inc < 0 && current_task->euid != 0)
 		return -1;
 	if (current_task->nice + inc > 19)
 		current_task->nice = 19;
