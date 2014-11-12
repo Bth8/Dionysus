@@ -3,7 +3,7 @@ Practically everything. Very little's actually been implemented.
 Immediate concerns:
 Some kind of PCI registration. IDE would be the first, easiest part.
 
-Finish devfs rewrite.
+Finish blockdev rewrite.
 
 Rewrite other filesystems.
 
@@ -29,6 +29,8 @@ Race conditions need to be brought into consideration.
 Improvements with ELF. Relocatable code, dynamic linking, etc.
 
 Modules, which goes hand in hand with relocatable code.
+
+More sophisticated memory management.
 
 Page swapping, but we need good disk access first.
 

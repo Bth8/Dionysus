@@ -27,7 +27,11 @@
 #define PANIC(b) panic(__LINE__, __FILE__, b)
 #define ASSERT(b) (b) ? NULL : PANIC("ASSERT failed")
 #define BCD2HEX(bcd) ((bcd) = (((bcd) & 0xF0) >> 1) + \
-		(((bcd) & 0xF0) >> 3) + ((bcd) & 0xf))
+	(((bcd) & 0xF0) >> 3) + ((bcd) & 0xf))
+
+#define container_of(ptr, type, member) ({ \
+	const typeof(((type *)NULL)->member) *__mptr = (ptr); \
+	(type *)((void *)__mptr - offsetof(type, member)); })
 
 #include <stdint.h>
 
@@ -35,6 +39,7 @@ typedef uint64_t size_t;
 typedef int64_t off_t;
 typedef int64_t ssize_t;
 typedef uint32_t dev_t;
+typedef uint8_t spinlock_t;
 
 // Bochs magic breakpoint. Doesn't actually do anything on a real system
 extern inline void magic_break(void) { asm volatile("xchg %%bx, %%bx"::); }
@@ -58,7 +63,7 @@ void outsw(uint16_t port, void *src, int count);
 extern inline void halt(void) {while(1){};}
 //extern inline void halt(void) {__asm__("hlt");}
 void panic(uint32_t line, char *file, char *msg);
-void spin_lock(volatile uint8_t *lock);
-void spin_unlock(volatile uint8_t *lock);
+void spin_lock(volatile spinlock_t *lock);
+void spin_unlock(volatile spinlock_t *lock);
 
 #endif /* COMMON_H */

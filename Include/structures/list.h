@@ -38,6 +38,7 @@ list_t *list_create(void);
 void list_destroy(list_t *list);
 node_t *list_insert(list_t *list, void *data);
 void list_remove(list_t *list, node_t *node);
+node_t *list_dequeue(list_t *list, node_t *node);
 node_t *list_find(list_t *list, void *key);
 node_t *list_get_index(list_t *list, uint32_t index);
 void list_merge(list_t *dest, list_t *src);

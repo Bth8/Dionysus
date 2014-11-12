@@ -28,7 +28,8 @@
 struct pci_bus bus0;
 struct pci_dev host;
 
-uint32_t pciConfigReadDword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off) {
+inline uint32_t pciConfigReadDword(uint8_t bus, uint8_t slot, uint8_t func,
+		uint8_t off) {
 	// Select config address
 	outl(CONFIG_ADDRESS,
 			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
@@ -36,31 +37,36 @@ uint32_t pciConfigReadDword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off
 	return inl(CONFIG_DATA);
 }
 
-uint16_t pciConfigReadWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off) {
+inline uint16_t pciConfigReadWord(uint8_t bus, uint8_t slot, uint8_t func,
+		uint8_t off) {
 	outl(CONFIG_ADDRESS,
 			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
 	return inw(CONFIG_DATA + (off & 2));
 }
 
-uint8_t pciConfigReadByte(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off) {
+inline uint8_t pciConfigReadByte(uint8_t bus, uint8_t slot, uint8_t func,
+		uint8_t off) {
 	outl(CONFIG_ADDRESS,
 			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
 	return inb(CONFIG_DATA + (off & 3));
 }
 
-void pciConfigWriteDword(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off, uint32_t val) {
+inline void pciConfigWriteDword(uint8_t bus, uint8_t slot, uint8_t func,
+		uint8_t off, uint32_t val) {
 	outl(CONFIG_ADDRESS,
 			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
 	outl(CONFIG_DATA, val);
 }
 
-void pciConfigWriteWord(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off, uint16_t val) {
+inline void pciConfigWriteWord(uint8_t bus, uint8_t slot, uint8_t func,
+		uint8_t off, uint16_t val) {
 	outl(CONFIG_ADDRESS,
 			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
 	outw(CONFIG_DATA + (off & 2), val);
 }
 
-void pciConfigWriteByte(uint8_t bus, uint8_t slot, uint8_t func, uint8_t off, uint8_t val) {
+inline void pciConfigWriteByte(uint8_t bus, uint8_t slot, uint8_t func,
+		uint8_t off, uint8_t val) {
 	outl(CONFIG_ADDRESS,
 			(bus << 16) | (slot << 11) | (func << 8) | off | 0x80000000);
 	outb(CONFIG_DATA + (off & 3), val);
@@ -120,7 +126,8 @@ static uint8_t check_device(struct pci_bus *bus, uint8_t slot) {
 
 	uint16_t vend =
 		pciConfigReadWord(bus->secondary, slot, func, PCI_VENDOR_ID);
-	if (vend == 0xFFFF) return 0;
+	if (vend == 0xFFFF)
+		return 0;
 	uint8_t header =
 		pciConfigReadByte(bus->secondary, slot, func, PCI_HEADER_TYPE);
 	if (header & 0x80) { // multifunction device

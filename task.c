@@ -26,6 +26,7 @@
 #include <paging.h>
 #include <string.h>
 #include <kmalloc.h>
+#include <idt.h>
 #include <gdt.h>
 #include <vfs.h>
 #include <errno.h>
@@ -43,11 +44,11 @@ extern page_directory_t *kernel_dir;
 volatile task_t *current_task = NULL;
 volatile task_t *ready_queue;
 uint32_t pid_counter = 1;
-uint8_t pid_lock = 0;
+spinlock_t pid_lock = 0;
 
 static uint32_t nextpid(void) {
 	spin_lock(&pid_lock);
-	task_t *iter = ready_queue;
+	volatile task_t *iter =(task_t *)ready_queue;
 	while (iter) {
 		if (iter->id == pid_counter) {
 			pid_counter++;
@@ -259,8 +260,8 @@ int switch_task(void) {
 void exit_task(void) {
 	asm volatile("cli");
 	int i;
-	task_t *iter = ready_queue
-	task_t *current_cache = current_task;
+	task_t *iter = (task_t *)ready_queue;
+	task_t *current_cache = (task_t *)current_task;
 
 	// Make sure we're not the only task
 	ASSERT(iter->next != NULL);

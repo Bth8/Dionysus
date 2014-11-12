@@ -123,7 +123,7 @@ static unsigned long long l_inuse	 = 0;		///< Running total of used memory.
 static long long l_warningCount = 0;		///< Number of warnings encountered
 static long long l_errorCount = 0;			///< Number of actual errors
 static long long l_possibleOverruns = 0;	///< Number of possible overruns
-volatile uint8_t kmalloc_lock = 0;
+volatile spinlock_t kmalloc_lock = 0;
 
 
 // ***********   HELPER FUNCTIONS  *******************************

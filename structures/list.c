@@ -77,8 +77,17 @@ node_t *list_insert(list_t *list, void *data) {
 }
 
 void list_remove(list_t *list, node_t *node) {
-	if (!list || !node)
+	if (!list_dequeue(list, node))
 		return;
+
+	if (node->data)
+		kfree(node->data);
+	kfree(node);
+}
+
+node_t *list_dequeue(list_t *list, node_t *node) {
+	if (!list || !node)
+		return NULL;
 
 	ASSERT(node->owner == list);
 
@@ -91,9 +100,7 @@ void list_remove(list_t *list, node_t *node) {
 	if (node->next)
 		node->next->prev = node->prev;
 
-	if (node->data)
-		kfree(node->data);
-	kfree(node);
+	return node;
 }
 
 node_t *list_find(list_t *list, void *key) {

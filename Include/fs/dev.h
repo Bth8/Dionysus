@@ -23,7 +23,6 @@
 
 #include <common.h>
 #include <vfs.h>
-#include <structures/ordered_array.h>
 
 #define KERNEL_BLOCKSIZE	512
 
@@ -31,16 +30,14 @@
 #define MINOR(x) (x & 0xFFFFFF)
 #define MKDEV(x, y) (((x & 0xFF) << 24) | (y & 0xFFFFFF))
 
-struct chrdev_driver {
-	const char *name;
-	struct file_ops ops;
-};
-
 struct dev_file {
 	fs_node_t node;
 	struct dev_file *next;
 };
 
+void init_devfs(void);
+
+/*
 struct partition {
 	uint8_t boot;
 	uint8_t start_head; // All of the start/end crap is obsolete
@@ -63,33 +60,10 @@ struct mbr {
 
 struct blkdev_driver;
 
-struct blockdev {
-	struct blkdev_driver *driver;
-	uint32_t minor;
-	uint32_t block_size;
-	uint32_t offset; // Offset in sectors
-	uint32_t capacity; // Capacity in sectors
-	struct blockdev *next;
-};
-
-struct blkdev_driver {
-	const char *name;
-	uint32_t (*read)(uint32_t, uint32_t, uint32_t, void*);
-	uint32_t (*write)(uint32_t, uint32_t, uint32_t, const void*);
-	int32_t (*ioctl)(uint32_t, uint32_t, void *);
-	uint32_t nreal; // Number of real devices
-	ordered_array_t devs; // Block devices managed by this driver
-};
-
-void init_devfs(void);
 dev_t get_dev(fs_node_t *dev);
 int32_t devfs_register(const char *name, uint32_t flags, uint32_t major,
 		uint32_t minor, uint32_t mode, uint32_t uid, uint32_t gid);
-int32_t register_chrdev(uint32_t major, const char *name, struct file_ops fops);
-int32_t register_blkdev(uint32_t major, const char *name,
-		uint32_t (*read)(uint32_t, uint32_t, uint32_t, void*),
-		uint32_t (*write)(uint32_t, uint32_t, uint32_t, const void*),
-		int32_t (*ioctl)(uint32_t, uint32_t, void *),
-		uint32_t nreal, uint32_t sectsize, uint32_t *drv_sizes);
+*/
+
 
 #endif /* DEV_H */

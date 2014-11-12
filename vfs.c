@@ -25,7 +25,6 @@
 #include <string.h>
 #include <kmalloc.h>
 #include <errno.h>
-#include <dev.h>
 #include <structures/hashmap.h>
 #include <structures/list.h>
 #include <structures/tree.h>
@@ -37,8 +36,8 @@ tree_t *filesystem = NULL;
 
 extern volatile task_t *current_task;
 
-volatile uint8_t vfs_lock = 0;
-volatile uint8_t refcount_lock = 0;
+volatile spinlock_t vfs_lock = 0;
+volatile spinlock_t refcount_lock = 0;
 
 // tokenizes path in place, returns depth
 static uint32_t vfs_tokenize(char *path) {
@@ -259,13 +258,13 @@ int32_t stat_vfs(fs_node_t *node, struct stat *buff) {
 	if (!node)
 		return -EBADF;
 
-	buff->st_dev = get_dev(node->fs_sb->dev);
+	buff->st_dev = node->fs_sb->dev->dev;
 	buff->st_ino = node->inode;
 	buff->st_mode = node->mode;
 	buff->st_nlink = node->nlink;
 	buff->st_uid = node->uid;
 	buff->st_gid = node->gid;
-	buff->st_rdev = get_dev(node);
+	buff->st_rdev = node->dev;
 	buff->st_size = node->len;
 	buff->st_atime = node->atime;
 	buff->st_mtime = node->mtime;
@@ -294,13 +293,13 @@ int32_t chown_vfs(fs_node_t *node, int32_t uid, int32_t gid) {
 	return 0;
 }
 
-int32_t ioctl_vfs(fs_node_t *node, uint32_t request, void *ptr) {
+int32_t ioctl_vfs(fs_node_t *node, uint32_t req, void *data) {
 	if (!node)
 		return -EBADF;
 	if (!(node->mode & (VFS_CHARDEV | VFS_BLOCKDEV)))
 		return -ENOTTY;
 	if (node->ops.ioctl)
-		return node->ops.ioctl(node, request, ptr);
+		return node->ops.ioctl(node, req, data);
 	return -EINVAL;
 }
 

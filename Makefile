@@ -1,14 +1,14 @@
-SOURCES_MAIN=boot.o main.o common.o monitor.o string.o gdt.o idt.o \
-	descriptor_tables.o interrupt.o paging.o process.o task.o fileops.o \
-	timer.o syscall.o time.o port.o vfs.o elf.o pci.o dev.o kmalloc.o printf.o
+SOURCES_MAIN=boot.o main.o port.o common.o monitor.o printf.o string.o \
+	descriptor_tables.o gdt.o idt.o interrupt.o paging.o kmalloc.o timer.o \
+	time.o process.o task.o syscall.o vfs.o block.o char.o fileops.o elf.o pci.o
 
-SOURCES_FS=rootfs.o fat32.o
+SOURCES_FS=rootfs.o fat32.o dev.o
 
 SOURCES_CHARDEV=term.o
 
 SOURCES_PCI=ide.o
 
-SOURCES_STRUCTURES=tree.o list.o ordered_array.o hashmap.o
+SOURCES_STRUCTURES=tree.o list.o hashmap.o
 
 SOURCES_ALL=$(SOURCES_MAIN) $(addprefix fs/, $(SOURCES_FS)) \
 			$(addprefix chardev/, $(SOURCES_CHARDEV)) \
@@ -20,9 +20,8 @@ CFLAGS=-Wall -Wextra -Werror -Wno-unused-parameter \
 	   -Wno-missing-field-initializers -nostdlib \
 	   -fomit-frame-pointer -I./Include -fno-leading-underscore -O \
 	   -ffreestanding
-LD=i686-pc-dionysus-ld
 LDFLAGS=-Tlink.ld
-LIBS=$(shell $(CC) -print-libgcc-file-name)
+LIBS=-lgcc
 AS=nasm
 ASFLAGS=-felf32
 
@@ -32,7 +31,7 @@ clean:
 	rm -f $(SOURCES_ALL) kernel
 
 kernel: $(SOURCES_ALL)
-	$(LD) $(LDFLAGS) -o $@ $(SOURCES_ALL) $(LIBS)
+	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(SOURCES_ALL) $(LIBS)
 
 %.o: %.s
 	$(AS) $(ASFLAGS) $<

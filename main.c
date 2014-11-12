@@ -18,25 +18,21 @@
  *  along with Dionysus.  If not, see <http://www.gnu.org/licenses/>
  */
 
-#include <multiboot.h>
 #include <common.h>
 #include <monitor.h>
+#include <printf.h>
+#include <multiboot.h>
 #include <gdt.h>
 #include <idt.h>
-#include <paging.h>
-#include <chardev/term.h>
+#include <time.h>
 #include <timer.h>
+#include <paging.h>
 #include <task.h>
 #include <syscall.h>
+#include <block.h>
+#include <char.h>
+#include <fs/dev.h>
 #include <pci.h>
-#include <fs/rootfs.h>
-#include <dev.h>
-#include <vfs.h>
-#include <pci/ide.h>
-#include <printf.h>
-#include <fs/fat32.h>
-#include <elf.h>
-#include <fileops.h>
 
 // LOOK HERE
 // Defined in linker script
@@ -67,7 +63,7 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	
 	time_t rawtime = time(NULL);
 	print_time(gmtime(&rawtime));
-	init_timer(1000);
+	init_timer();
 
 	// Check for modules
 	if (mboot->flags & MULTIBOOT_INFO_MODS && mboot->mods_count) {
@@ -83,37 +79,15 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	init_tasking(ebp);
 	init_syscalls();
 
+	printf("Initializing driver subsystem\n");
+	init_blockdev();
+	init_chardev();
+
 	printf("Enumerating PCI bus(ses)\n");
 	init_pci();
 	dump_pci();
 
-	init_rootfs();
 	init_devfs();
-	init_term();
-	init_ide(0, 0, 0, 0, 0);
-
-	mount(NULL, "/", "rootfs", 0);
-	mount(NULL, "/dev", "dev", 0);
-
-	init_fat32();
-
-	devfs_register("hda", VFS_BLOCKDEV, IDE_MAJOR, 0, 0, 0, 0);
-	devfs_register("hda1", VFS_BLOCKDEV, IDE_MAJOR, 1, 0, 0, 0);
-	devfs_register("hda2", VFS_BLOCKDEV, IDE_MAJOR, 2, 0, 0, 0);
-	devfs_register("tty", VFS_CHARDEV, 1, 0, VFS_O_READ | VFS_O_WRITE, 0, 0);
-
-	user_mount("/dev/hda2", "/real_root", "fat32", 0);
-
-	user_open("/dev/tty", O_RDWR, 0);
-	user_open("/dev/tty", O_RDWR, 0);
-	user_open("/dev/tty", O_RDWR, 0);
-
-	int pid = sys_fork();
-	char *argv[] = {NULL};
-	char *envp[] = {NULL};
-	if (pid == 0) {
-		sys_execve("/real_root/init", argv, envp);
-	}
 
 	halt();
 }

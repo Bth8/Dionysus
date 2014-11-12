@@ -162,7 +162,7 @@ int32_t readdir_vfs(fs_node_t *node, struct dirent *dirp, uint32_t index);
 int32_t stat_vfs(struct fs_node *node, struct stat *buff);
 int32_t chmod_vfs(fs_node_t *node, uint32_t mode);
 int32_t chown_vfs(fs_node_t *node, int32_t uid, int32_t gid);
-int32_t ioctl_vfs(fs_node_t *node, uint32_t, void *);
+int32_t ioctl_vfs(fs_node_t *node, uint32_t req, void *data);
 int32_t create_vfs(fs_node_t *parent, const char *fname, uint32_t uid, 
 		uint32_t gid, uint32_t mode, dev_t dev);
 int32_t link_vfs(fs_node_t *parent, fs_node_t *child, const char *fname);

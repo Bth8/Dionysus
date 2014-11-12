@@ -1,4 +1,4 @@
-/* common.c - globally-used function definitions */
+/* char.h - chardev driver management */
 
 /* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
  *
@@ -18,24 +18,19 @@
  *  along with Dionysus.  If not, see <http://www.gnu.org/licenses/>
  */
 
+#ifndef CHAR_H
+#define CHAR_H
+
 #include <common.h>
-#include <printf.h>
-#include <timer.h>
+#include <vfs.h>
 
-void panic(uint32_t line, char *file, char *msg) {
-	asm volatile("cli");
+struct chrdev_driver {
+	const char *name;
+	struct file_ops ops;
+};
 
-	printf("KERNEL PANIC AT LINE %u IN FILE %s: %s\n", line, file, msg);
+void init_chardev(void);
+struct chrdev_driver *get_chrdev_driver(uint32_t major);
+int32_t register_chrdev(uint32_t major, const char *name, struct file_ops fops);
 
-	halt();
-}
-
-void spin_lock(volatile spinlock_t *lock) {
-	while (__sync_lock_test_and_set(lock, 1)) {
-		sleep_thread();
-	}
-}
-
-void spin_unlock(volatile spinlock_t *lock){
-	__sync_lock_release(lock);
-}
+#endif /* CHAR_H */

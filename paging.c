@@ -47,7 +47,7 @@ page_directory_t *current_dir = NULL;
 #define INDEX_FROM_BIT(a) (a >> 5)
 #define OFFSET_FROM_BIT(a) (a & 0x1F)
 
-volatile uint8_t frame_lock = 0;
+volatile spinlock_t frame_lock = 0;
 
 static void set_frame(uint32_t addr) {
 	uint32_t frame = addr / PAGE_SIZE;
