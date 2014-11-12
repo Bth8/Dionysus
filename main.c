@@ -29,6 +29,7 @@
 #include <paging.h>
 #include <task.h>
 #include <syscall.h>
+#include <vfs.h>
 #include <block.h>
 #include <char.h>
 #include <fs/dev.h>
@@ -78,6 +79,9 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	printf("Starting task scheduling\n");
 	init_tasking(ebp);
 	init_syscalls();
+
+	printf("Initializing vfs\n");
+	init_vfs();
 
 	printf("Initializing driver subsystem\n");
 	init_blockdev();

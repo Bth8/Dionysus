@@ -65,6 +65,8 @@
 #define MNT_DETACH		0x04
 
 #define PATH_DELIMITER	'/'
+#define PATH_THIS_DIR	"."
+#define PATH_PARENT_DIR	".."
 
 #define EOF				-1
 
@@ -118,6 +120,7 @@ struct superblock {
 	fs_node_t *root;
 	size_t blocksize;
 	uint32_t flags;
+	int32_t (*close_fs)(struct superblock*, uint32_t);
 };
 
 struct mountpoint {
@@ -127,7 +130,7 @@ struct mountpoint {
 
 typedef struct file_system_type {
 	uint32_t flags;
-	struct superblock *(*get_super)(uint32_t, fs_node_t*);
+	struct superblock *(*get_super)(fs_node_t*, uint32_t);
 } file_system_t;
 
 // Spares are such that it matches newlib's definition
@@ -153,6 +156,7 @@ struct stat {
 
 extern fs_node_t *vfs_root;
 
+void init_vfs(void);
 char *canonicalize_path(const char *cwd, const char *relpath);
 ssize_t read_vfs(fs_node_t *node, void *buf, size_t count, off_t off);
 ssize_t write_vfs(fs_node_t *node, const void *buf, size_t count, off_t off);
@@ -171,6 +175,7 @@ fs_node_t *kopen(const char *relpath, int32_t flags, int32_t *openret);
 int32_t register_fs(const char *name, struct file_system_type *fs);
 int32_t mount(fs_node_t *dev, const char *path, const char *fs_name,
 		uint32_t flags);
+int32_t umount(const char *relpath, uint32_t flags);
 fs_node_t *clone_file(fs_node_t *node);
 
 #endif /* VFS_H */

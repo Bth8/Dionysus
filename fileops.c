@@ -385,8 +385,18 @@ int32_t user_mount(const char *src, const char *target, const char *fs_name,
 
 	ret = mount(src_node, target, fs_name, flags);
 
-	if (ret != 0)
+	if (ret != 0 && src_node)
 		close_vfs(src_node);
 
 	return ret;
+}
+
+int32_t user_umount(const char *target, uint32_t flags) {
+	if (current_task->euid != 0)
+		return -EPERM;
+
+	if (!target)
+		return -EFAULT;
+
+	return umount(target, flags);
 }

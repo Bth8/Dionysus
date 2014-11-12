@@ -39,6 +39,16 @@ extern volatile task_t *current_task;
 volatile spinlock_t vfs_lock = 0;
 volatile spinlock_t refcount_lock = 0;
 
+void init_vfs(void) {
+	ASSERT(!filesystem && !fs_types && "Double initialization");
+
+	filesystem = tree_create();
+	ASSERT(filesystem);
+
+	fs_types = hashmap_create(32, NULL);
+	ASSERT(fs_types);
+}
+
 // tokenizes path in place, returns depth
 static uint32_t vfs_tokenize(char *path) {
 	ASSERT(path);
@@ -104,11 +114,11 @@ char *canonicalize_path(const char *cwd, const char *relpath) {
 			off++;
 			continue;
 		}
-		if (strcmp(off, ".") == 0) {
+		if (strcmp(off, PATH_THIS_DIR) == 0) {
 			off += 2;
 			continue;
 		}
-		if (strcmp(off, "..") == 0) {
+		if (strcmp(off, PATH_PARENT_DIR) == 0) {
 			list_remove(fifo, prev);
 			off += 3;
 			continue;
@@ -347,72 +357,38 @@ int32_t unlink_vfs(fs_node_t *parent, const char *fname) {
 }
 
 int32_t register_fs(const char *name, struct file_system_type *fs) {
-	if (!fs_types)
-		fs_types = hashmap_create(32, NULL);
-
 	return hashmap_insert(fs_types, name, fs);
 }
 
 static void vfs_prune(tree_node_t *node) {
 	ASSERT(node && !(((struct mountpoint *)(node->data))->sb));
+	tree_node_t *branch_head = NULL;
 
 	while (1) {
-		tree_node_t *parent = node->parent;
-
-		// We're freeing the root node?
-		if (parent == NULL)
-			return tree_destroy(filesystem);
 		// more than one child, we can't delete it
-		if (parent->children->head != parent->children->tail)
+		if (node->children->head != node->children->tail)
 			break;
 		// Also can't delete if it's an active mountpoint
-		if (((struct mountpoint *)(parent->data))->sb)
+		if (((struct mountpoint *)(node->data))->sb)
+			break;
+		// We're freeing the root node?
+		if (node == NULL)
 			break;
 
-		node = parent;
+		branch_head = node;
+		node = node->parent;
 	}
 
-	tree_delete_branch(filesystem, node);
-}
-
-static int32_t root_mount(fs_node_t *dev, file_system_t *fs, uint32_t flags) {
-	if (!filesystem) {
-		filesystem = tree_create();
-		if (!filesystem)
-			return -ENOMEM;
-
-		struct mountpoint *root =
-			(struct mountpoint *)kmalloc(sizeof(struct mountpoint));
-		if (!root) {
-			tree_destroy(filesystem);
-			filesystem = NULL;
-			return -ENOMEM;
-		}
-
-		root->name = "[root]";
-		root->sb = NULL;
-		tree_set_root(filesystem, root);
-	}
-
-	struct mountpoint *fsroot = (struct mountpoint *)filesystem->root->data;
-
-	if (fsroot->sb)
-		return -EBUSY;
-
-	fsroot->sb = fs->get_super(flags, dev);
-	return 0;
+	tree_delete_branch(filesystem, branch_head);
 }
 
 int32_t mount(fs_node_t *dev, const char *relpath, const char *fs_name,
 		uint32_t flags) {
-	if (!fs_types)
-		return -ENOENT;
-
-	if (!relpath || !fs_name)
-		return -ENOENT;
-
 	if (!filesystem)
 		return -EACCES;
+
+	if (!fs_types)
+		return -ENOENT;
 
 	file_system_t *fs = hashmap_find(fs_types, fs_name);
 	if (!fs)
@@ -421,23 +397,28 @@ int32_t mount(fs_node_t *dev, const char *relpath, const char *fs_name,
 	if (!dev && !(fs->flags & FS_NODEV))
 		return -ENODEV;
 
-	spin_lock(&vfs_lock);
-
-	if (relpath[0] == PATH_DELIMITER && relpath[1] == '\0') {
-		int32_t ret = root_mount(dev, fs, flags);
-		spin_unlock(&vfs_lock);
-		return ret;
-	}
-
 	char *path = canonicalize_path(current_task->cwd, relpath);
 	if (!path) {
 		spin_unlock(&vfs_lock);
 		return -ENOMEM;
 	}
 
-	char *off;
 	uint32_t depth = vfs_tokenize(path);
 
+	spin_lock(&vfs_lock);
+
+	if (!filesystem->root) {
+		struct mountpoint *root =
+			(struct mountpoint *)kmalloc(sizeof(struct mountpoint));
+		if (!root)
+			return -ENOMEM;
+
+		root->name = "[root]";
+		root->sb = NULL;
+		tree_set_root(filesystem, root);
+	}
+
+	char *off;
 	struct mountpoint *entry = NULL;
 	tree_node_t *node = filesystem->root;
 
@@ -487,7 +468,7 @@ int32_t mount(fs_node_t *dev, const char *relpath, const char *fs_name,
 		return -EBUSY;
 	}
 
-	struct superblock *sb = fs->get_super(flags, dev);
+	struct superblock *sb = fs->get_super(dev, flags);
 	if (!sb) {
 		spin_unlock(&vfs_lock);
 		vfs_prune(node);
@@ -500,7 +481,72 @@ int32_t mount(fs_node_t *dev, const char *relpath, const char *fs_name,
 	return 0;
 }
 
-fs_node_t *get_local_root(char **path, uint32_t *path_depth) {
+
+int32_t umount(const char *relpath, uint32_t flags) {
+	if (!filesystem)
+		return -EINVAL;
+	
+	char *path = canonicalize_path(current_task->cwd, relpath);
+	if (!path)
+		return -ENOMEM;
+
+	char *off;
+	uint32_t depth = vfs_tokenize(path);
+
+	spin_lock(&vfs_lock);
+	tree_node_t *node = filesystem->root;
+	struct mountpoint *entry = (struct mountpoint *)node->data;
+
+	for (off = path; depth > 0; depth--) {
+		if (strlen(off) == 0) {
+			off++;
+			continue;
+		}
+
+		node_t *child;
+		int exist = 0;
+		foreach(child, node->children) {
+			entry = (struct mountpoint *)((tree_node_t *)child->data)->data;
+			if (strcmp(entry->name, off) == 0) {
+				exist = 1;
+				node = (tree_node_t *)child->data;
+				break;
+			}
+		}
+
+		if (!exist) {
+			kfree(path);
+			spin_unlock(&vfs_lock);
+			return -ENOENT;
+		}
+		off += strlen(off);
+	}
+
+	kfree(path);
+
+	if (!entry->sb) {
+		spin_unlock(&vfs_lock);
+		return -EINVAL;
+	}
+
+	if (!(flags & MNT_DETACH) && node->children->head != node->children->tail) {
+		spin_unlock(&vfs_lock);
+		return -EBUSY;
+	}
+
+
+	if (entry->sb->close_fs(entry->sb, flags & MNT_FORCE) != 0) {
+		spin_unlock(&vfs_lock);
+		return -EBUSY;
+	}
+
+	entry->sb = NULL;
+	vfs_prune(node);
+	spin_unlock(&vfs_lock);
+	return 0;
+}
+
+static fs_node_t *get_local_root(char **path, uint32_t *path_depth) {
 	tree_node_t *node = filesystem->root;
 	fs_node_t *local_root = (fs_node_t *)node->data;
 	uint32_t final_depth = 0;

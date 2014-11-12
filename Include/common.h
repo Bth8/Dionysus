@@ -28,7 +28,7 @@
 #define ASSERT(b) (b) ? NULL : PANIC("ASSERT failed")
 #define BCD2HEX(bcd) ((bcd) = (((bcd) & 0xF0) >> 1) + \
 	(((bcd) & 0xF0) >> 3) + ((bcd) & 0xf))
-
+#define offsetof(type, member) ((uintptr_t)(&((type *)NULL)->member))
 #define container_of(ptr, type, member) ({ \
 	const typeof(((type *)NULL)->member) *__mptr = (ptr); \
 	(type *)((void *)__mptr - offsetof(type, member)); })

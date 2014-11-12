@@ -2,7 +2,7 @@ SOURCES_MAIN=boot.o main.o port.o common.o monitor.o printf.o string.o \
 	descriptor_tables.o gdt.o idt.o interrupt.o paging.o kmalloc.o timer.o \
 	time.o process.o task.o syscall.o vfs.o block.o char.o fileops.o elf.o pci.o
 
-SOURCES_FS=rootfs.o fat32.o dev.o
+SOURCES_FS=rootfs.o dev.o
 
 SOURCES_CHARDEV=term.o
 

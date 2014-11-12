@@ -63,7 +63,8 @@ void tree_delete_branch(tree_t *tree, tree_node_t *node) {
 	if (node->parent) {
 		node_t *parent_ptr = list_find(node->parent->children, node);
 		list_remove(node->parent->children, parent_ptr);
-	}
+	} else
+		tree->root = NULL;
 
 	if (node->data)
 		kfree(node->data);

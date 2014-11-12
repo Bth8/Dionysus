@@ -29,7 +29,7 @@
 #include <structures/list.h>
 #include <errno.h>
 
-static struct superblock *return_sb(uint32_t, fs_node_t *dev);
+static struct superblock *return_sb(fs_node_t *dev, uint32_t flags);
 static ssize_t read(fs_node_t *node, void *buf, size_t count, off_t off);
 static ssize_t write(fs_node_t *node, const void *buf, size_t count, off_t off);
 static int32_t open(fs_node_t *node, uint32_t flags);
@@ -49,11 +49,52 @@ file_system_t dev_fs = {
 	.get_super = return_sb,
 };
 
+struct file_ops devfs_ops = {
+	.read = read,
+	.write = write,
+	.open = open,
+	.close = close,
+	.readdir = readdir,
+	.finddir = finddir,
+	.chmod = chmod,
+	.chown = chown,
+	.ioctl = ioctl,
+	.create = create,
+	.link = link,
+	.unlink = unlink
+};
+
 void init_devfs(void) {
 	register_fs("devfs", &dev_fs);
 }
 
-static struct superblock *return_sb(uint32_t flags, fs_node_t *dev) {
+static int32_t close_fs(struct superblock *sb, uint32_t force) {
+	spin_lock((spinlock_t *)sb->private_data);
+
+	if (!force) {
+		struct dev_file *iter = container_of(sb->root, struct dev_file, node);
+		while (iter) {
+			if (iter->node.refcount > 0)
+				return -EBUSY;
+			iter = iter->next;
+		}
+	}
+
+	struct dev_file *iter = container_of(sb->root, struct dev_file, node);
+	while (iter) {
+		struct dev_file *next = iter->next;
+		if (iter->node.mode & VFS_DIR)
+			list_destroy((list_t *)iter->node.private_data);
+		kfree(iter);
+		iter = next;
+	}
+
+	kfree(sb->private_data);
+	kfree(sb);
+	return 0;
+}
+
+static struct superblock *return_sb(fs_node_t *dev, uint32_t flags) {
 	if (dev)
 		return NULL;
 
@@ -61,8 +102,16 @@ static struct superblock *return_sb(uint32_t flags, fs_node_t *dev) {
 	if (!sb)
 		return NULL;
 
+	spinlock_t *lock = (spinlock_t *)kmalloc(sizeof(spinlock_t));
+	if (!lock) {
+		kfree(sb);
+		return NULL;
+	}
+	*lock = 0;
+
 	struct dev_file *root = (struct dev_file *)kmalloc(sizeof(struct dev_file));
 	if (!root) {
+		kfree(lock);
 		kfree(sb);
 		return NULL;
 	}
@@ -78,18 +127,7 @@ static struct superblock *return_sb(uint32_t flags, fs_node_t *dev) {
 	root->node.atime = 0;
 	root->node.ctime = time(NULL);
 	root->node.mtime = 0;
-	root->node.ops.read = read;
-	root->node.ops.write = write;
-	root->node.ops.open = open;
-	root->node.ops.close = close;
-	root->node.ops.readdir = readdir;
-	root->node.ops.finddir = finddir;
-	root->node.ops.chmod = chmod;
-	root->node.ops.chown = chown;
-	root->node.ops.ioctl= ioctl;
-	root->node.ops.create = create;
-	root->node.ops.link = link;
-	root->node.ops.unlink = unlink;
+	memcpy(&(root->node.ops), &devfs_ops, sizeof(struct file_ops));
 	root->node.fs_sb = sb;
 	root->node.private_data = list_create();
 	root->node.refcount = 0;
@@ -103,16 +141,17 @@ static struct superblock *return_sb(uint32_t flags, fs_node_t *dev) {
 	}
 
 	sb->dev = NULL;
-	sb->private_data = root;
+	sb->private_data = lock;
 	sb->root = &(root->node);
 	sb->blocksize = KERNEL_BLOCKSIZE;
 	sb->flags = flags;
+	sb->close_fs = close_fs;
 
 	return sb;
 }
 
 static fs_node_t *get_inode(struct superblock *sb, uint32_t inode) {
-	struct dev_file *file = (struct dev_file *)sb->private_data;
+	struct dev_file *file = container_of(sb->root, struct dev_file, node);
 	while (file) {
 		if (file->node.inode == inode)
 			return &(file->node);
@@ -125,7 +164,7 @@ static fs_node_t *get_inode(struct superblock *sb, uint32_t inode) {
 }
 
 static void file_insert(struct superblock *sb, struct dev_file *file) {
-	struct dev_file *iter = (struct dev_file *)sb->private_data;
+	struct dev_file *iter = container_of(sb->root, struct dev_file, node);
 	struct dev_file *prev = NULL;
 	while (iter) {
 		if (iter->node.inode > file->node.inode)
@@ -134,17 +173,13 @@ static void file_insert(struct superblock *sb, struct dev_file *file) {
 		iter = iter->next;
 	}
 
-	if (!prev) {
-		file->next = (struct dev_file *)sb->private_data;
-		sb->private_data = file;
-	} else {
-		file->next = prev->next;
-		prev->next = file;
-	}
+	// We're assuming that the inode is not 0 and is unique
+	file->next = prev->next;
+	prev->next = file;
 }
 
 static void file_remove(struct superblock *sb, uint32_t inode) {
-	struct dev_file *iter = (struct dev_file *)sb->private_data;
+	struct dev_file *iter = container_of(sb->root, struct dev_file, node);
 	struct dev_file *prev = NULL;
 	while (iter) {
 		if (iter->node.inode == inode)
@@ -155,10 +190,7 @@ static void file_remove(struct superblock *sb, uint32_t inode) {
 		iter = iter->next;
 	}
 
-	if (!prev)
-		sb->private_data = iter->next;
-	else
-		prev->next = iter->next;
+	prev->next = iter->next;
 
 	if (iter->node.mode & VFS_DIR)
 		list_destroy(iter->node.private_data);
@@ -186,10 +218,8 @@ static ssize_t write(fs_node_t *node, const void *buf, size_t count, off_t off) 
 }
 
 
-spinlock_t ref_lock = 0;
-
 static int32_t open(fs_node_t *node, uint32_t flags) {
-	spin_lock(&ref_lock);
+	spin_lock((spinlock_t *)node->fs_sb->private_data);
 	fs_node_t *master = get_inode(node->fs_sb, node->inode);
 	if (!master)
 		return -ENOENT;
@@ -210,13 +240,13 @@ static int32_t open(fs_node_t *node, uint32_t flags) {
 
 	if (ret == 0)
 		master->refcount++;
-	spin_unlock(&ref_lock);
+	spin_unlock((spinlock_t *)node->fs_sb->private_data);
 
 	return ret;
 }
 
 static int32_t close(fs_node_t *node) {
-	spin_lock(&ref_lock);
+	spin_lock((spinlock_t *)node->fs_sb->private_data);
 	fs_node_t *master = get_inode(node->fs_sb, node->inode);
 	if (!master)
 		return 0;
@@ -238,7 +268,7 @@ static int32_t close(fs_node_t *node) {
 		if (ret == 0 && master->nlink == 0)
 			file_remove(node->fs_sb, node->inode);
 	}
-	spin_unlock(&ref_lock);
+	spin_unlock((spinlock_t *)node->fs_sb->private_data);
 
 	return ret;
 }
@@ -322,7 +352,7 @@ static int32_t ioctl(fs_node_t *node, uint32_t req, void *data) {
 }
 
 static uint32_t get_empty_inode(struct superblock *sb) {
-	struct dev_file *file = (struct dev_file *)sb->private_data;
+	struct dev_file *file = container_of(sb->root, struct dev_file, node);
 	uint32_t inode = 0;
 	while (file) {
 		if (inode < file->node.inode)
@@ -360,18 +390,7 @@ static int32_t create(fs_node_t *parent, const char *fname, uint32_t uid,
 	new_file->node.atime = 0;
 	new_file->node.mtime = 0;
 	new_file->node.ctime = time(NULL);
-	new_file->node.ops.read = read;
-	new_file->node.ops.write = write;
-	new_file->node.ops.open = open;
-	new_file->node.ops.close = close;
-	new_file->node.ops.readdir = readdir;
-	new_file->node.ops.finddir = finddir;
-	new_file->node.ops.chmod = chmod;
-	new_file->node.ops.chown = chown;
-	new_file->node.ops.ioctl = ioctl;
-	new_file->node.ops.create = create;
-	new_file->node.ops.link = link;
-	new_file->node.ops.unlink = unlink;
+	memcpy(&(new_file->node.ops), &devfs_ops, sizeof(struct file_ops));
 	new_file->node.fs_sb = parent->fs_sb;
 	if (mode & VFS_DIR) {
 		new_file->node.private_data = list_create();

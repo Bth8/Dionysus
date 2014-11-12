@@ -60,7 +60,6 @@ struct mbr {
 
 struct blkdev_driver;
 
-dev_t get_dev(fs_node_t *dev);
 int32_t devfs_register(const char *name, uint32_t flags, uint32_t major,
 		uint32_t minor, uint32_t mode, uint32_t uid, uint32_t gid);
 */

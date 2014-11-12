@@ -176,8 +176,9 @@ DECL_SYSCALL3(ioctl, int, unsigned int, void*);
 DECL_SYSCALL2(link, const char*, const char*);
 DECL_SYSCALL1(unlink, const char*);
 DECL_SYSCALL3(mknod, const char*, uint32_t, dev_t);
-DECL_SYSCALL4(mount, const char*, const char*, const char*, unsigned int);
-DECL_SYSCALL1(sbrk, unsigned int);
+DECL_SYSCALL4(mount, const char*, const char*, const char*, uint32_t);
+DECL_SYSCALL2(umount, const char*, uint32_t);
+DECL_SYSCALL1(sbrk, uintptr_t);
 DECL_SYSCALL3(execve, const char*, char *const*, char *const*);
 DECL_SYSCALL1(chdir, const char*);
 

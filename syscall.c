@@ -50,10 +50,11 @@ DEFN_SYSCALL3(ioctl, 19, int, unsigned int, void*);
 DEFN_SYSCALL2(link, 20, const char*, const char*);
 DEFN_SYSCALL1(unlink, 21, const char*);
 DEFN_SYSCALL3(mknod, 22, const char*, uint32_t, dev_t);
-DEFN_SYSCALL4(mount, 23, const char*, const char*, const char*, unsigned int);
-DEFN_SYSCALL1(sbrk, 24, unsigned int);
-DEFN_SYSCALL3(execve, 25, const char*, char *const*, char *const*);
-DEFN_SYSCALL1(chdir, 26, const char*);
+DEFN_SYSCALL4(mount, 23, const char*, const char*, const char*, uint32_t);
+DEFN_SYSCALL2(umount, 24, const char*, uint32_t);
+DEFN_SYSCALL1(sbrk, 25, uintptr_t);
+DEFN_SYSCALL3(execve, 26, const char*, char *const*, char *const*);
+DEFN_SYSCALL1(chdir, 27, const char*);
 
 static void *syscalls[] = {
 	// Defined in task.c
@@ -81,6 +82,7 @@ static void *syscalls[] = {
 	user_unlink,
 	mknod,
 	user_mount,
+	user_umount,
 	sbrk,
 	execve,
 	chdir

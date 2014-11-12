@@ -43,5 +43,6 @@ int32_t user_unlink(const char *path);
 int32_t mknod(const char *path, uint32_t mode, dev_t dev);
 int32_t user_mount(const char *src, const char *target, const char *fs_name,
 		uint32_t flags);
+int32_t user_umount(const char *target, uint32_t flags);
 
 #endif /* FILEOPS_H */
