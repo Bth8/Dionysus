@@ -245,13 +245,13 @@ int switch_task(void) {
 		// Put new eip in ecx, load stack/base pointers, change page dir, put
 		// dummy value in eax, jump to [ecx]
 		asm volatile("mov %0, %%ecx; \
-				mov %1, %%esp; \
-				mov %2, %%ebp; \
-				mov %3, %%cr3; \
-				mov $0x12345, %%eax; \
-				jmp *%%ecx" : : "r"(eip), "r"(esp), "r"(ebp),
-				"r"(current_dir->physical_address) : 
-				"ecx", "esp", "ebp", "eax");
+			mov %1, %%esp; \
+			mov %2, %%ebp; \
+			mov %3, %%cr3; \
+			mov $0x12345, %%eax; \
+			jmp *%%ecx" : : "r"(eip), "r"(esp), "r"(ebp),
+			"r"(current_dir->physical_address) : 
+			"ecx", "esp", "ebp", "eax");
 	}
 
 	return 0;
@@ -296,14 +296,14 @@ void exit_task(void) {
 
 	// Context switching time
 	asm volatile("mov %0, %%ecx; \
-			mov %1, %%esp; \
-			mov %2, %%ebp; \
-			mov $0x12345, %%eax; \
-			sti; \
-			jmp *%%ecx" ::
-			"r"(current_task->eip),"r"(current_task->esp),
-			"r"(current_task->ebp) :
-			"ecx", "esp", "ebp", "eax");
+		mov %1, %%esp; \
+		mov %2, %%ebp; \
+		mov $0x12345, %%eax; \
+		sti; \
+		jmp *%%ecx" ::
+		"r"(current_task->eip),"r"(current_task->esp),
+		"r"(current_task->ebp) :
+		"ecx", "esp", "ebp", "eax");
 }
 
 void switch_user_mode(uint32_t entry, int32_t argc, char **argv, char **envp,
@@ -314,27 +314,27 @@ void switch_user_mode(uint32_t entry, int32_t argc, char **argv, char **envp,
 	stack -= 4;
 
 	asm volatile("cli; \
-			mov %4, %%esp; \
-			pushl %3; \
-			pushl %2; \
-			pushl %1; \
-			mov $0x23, %%ax; \
-			mov %%ax, %%ds; \
-			mov %%ax, %%es; \
-			mov %%ax, %%fs; \
-			mov %%ax, %%gs; \
-			mov %%esp, %%eax; \
-			pushl $0x23; \
-			pushl %%eax; \
-			pushf; \
-			pop %%eax; \
-			or $0x200, %%eax; \
-			pushl %%eax; \
-			pushl $0x1B; \
-			pushl %0; \
-			iret;": :
-			"r"(entry), "r"(argc), "r"(argv), "r"(envp), "r"(stack) :
-			"esp", "eax");
+		mov %4, %%esp; \
+		pushl %3; \
+		pushl %2; \
+		pushl %1; \
+		mov $0x23, %%ax; \
+		mov %%ax, %%ds; \
+		mov %%ax, %%es; \
+		mov %%ax, %%fs; \
+		mov %%ax, %%gs; \
+		mov %%esp, %%eax; \
+		pushl $0x23; \
+		pushl %%eax; \
+		pushf; \
+		pop %%eax; \
+		or $0x200, %%eax; \
+		pushl %%eax; \
+		pushl $0x1B; \
+		pushl %0; \
+		iret;": :
+		"r"(entry), "r"(argc), "r"(argv), "r"(envp), "r"(stack) :
+		"esp", "eax");
 }
 
 int32_t nice(int32_t inc) {

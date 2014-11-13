@@ -194,7 +194,7 @@ int32_t open_vfs(fs_node_t *node, uint32_t flags) {
 	if (!node)
 		return -EBADF;
 
-	if (!(node->fs_sb->flags & MNT_WRITE) && flags & O_WRONLY)
+	if ((node->fs_sb->flags & MNT_RDONLY) && flags & O_WRONLY)
 		return -EROFS;
 
 	node->flags = flags;
@@ -572,7 +572,7 @@ static fs_node_t *get_local_root(char **path, uint32_t *path_depth) {
 				node = (tree_node_t *)child->data;
 				if (entry->sb) {
 					final_depth = depth;
-					final_off = off;
+					final_off = off + strlen(off) + 1;
 					local_root = entry->sb->root;
 				}
 				break;

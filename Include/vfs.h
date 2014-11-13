@@ -60,7 +60,7 @@
 
 #define FS_NODEV		0x01
 
-#define MNT_WRITE		0x01
+#define MNT_RDONLY		0x01
 #define MNT_FORCE		0x02
 #define MNT_DETACH		0x04
 

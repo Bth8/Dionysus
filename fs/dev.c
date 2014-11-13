@@ -121,6 +121,7 @@ static struct superblock *return_sb(fs_node_t *dev, uint32_t flags) {
 	root->node.mode = VFS_U_READ | VFS_U_WRITE | VFS_U_EXEC |
 		VFS_G_READ | VFS_G_EXEC |
 		VFS_O_READ | VFS_O_EXEC;
+	root->node.mode |= VFS_DIR;
 	root->node.flags = 0;
 	root->node.len = 0;
 	root->node.dev = 0;

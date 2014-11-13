@@ -76,5 +76,5 @@ void wait(uint32_t ms) {
 }
 
 void sleep_thread(void) {
-	task_tick = (20 - switch_task());
+	task_tick = 0;
 }
