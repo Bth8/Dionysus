@@ -43,7 +43,7 @@ DEFN64_SYSCALL4(write, 12, int32_t, const char*, uint32_t, uint32_t);
 DEFN_SYSCALL3(open, 13, const char*, uint32_t, uint32_t);
 DEFN_SYSCALL1(close, 14, int32_t);
 DEFN_SYSCALL3(readdir, 15, int32_t, void*, uint32_t);
-DEFN_SYSCALL2(fstat, 16, int32_t, void*);
+DEFN_SYSCALL2(stat, 16, const char*, void*);
 DEFN_SYSCALL2(chmod, 17, int32_t, uint32_t);
 DEFN_SYSCALL3(chown, 18, int32_t, int32_t, int32_t);
 DEFN_SYSCALL3(ioctl, 19, int, unsigned int, void*);
@@ -74,7 +74,7 @@ static void *syscalls[] = {
 	user_open,
 	user_close,
 	user_readdir,
-	user_fstat,
+	user_stat,
 	user_chmod,
 	user_chown,
 	user_ioctl,

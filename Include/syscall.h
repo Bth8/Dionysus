@@ -169,7 +169,7 @@ DECL64_SYSCALL4(write, int32_t, const char*, uint32_t, uint32_t);
 DECL_SYSCALL3(open, const char*, uint32_t, uint32_t);
 DECL_SYSCALL1(close, int32_t);
 DECL_SYSCALL3(readdir, int32_t, void*, uint32_t);
-DECL_SYSCALL2(fstat, int32_t, void*);
+DECL_SYSCALL2(stat, const char*, void*);
 DECL_SYSCALL2(chmod, int32_t, uint32_t);
 DECL_SYSCALL3(chown, int32_t, int32_t, int32_t);
 DECL_SYSCALL3(ioctl, int, unsigned int, void*);

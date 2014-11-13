@@ -34,7 +34,7 @@ ssize_t user_write(int32_t fd, const char *buf, size_t nbytes);
 int32_t user_open(const char *path, uint32_t flags, uint32_t mode);
 int32_t user_close(int32_t fd);
 int32_t user_readdir(int32_t fd, struct dirent *dirp, uint32_t index);
-int32_t user_fstat(int32_t fd, struct stat *buff);
+int32_t user_stat(const char *path, struct stat *buff);
 int32_t user_chmod(int32_t fd, uint32_t mode);
 int32_t user_chown(int32_t fd, int32_t uid, int32_t gid);
 int32_t user_ioctl(int32_t fd, uint32_t request, void *ptr);

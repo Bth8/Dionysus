@@ -88,6 +88,7 @@ tree_node_t *tree_set_root(tree_t *tree, void *data) {
 	node->data = data;
 	node->parent = NULL;
 	node->owner = tree;
+	tree->root = node;
 	return node;
 }
 

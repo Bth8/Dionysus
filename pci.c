@@ -225,8 +225,8 @@ void dump_pci(void) {
 	struct pci_dev *iter = &host;
 
 	while (iter != NULL) {
-		printf("Bus %u Slot %u Func %u:\n\tVendor: 0x%X\n\tDevice:"
-				"0x%X\n\tClass: 0x%06X\n",
+		printf("Bus %u Slot %u Func %u:\n\tVendor: 0x%04X\n\tDevice:"
+				"0x%04X\n\tClass: 0x%06X\n",
 				iter->bus->secondary, iter->slot, iter->func, iter->vendor,
 				iter->device, iter->class);
 

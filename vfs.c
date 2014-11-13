@@ -415,7 +415,10 @@ int32_t mount(fs_node_t *dev, const char *relpath, const char *fs_name,
 
 		root->name = "[root]";
 		root->sb = NULL;
-		tree_set_root(filesystem, root);
+		if (!tree_set_root(filesystem, root)) {
+			kfree(root);
+			return -ENOMEM;
+		}
 	}
 
 	char *off;
@@ -548,19 +551,24 @@ int32_t umount(const char *relpath, uint32_t flags) {
 
 static fs_node_t *get_local_root(char **path, uint32_t *path_depth) {
 	tree_node_t *node = filesystem->root;
-	fs_node_t *local_root = (fs_node_t *)node->data;
+	fs_node_t *local_root = ((struct mountpoint *)node->data)->sb->root;
 	uint32_t final_depth = 0;
 	char *off = *path;
 	char *final_off = off;
 
 	uint32_t depth;
-	for (depth = 0; depth < *path_depth; depth++) {
+	for (depth = 1; depth <= *path_depth; depth++) {
+		if (strlen(off) == 0) {
+			off++;
+			continue;
+		}
 		int exist = 0;
 		node_t *child;
 		foreach (child, node->children) {
 			struct mountpoint *entry =
 				(struct mountpoint *)((tree_node_t *)child->data)->data;
 			if (strcmp(off, entry->name) == 0) {
+				magic_break();
 				exist = 1;
 				node = (tree_node_t *)child->data;
 				if (entry->sb) {
@@ -598,7 +606,6 @@ fs_node_t *kopen(const char *relpath, int32_t flags, int32_t *openret) {
 	char *path = canonicalize_path(current_task->cwd, relpath);
 	if (!path)
 		return NULL;
-
 
 	uint32_t depth = vfs_tokenize(path);
 	char *off = path;
