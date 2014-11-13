@@ -140,6 +140,10 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 		}
 		nbytes += ret;
 	}
+	if ((ret = close_vfs(file)) < 0) {
+		printf("%d\n", ret);
+		goto end;
+	}
 
 end:
 	halt();
