@@ -24,12 +24,6 @@
 #include <common.h>
 #include <vfs.h>
 
-#define KERNEL_BLOCKSIZE	512
-
-#define MAJOR(x) ((x >> 24) & 0xFF)
-#define MINOR(x) (x & 0xFFFFFF)
-#define MKDEV(x, y) (((x & 0xFF) << 24) | (y & 0xFFFFFF))
-
 struct dev_file {
 	fs_node_t node;
 	struct dev_file *next;

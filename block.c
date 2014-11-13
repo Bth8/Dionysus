@@ -67,21 +67,19 @@ int32_t register_blkdev(uint32_t major, const char *name, struct file_ops fops) 
 	return major;
 }
 
-request_queue_t *blk_create_queue(request_handler_t handler) {
-	if (!handler)
-		return NULL;
-
-	request_queue_t *queue = (request_queue_t *)kmalloc(sizeof(request_queue_t));
-	if (!queue)
-		return NULL;
-
-	queue->lock = 0;
-	queue->handler = handler;
-	queue->requests = list_create();
-	if (!queue->requests) {
-		kfree(queue);
-		return NULL;
+blkdev_t *get_blkdev(dev_t dev) {
+	blkdev_t *blockdev = blk_drivers[MAJOR(dev) - 1].devs;
+	while (blockdev->minor + blockdev->max_part <= dev) {
+		blockdev = blockdev->next;
+		if (!blockdev)
+			return NULL;
 	}
 
-	return queue;
+	uint32_t i;
+	for (i = 0; i < blockdev->nreal; i++)
+		if (blockdev->partitions[i].minor == MINOR(dev))
+			return blockdev;
+
+	return NULL;
+
 }

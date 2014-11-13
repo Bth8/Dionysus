@@ -25,42 +25,42 @@
 #include <vfs.h>
 #include <structures/list.h>
 
-typedef struct request_queue request_queue_t;
+#define KERNEL_BLOCKSIZE	512
 
-typedef void (*request_handler_t)(request_queue_t*);
+typedef struct blockdev blkdev_t;
+typedef void (*request_handler_t)(blkdev_t*);
 
-typedef struct {
+typedef struct bio {
 	uintptr_t page;
 	off_t offset;
-	size_t nsectors;
+	uint32_t nsectors;
+	struct bio *next;
 } bio_t;
 
 typedef struct {
 	uint32_t flags;
-	off_t first_sector;
-	size_t nsectors;
-	list_t *bios;
+	uint32_t first_sector;
+	uint32_t nsectors;
+	bio_t *bios;
 } request_t;
-
-struct request_queue {
-	spinlock_t lock;
-	request_handler_t handler;
-	list_t *requests;
-};
 
 struct part {
 	uint32_t minor;
-	off_t offset;
-	size_t size;
+	uint32_t offset;	// in 512B sectors
+	uint32_t size;
 };
 
 typedef struct blockdev {
-	struct blkdev_driver *driver;
+	uint32_t major;
 	uint32_t minor;		// First minor
+	uint32_t max_part;	// Maximum possible partitions
 	uint32_t nreal;		// Actual number of minors
 	struct part *partitions;
 	size_t sector_size;
-	struct request_queue *queue;
+	spinlock_t lock;
+	request_handler_t handler;
+	list_t *queue;
+	void *private_data;
 	struct blockdev *next;
 } blkdev_t;
 
@@ -73,6 +73,12 @@ struct blkdev_driver {
 void init_blockdev(void);
 struct blkdev_driver *get_blkdev_driver(uint32_t major);
 int32_t register_blkdev(uint32_t major, const char *name, struct file_ops fops);
-request_queue_t *blk_create_queue(request_handler_t handler);
+blkdev_t *alloc_blkdev(struct blkdev_driver *driver);
+int32_t autopopulate_blkdev(blkdev_t *dev);
+void free_blkdev(blkdev_t *dev);
+int32_t add_blkdev(blkdev_t *dev);
+blkdev_t *get_blkdev(dev_t dev);
+int32_t make_request_blkdev(dev_t dev, uint32_t first_sector,
+	uint32_t nsectors, bio_t *bios);
 
 #endif /* BLOCK_H */

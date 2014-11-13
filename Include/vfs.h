@@ -70,6 +70,10 @@
 
 #define EOF				-1
 
+#define MAJOR(x) ((x >> 24) & 0xFF)
+#define MINOR(x) (x & 0xFFFFFF)
+#define MKDEV(x, y) (((x & 0xFF) << 24) | (y & 0xFFFFFF))
+
 struct fs_node;
 struct stat;
 struct dirent {
@@ -114,8 +118,10 @@ typedef struct fs_node {
 	uint32_t nlink;
 } fs_node_t;
 
+typedef struct blockdev blkdev_t;
 struct superblock {
-	fs_node_t *dev;
+	blkdev_t *dev;
+	uint32_t minor;
 	void *private_data;
 	fs_node_t *root;
 	size_t blocksize;
@@ -130,7 +136,7 @@ struct mountpoint {
 
 typedef struct file_system_type {
 	uint32_t flags;
-	struct superblock *(*get_super)(fs_node_t*, uint32_t);
+	struct superblock *(*get_super)(blkdev_t*, uint32_t, uint32_t);
 } file_system_t;
 
 // Spares are such that it matches newlib's definition

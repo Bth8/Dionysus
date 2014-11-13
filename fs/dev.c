@@ -28,8 +28,10 @@
 #include <printf.h>
 #include <structures/list.h>
 #include <errno.h>
+#include <block.h>
 
-static struct superblock *return_sb(fs_node_t *dev, uint32_t flags);
+static struct superblock *return_sb(blkdev_t *dev, uint32_t minor, 
+		uint32_t flags);
 static ssize_t read(fs_node_t *node, void *buf, size_t count, off_t off);
 static ssize_t write(fs_node_t *node, const void *buf, size_t count, off_t off);
 static int32_t open(fs_node_t *node, uint32_t flags);
@@ -94,7 +96,8 @@ static int32_t close_fs(struct superblock *sb, uint32_t force) {
 	return 0;
 }
 
-static struct superblock *return_sb(fs_node_t *dev, uint32_t flags) {
+static struct superblock *return_sb(blkdev_t *dev, uint32_t minor, 
+		uint32_t flags) {
 	if (dev)
 		return NULL;
 
@@ -144,7 +147,6 @@ static struct superblock *return_sb(fs_node_t *dev, uint32_t flags) {
 	sb->dev = NULL;
 	sb->private_data = lock;
 	sb->root = &(root->node);
-	sb->blocksize = KERNEL_BLOCKSIZE;
 	sb->flags = flags;
 	sb->close_fs = close_fs;
 

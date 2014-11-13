@@ -29,6 +29,7 @@
 #include <structures/list.h>
 #include <structures/tree.h>
 #include <task.h>
+#include <block.h>
 
 fs_node_t *vfs_root = NULL;
 hashmap_t *fs_types = NULL;
@@ -268,7 +269,7 @@ int32_t stat_vfs(fs_node_t *node, struct stat *buff) {
 	if (!node)
 		return -EBADF;
 
-	buff->st_dev = node->fs_sb->dev->dev;
+	buff->st_dev = MKDEV(node->fs_sb->dev->major, node->fs_sb->minor);
 	buff->st_ino = node->inode;
 	buff->st_mode = node->mode;
 	buff->st_nlink = node->nlink;
@@ -471,7 +472,12 @@ int32_t mount(fs_node_t *dev, const char *relpath, const char *fs_name,
 		return -EBUSY;
 	}
 
-	struct superblock *sb = fs->get_super(dev, flags);
+	struct superblock *sb = NULL;
+	if (dev)
+		sb = fs->get_super(get_blkdev(dev->dev),
+			MINOR(dev->dev), flags);
+	else
+		sb = fs->get_super(NULL, 0, flags);
 	if (!sb) {
 		spin_unlock(&vfs_lock);
 		vfs_prune(node);
