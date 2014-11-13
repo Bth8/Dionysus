@@ -32,6 +32,7 @@
 #include <vfs.h>
 #include <block.h>
 #include <char.h>
+#include <chardev/term.h>
 #include <fs/dev.h>
 #include <pci.h>
 
@@ -85,7 +86,9 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 
 	printf("Initializing driver subsystem\n");
 	init_blockdev();
+
 	init_chardev();
+	init_term();
 
 	printf("Enumerating PCI bus(ses)\n");
 	init_pci();
@@ -94,6 +97,51 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	init_devfs();
 	ASSERT(mount(NULL, "/dev", "devfs", 0) == 0);
 
+	char buffer[512];
+	struct dirent dirp;
+	int32_t ret;
+	fs_node_t *file = kopen("/dev", O_RDWR, &ret);
+	if (!file) {
+		printf("%d\n", ret);
+		goto end;
+	}
+	if ((ret = create_vfs(file, "tty0", 0, 0, VFS_CHARDEV | 0666, MKDEV(TERM_MAJOR, 0))) < 0) {
+		printf("%d\n", ret);
+		goto end;
+	}
+	int i;
+	for (i = 0; readdir_vfs(file, &dirp, i) > 0; i++) {
+		printf("%s\n", dirp.d_name);
+	}
+	if ((ret = close_vfs(file)) < 0) {
+		printf("%d\n", ret);
+		goto end;
+	}
+	file = kopen("/dev/tty0", O_RDWR, &ret);
+	if (!file) {
+		printf("%d\n", ret);
+		goto end;
+	}
+	size_t nbytes = 0;
+	while (nbytes != 32) {
+		ret = read_vfs(file, buffer + nbytes, 32 - nbytes, nbytes);
+		if (ret < 0) {
+			printf("%d\n", ret);
+			goto end;
+		}
+		nbytes += ret;
+	}
+	nbytes = 0;
+	while (nbytes != 32) {
+		ret = write_vfs(file, buffer + nbytes, 32 - nbytes, nbytes);
+		if (ret < 0) {
+			printf("%d\n", ret);
+			goto end;
+		}
+		nbytes += ret;
+	}
+
+end:
 	halt();
 }
 

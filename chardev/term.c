@@ -24,10 +24,11 @@
 #include <idt.h>
 #include <vfs.h>
 #include <timer.h>
-#include <dev.h>
+#include <char.h>
 #include <errno.h>
 
 #define ESCAPE 0x01
+#define BACKSPACE 0x0E
 #define CTRL 0x1D
 #define LSHIFT 0x2A
 #define RSHIFT 0x36
@@ -42,13 +43,13 @@
 #define BUFSIZE 1024
 
 char noshiftmap[128] =
-	{0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', '\x08',
+	{0, 0, '1', '2', '3', '4', '5', '6', '7', '8', '9', '0', '-', '=', 0,
 	'\t', 'q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p', '[', ']', '\n', 0,
 	'a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l', ';', '\'', '`', 0, '\\',
 	'z', 'x', 'c', 'v', 'b', 'n', 'm', ',', '.', '/', 0, 0, 0, ' '};
 
 char shiftmap[128] =
-	{0, 0, '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', '\x08',
+	{0, 0, '!', '@', '#', '$', '%', '^', '&', '*', '(', ')', '_', '+', 0,
 	'\t', 'Q', 'W', 'E', 'R', 'T', 'Y', 'U', 'I', 'O', 'P', '{', '}', '\n', 0,
 	'A', 'S', 'D', 'F', 'G', 'H', 'J', 'K', 'L', ':', '"', '~', 0, '|',
 	'Z', 'X', 'C', 'V', 'B', 'N', 'M', '<', '>', '?', 0, 0, 0, ' '};
@@ -70,7 +71,6 @@ static void update_leds(uint8_t stat) {
 }
 
 static void kbd_isr(registers_t *regs) {
-	regs = regs;
 	char trans_code;
 	uint8_t scode = inb(0x60), oldleds = leds;
 
@@ -78,57 +78,65 @@ static void kbd_isr(registers_t *regs) {
 		// Get base key
 		scode &= ~(0x80);
 		switch (scode) {
-			case LSHIFT:
-			case RSHIFT:
-				shift_stat = 0;
-				break;
-			case ALT:
-				alt_stat = 0;
-				break;
-			case CTRL:
-				ctrl_stat = 0;
-				break;
-			default:
-				break;
+		case LSHIFT:
+		case RSHIFT:
+			shift_stat = 0;
+			break;
+		case ALT:
+			alt_stat = 0;
+			break;
+		case CTRL:
+			ctrl_stat = 0;
+			break;
+		default:
+			break;
 		}
 	} else
 		switch (scode) {
-			case LSHIFT:
-			case RSHIFT:
-				shift_stat = 1;
+		case LSHIFT:
+		case RSHIFT:
+			shift_stat = 1;
+			break;
+		case ALT:
+			alt_stat = 1;
+			break;
+		case CTRL:
+			ctrl_stat = 1;
+			break;
+		case NUMLOCK:
+			leds ^= NUM_LED;
+			break;
+		case SCRLLOCK:
+			leds ^= SCROLL_LED;
+			break;
+		case CAPS:
+			leds ^= CAPS_LED;
+			caps_stat = !caps_stat;
+			break;
+		case BACKSPACE:
+			if (readbufpos == writebufpos)
 				break;
-			case ALT:
-				alt_stat = 1;
-				break;
-			case CTRL:
-				ctrl_stat = 1;
-				break;
-			case NUMLOCK:
-				leds ^= NUM_LED;
-				break;
-			case SCRLLOCK:
-				leds ^= SCROLL_LED;
-				break;
-			case CAPS:
-				leds ^= CAPS_LED;
-				caps_stat = !caps_stat;
-				break;
-			default:
-				trans_code = (shift_stat ? shiftmap : noshiftmap)[scode];
-				if (trans_code) {
-					if (caps_stat) {
-						if (trans_code >= 'A' && trans_code <= 'Z')
-							trans_code += 0x20;	// Makes lowercase
-						else if (trans_code >= 'a' && trans_code <= 'z')
-							trans_code -= 0x20;	// Makes uppercase
-					}
-					*writebufpos++ = trans_code;
-					if (writebufpos == inbuf + BUFSIZE)
-						writebufpos = inbuf;
-					if (echo)
-						monitor_put(trans_code);
+			writebufpos--;
+			monitor_put('\x08'); // Backspace
+			break;
+		default:
+			trans_code = (shift_stat ? shiftmap : noshiftmap)[scode];
+			if (trans_code) {
+				if (caps_stat) {
+					if (trans_code >= 'A' && trans_code <= 'Z')
+						trans_code += 0x20;	// Makes lowercase
+					else if (trans_code >= 'a' && trans_code <= 'z')
+						trans_code -= 0x20;	// Makes uppercase
 				}
-				break;
+				*writebufpos++ = trans_code;
+				if (writebufpos == inbuf + BUFSIZE)
+					writebufpos = inbuf;
+				if (writebufpos == readbufpos)
+					readbufpos++;
+				if (echo)
+					monitor_put(trans_code);
+			}
+			break;
 		}
 
 	if (leds != oldleds)
@@ -143,9 +151,8 @@ static ssize_t read(struct fs_node *node, void *dest, size_t count,
 
 	uint32_t i;
 	for (i = 0; i < count; i++) {
-		// Block if we don't have enough
-		while (readbufpos == writebufpos)
-			sleep_thread();
+		if (readbufpos == writebufpos)
+			return i;
 		*(char *)dest++ = *readbufpos++;
 		// Circular buffer y'all
 		if (readbufpos == inbuf + BUFSIZE)
@@ -156,8 +163,6 @@ static ssize_t read(struct fs_node *node, void *dest, size_t count,
 
 static ssize_t write(struct fs_node *node, const void *src, size_t count,
 		off_t off) {
-	node = node;
-	off = off;
 	uint32_t i;
 	for (i = 0; i < count; i++)
 		monitor_put(*(char *)src++);
@@ -165,58 +170,34 @@ static ssize_t write(struct fs_node *node, const void *src, size_t count,
 	return i;
 }
 
-static int open(struct fs_node *node, uint32_t flags) {
-	node->mask = (flags & O_RDWR);
-	return 0;
-}
-
 static int32_t ioctl(struct fs_node *node, uint32_t req, void *ptr) {
-	node = node;
 	int ret;
 	switch (req) {
-		case TERMIOECHO:
-			if (ptr) {
-				if (*(int*)ptr)
-					echo = 1;
-				else
-					echo = 0;
-				ret = 0;
-			} else
-				ret = -EFAULT;
-			break;
-		default:
-			ret = -EINVAL;
-			break;
+	case TERMIOECHO:
+		if (ptr) {
+			if (*(int*)ptr)
+				echo = 1;
+			else
+				echo = 0;
+			ret = 0;
+		} else
+			ret = -EFAULT;
+		break;
+	default:
+		ret = -EINVAL;
+		break;
 	}
 	return ret;
 }
 
-static int stat(struct fs_node *node, struct stat *buff) {
-	buff->st_dev = node->impl;
-	buff->st_ino = node->inode;
-	buff->st_mode = node->mask;
-	buff->st_nlink = 1;
-	buff->st_uid = node->uid;
-	buff->st_gid = node->gid;
-	buff->st_rdev = node->impl;
-	buff->st_size = 0;
-	buff->st_blksize = 512;
-	buff->st_blocks = 0;
-	buff->st_atime = 0;
-	buff->st_mtime = 0;
-	buff->st_ctime = 0;
-
-	return 0;
-}
+struct file_ops fops = {
+	.read = read,
+	.write = write,
+	.ioctl = ioctl
+};
 
 void init_term(void) {
 	register_interrupt_handler(IRQ1, kbd_isr);
 	update_leds(leds);
-	static struct file_ops fops;
-	fops.read = read;
-	fops.write = write;
-	fops.open = open;
-	fops.ioctl = ioctl;
-	fops.stat = stat;
-	register_chrdev(1, "tty", fops);
+	register_chrdev(TERM_MAJOR, "tty", fops);
 }

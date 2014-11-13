@@ -24,6 +24,8 @@
 
 #define TERMIOECHO	0
 
+#define TERM_MAJOR	1
+
 void init_term(void);
 
 #endif /* TERM_H */

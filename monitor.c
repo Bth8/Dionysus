@@ -75,6 +75,10 @@ void monitor_put(char c) {
 		// Move the cursor back one
 		if (cursor_x)
 			cursor_x--;
+		else {
+			cursor_x = 79;
+			cursor_y--;
+		}
 	}
 	// Tab by increasing cursor_x to a point where it is divisible by 8
 	else if (c == '\t')

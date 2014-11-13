@@ -4,7 +4,7 @@ SOURCES_MAIN=boot.o main.o port.o common.o monitor.o printf.o string.o \
 
 SOURCES_FS=dev.o
 
-SOURCES_CHARDEV=
+SOURCES_CHARDEV=term.o
 
 SOURCES_PCI=
 
@@ -26,6 +26,9 @@ AS=nasm
 ASFLAGS=-felf32
 
 all: kernel
+
+debug: CFLAGS += -g
+debug: all
 
 clean:
 	rm -f $(SOURCES_ALL) kernel
