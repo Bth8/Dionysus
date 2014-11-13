@@ -210,7 +210,6 @@ int32_t getpid(void) {
 
 int switch_task(void) {
 	if (current_task) {
-		asm volatile("cli");
 		uint32_t esp, ebp, eip;
 		asm volatile("mov %%esp, %0" : "=r" (esp));
 		asm volatile("mov %%ebp, %0" : "=r" (ebp));
