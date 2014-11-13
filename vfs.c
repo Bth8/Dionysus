@@ -568,7 +568,6 @@ static fs_node_t *get_local_root(char **path, uint32_t *path_depth) {
 			struct mountpoint *entry =
 				(struct mountpoint *)((tree_node_t *)child->data)->data;
 			if (strcmp(off, entry->name) == 0) {
-				magic_break();
 				exist = 1;
 				node = (tree_node_t *)child->data;
 				if (entry->sb) {
@@ -636,6 +635,19 @@ fs_node_t *kopen(const char *relpath, int32_t flags, int32_t *openret) {
 		if (openret)
 			*openret = -ENOENT;
 		return NULL;
+	}
+
+	if (depth == 0) {
+		kfree(path);
+		int32_t ret = open_vfs(cur_node, flags);
+		if (ret < 0) {
+			kfree(cur_node);
+			cur_node = NULL;
+		}
+		spin_unlock(&vfs_lock);
+		if (openret)
+			*openret = ret;
+		return cur_node;
 	}
 
 	for (; depth > 0; depth--) {

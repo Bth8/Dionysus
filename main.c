@@ -92,6 +92,7 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	dump_pci();
 
 	init_devfs();
+	ASSERT(mount(NULL, "/dev", "devfs", 0) == 0);
 
 	halt();
 }
