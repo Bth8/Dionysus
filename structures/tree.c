@@ -29,24 +29,21 @@ tree_t *tree_create(void) {
 	return tree;
 }
 
-/* Deletes node. Orphans go to parent
-void tree_delete_node(tree_t *tree, tree_node_t *node) {
-	ASSERT(node->owner == tree);
-
-	node_t *child;
-	foreach(child, node->children)
-		((tree_node_t *)(child->data))->parent = node->parent;
-
-	list_merge(node->parent->children, node->children);
+// Frees the node, not the data
+void tree_delete_node(tree_node_t *node) {
+	if (!node)
+		return;
+	ASSERT(!node->parent);
+	ASSERT(!node->owner);
+	ASSERT(!node->children->head);
 	list_destroy(node->children);
-
-	if (node->data)
-		kfree(node->data);
 	kfree(node);
-} */
+}
 
 // Recursively frees node and all children
 void tree_delete_branch(tree_t *tree, tree_node_t *node) {
+	if (!tree || !node)
+		return;
 	ASSERT(node->owner == tree);
 
 	// We can't use foreach because the child deletes itself from our list
@@ -71,12 +68,35 @@ void tree_delete_branch(tree_t *tree, tree_node_t *node) {
 	kfree(node);
 }
 
+tree_node_t *tree_detach_branch(tree_t *tree, tree_node_t *node) {
+	if (!tree || !node)
+		return NULL;
+	ASSERT(node->owner == tree);
+
+	if (!node->parent) {
+		tree->root = NULL;
+		return node;
+	}
+
+	node_t *parent_ptr = list_find(node->parent->children, node);
+	list_remove(node->parent->children, parent_ptr);
+
+	node->parent = NULL;
+	node->owner = NULL;
+	return node;
+}
+
 void tree_destroy(tree_t *tree) {
+	if (!tree)
+		return;
 	tree_delete_branch(tree, tree->root);
 	kfree(tree);
 }
 
 tree_node_t *tree_set_root(tree_t *tree, void *data) {
+	if (!tree || !data)
+		return NULL;
+
 	tree_node_t *node = (tree_node_t *)kmalloc(sizeof(tree_node_t));
 	if (!node)
 		return NULL;
@@ -93,6 +113,8 @@ tree_node_t *tree_set_root(tree_t *tree, void *data) {
 }
 
 tree_node_t *tree_insert_node(tree_t *tree, tree_node_t *parent, void *data) {
+	if (!tree || !parent)
+		return NULL;
 	ASSERT(parent->owner == tree);
 	tree_node_t *node = (tree_node_t *)kmalloc(sizeof(tree_node_t));
 	if (!node)
@@ -108,4 +130,26 @@ tree_node_t *tree_insert_node(tree_t *tree, tree_node_t *parent, void *data) {
 
 	list_insert(parent->children, node);
 	return node;
+}
+
+tree_node_t *tree_insert_direct(tree_t *tree, tree_node_t *parent,
+		tree_node_t *node) {
+	if (!tree || !parent || !node)
+		return NULL;
+	ASSERT(parent->owner == tree);
+	ASSERT(!node->owner); // No double inserts
+	node->parent = parent;
+	node->owner = tree;
+	list_insert(parent->children, node);
+
+	return node;
+}
+
+void tree_inherit_children(tree_t *tree, tree_node_t *newparent,
+	tree_node_t *oldparent) {
+	if (!tree || !newparent || !oldparent)
+		return;
+
+	ASSERT(newparent->owner == tree);
+	list_merge(newparent->children, oldparent->children);
 }

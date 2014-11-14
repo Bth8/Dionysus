@@ -27,7 +27,7 @@
 #include <elf.h>
 
 DEFN_SYSCALL0(fork, 0);
-DEFN_SYSCALL0(exit, 1);
+DEFN_SYSCALL1(exit, 1, int32_t);
 DEFN_SYSCALL0(getpid, 2);
 DEFN_SYSCALL1(nice, 3, int32_t);
 DEFN_SYSCALL3(setresuid, 4, int32_t, int32_t, int32_t);

@@ -27,7 +27,7 @@ ASFLAGS=-felf32
 
 all: kernel
 
-debug: CFLAGS += -g
+debug: CFLAGS += -g -DDEBUG
 debug: all
 
 clean:

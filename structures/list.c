@@ -76,6 +76,52 @@ node_t *list_insert(list_t *list, void *data) {
 	return node;
 }
 
+node_t *list_insert_after(list_t *list, node_t *node, void *data) {
+	if (!list || !node)
+		return NULL;
+
+	ASSERT(node->owner == list);
+
+	node_t *newnode = (node_t *)kmalloc(sizeof(node_t));
+	if (!newnode)
+		return NULL;
+
+	newnode->data = data;
+	newnode->owner = list;
+
+	newnode->next = node->next;
+	newnode->prev = node;
+	node->next = newnode;
+
+	if (!newnode->next)
+		list->tail = newnode;
+
+	return newnode;
+}
+
+node_t *list_insert_before(list_t *list, node_t *node, void *data) {
+	if (!list || !node)
+		return NULL;
+
+	ASSERT(node->owner == list);
+
+	node_t *newnode = (node_t *)kmalloc(sizeof(node_t));
+	if (!newnode)
+		return NULL;
+
+	newnode->data = data;
+	newnode->owner = list;
+
+	newnode->next = node;
+	newnode->prev = node->prev;
+	node->prev = newnode;
+
+	if (!newnode->prev)
+		list->head = newnode;
+
+	return newnode;
+}
+
 void list_remove(list_t *list, node_t *node) {
 	if (!list_dequeue(list, node))
 		return;
@@ -99,6 +145,10 @@ node_t *list_dequeue(list_t *list, node_t *node) {
 		node->prev->next = node->next;
 	if (node->next)
 		node->next->prev = node->prev;
+
+	node->prev = NULL;
+	node->next = NULL;
+	node->owner = NULL;
 
 	return node;
 }

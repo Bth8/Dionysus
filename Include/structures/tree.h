@@ -38,7 +38,12 @@ tree_t *tree_create(void);
 void tree_destroy(tree_t *tree);
 tree_node_t *tree_set_root(tree_t *tree, void *data);
 tree_node_t *tree_insert_node(tree_t *tree, tree_node_t *parent, void *data);
-//void tree_delete_node(tree_t *tree, tree_node_t *node);
+tree_node_t *tree_insert_direct(tree_t *tree, tree_node_t *parent,
+	tree_node_t *node);
+tree_node_t *tree_detach_branch(tree_t *tree, tree_node_t *node);
+void tree_delete_node(tree_node_t *node);
 void tree_delete_branch(tree_t *tree, tree_node_t *node);
+void tree_inherit_children(tree_t *tree, tree_node_t *newparent,
+	tree_node_t *oldparent);
 
 #endif

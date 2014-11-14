@@ -24,6 +24,8 @@
 #include <common.h>
 #include <paging.h>
 #include <vfs.h>
+#include <structures/list.h>
+#include <structures/tree.h>
 
 #define KERNEL_STACK_TOP 0xF0000000
 #define KERNEL_STACK_SIZE 0x2000
@@ -42,7 +44,9 @@ struct filep {
 };
 
 typedef struct task {
-	uint32_t id;				// PID
+	uint32_t pid;
+	uint32_t gid;
+	uint32_t sid;
 	uintptr_t esp, ebp;			// Stack and base pointers
 	uintptr_t eip;				// Instruction pointer
 	page_directory_t *page_dir;
@@ -50,19 +54,20 @@ typedef struct task {
 	uintptr_t brk_actual;		// Actual end of the memory allocated for
 								// the heap
 	uintptr_t start;			// Image start
+	int32_t exit;
 	int8_t nice;
 	int ruid, euid, suid;
 	int rgid, egid, sgid;
 	char *cwd;
 	struct filep files[MAX_OF];
-	struct task *next;			// Next task in linked list
+	tree_node_t *treenode;		// Where it is in the process tree
 } task_t;
 
 void init_tasking(uintptr_t ebp);
 int32_t fork(void);
 int32_t getpid(void);
 int switch_task(void);
-void exit_task(void);
+void exit_task(int32_t status);
 void switch_user_mode(uint32_t entry, int32_t argc, char **argv, char **envp,
 		uint32_t stack);
 int32_t nice(int32_t inc);

@@ -153,7 +153,7 @@ int64_t sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5, P6 p6) { \
 }
 
 DECL_SYSCALL0(fork);
-DECL_SYSCALL0(exit);
+DECL_SYSCALL1(exit, int32_t);
 DECL_SYSCALL0(getpid);
 DECL_SYSCALL1(nice, int32_t);
 DECL_SYSCALL3(setresuid, int32_t, int32_t, int32_t);

@@ -21,6 +21,11 @@
  *  along with Dionysus.  If not, see <http://www.gnu.org/licenses/>
  */
 
+/* Process organization is similar to linux. PID 1 (init) owns everything. Its
+ * children are session leaders. Session leader children are group leaders.
+ * group leader children are all in the same group.
+ */
+
 #include <common.h>
 #include <task.h>
 #include <paging.h>
@@ -30,6 +35,8 @@
 #include <gdt.h>
 #include <vfs.h>
 #include <errno.h>
+#include <structures/tree.h>
+#include <structures/list.h>
 
 // Defined in main.c
 extern uint32_t initial_esp;
@@ -42,23 +49,36 @@ extern page_directory_t *current_dir;
 extern page_directory_t *kernel_dir;
 
 volatile task_t *current_task = NULL;
-volatile task_t *ready_queue;
-uint32_t pid_counter = 1;
-spinlock_t pid_lock = 0;
+list_t *processes = NULL;
+list_t *run_queue = NULL;
+tree_t *proc_tree = NULL;
 
+spinlock_t process_lock = 0;
+
+// We get the first free pid, rather than go in order
 static uint32_t nextpid(void) {
-	spin_lock(&pid_lock);
-	volatile task_t *iter =(task_t *)ready_queue;
-	while (iter) {
-		if (iter->id == pid_counter) {
-			pid_counter++;
-			iter = ready_queue;
+	ASSERT(processes);
+
+	uint32_t pid = 1;
+	while (1) {
+		if (pid == 0)
+			return 0;
+		node_t *node;
+		uint32_t exist = 0;
+		foreach(node, processes) {
+			if (((task_t *)node->data)->pid == pid) {
+				exist = 1;
+				break;
+			}
+		}
+		if (exist) {
+			pid++;
 			continue;
 		}
-		iter = iter->next;
+		break;
 	}
-	spin_unlock(&pid_lock);
-	return pid_counter++;
+
+	return pid;
 }
 
 static void move_stack(void *new_stack_start, void *old_stack_start, size_t size) {
@@ -99,29 +119,34 @@ static void move_stack(void *new_stack_start, void *old_stack_start, size_t size
 
 void init_tasking(uintptr_t ebp) {
 	asm volatile("cli");
+	spin_lock(&process_lock);
 	int i;
 	// Relocate stack
 	move_stack((void *)KERNEL_STACK_TOP, (void *)ebp, KERNEL_STACK_SIZE);
 
 	// Init first task (kernel task)
-	current_task = ready_queue = (task_t *)kmalloc(sizeof(task_t));
-	ASSERT(current_task);
+	run_queue = list_create();
+	ASSERT(run_queue);
+	processes = list_create();
+	proc_tree = tree_create();
 
-	current_task->id = nextpid();
-	current_task->esp = current_task->ebp = 0;
-	current_task->eip = 0;
-	current_task->page_dir = current_dir;
-	current_task->brk = 0;
-	current_task->brk_actual = 0;
-	current_task->start = 0;
-	current_task->nice = 0;
-	current_task->euid = current_task->suid = current_task->ruid = 0;
-	current_task->egid = current_task->rgid = current_task->sgid = 0;
-	current_task->next = NULL;
-	current_task->cwd = kmalloc(2);
-	ASSERT(current_task->cwd);
-	current_task->cwd[0] = PATH_DELIMITER;
-	current_task->cwd[1] = '\0';
+	task_t *new_task = (task_t *)kmalloc(sizeof(task_t));
+	ASSERT(new_task);
+
+	memset(new_task, 0, sizeof(new_task));
+
+	new_task->pid = nextpid();
+	ASSERT(new_task->pid != 0);
+	new_task->gid = new_task->pid;
+	new_task->sid = new_task->pid;
+	new_task->page_dir = current_dir;
+	new_task->nice = 0;
+	new_task->euid = current_task->suid = current_task->ruid = 0;
+	new_task->egid = current_task->rgid = current_task->sgid = 0;
+	new_task->cwd = kmalloc(2);
+	ASSERT(new_task->cwd);
+	new_task->cwd[0] = PATH_DELIMITER;
+	new_task->cwd[1] = '\0';
 
 	// Create a user stack
 	for (i = USER_STACK_BOTTOM; i < USER_STACK_TOP; i += PAGE_SIZE);
@@ -129,13 +154,22 @@ void init_tasking(uintptr_t ebp) {
 
 	// No open files yet
 	for (i = 0; i < MAX_OF; i++)
-		current_task->files[i].file = NULL;
+		new_task->files[i].file = NULL;
 
+	tree_node_t *treenode = tree_set_root(proc_tree, new_task);
+	ASSERT(treenode);
+	new_task->treenode = treenode;
+	ASSERT(list_insert(run_queue, new_task));
+	ASSERT(list_insert(processes, new_task));
+	current_task = new_task;
+
+	spin_unlock(&process_lock);
 	asm volatile("sti");
 }
 
 int32_t fork(void) {
 	asm volatile("cli");
+	spin_lock(&process_lock);
 	int i;
 	page_directory_t *directory = clone_directory(current_dir);
 
@@ -146,9 +180,18 @@ int32_t fork(void) {
 		return -ENOMEM;
 	}
 
-	new_task->id = nextpid();
-	new_task->esp = new_task->ebp = 0;
-	new_task->eip = 0;
+	memset(new_task, 0, sizeof(task_t));
+
+	new_task->pid = nextpid();
+	if (new_task->pid == 0)
+		goto error1;
+	new_task->gid = current_task->gid;
+	new_task->sid = current_task->sid;
+	if (current_task->pid == 1)
+		new_task->gid = new_task->sid = new_task->pid;
+	else if (current_task->pid == current_task->sid)
+		new_task->gid = new_task->pid;
+
 	new_task->page_dir = directory;
 	new_task->brk = current_task->brk;
 	new_task->brk_actual = current_task->brk_actual;
@@ -161,13 +204,9 @@ int32_t fork(void) {
 	new_task->egid = current_task->egid;
 	new_task->rgid = current_task->rgid;
 	new_task->sgid = current_task->sgid;
-	new_task->next = NULL;
 	new_task->cwd = (char *)kmalloc(strlen(current_task->cwd) + 1);
-	if (!new_task->cwd) {
-		free_dir(directory);
-		kfree(new_task);
-		return -ENOMEM;
-	}
+	if (!new_task->cwd)
+		goto error1;
 	strcpy(new_task->cwd, current_task->cwd);
 
 	// Copy open files
@@ -179,11 +218,23 @@ int32_t fork(void) {
 			new_task->files[i].file = NULL;
 	}
 
-	// Add to end of ready queue
-	task_t *task_i = (task_t *)ready_queue;
-	while (task_i->next)
-		task_i = task_i->next;
-	task_i->next = new_task;
+	tree_node_t *treenode = tree_insert_node(proc_tree, current_task->treenode,
+		new_task);
+	if (!treenode)
+		goto error2;
+
+	new_task->treenode = treenode;
+
+	node_t *proc_node = list_insert(processes, new_task);
+	if (!proc_node)
+		goto error3;
+
+	node_t *queue_node = list_insert(run_queue, new_task);
+	if (!queue_node)
+		goto error4;
+
+	spin_unlock(&process_lock);
+
 	// Entry point for new process
 	uint32_t esp;
 	uint32_t ebp;
@@ -191,21 +242,51 @@ int32_t fork(void) {
 	asm volatile("mov %%ebp, %0" : "=r" (ebp));
 	uint32_t eip = read_eip();
 
+#ifdef DEBUG
+	asm volatile("sti");
+#endif
+
 	// Are we parent or child? See switch_task for explanation
 	if (eip != 0x12345) {
 		new_task->esp = esp;
 		new_task->ebp = ebp;
 		new_task->eip = eip;
-		return new_task->id;
+		return new_task->pid;
 	} else {
 		// Send EOI to PIC. Otherwise, PIT won't fire again.
 		outb(PIC_MASTER_A, PIC_COMMAND_EOI);
 		return 0;
 	}
+
+error4:
+	list_dequeue(processes, proc_node);
+	kfree(proc_node);
+error3:
+	tree_detach_branch(proc_tree, treenode);
+	tree_delete_node(treenode);
+error2:
+	for (i = 0; i < MAX_OF; i++) {
+		if (current_task->files[i].file != NULL) {
+			close_vfs(new_task->files[i].file);
+		}
+	}
+error1:
+	free_dir(directory);
+	kfree(new_task);
+	spin_unlock(&process_lock);
+	return -ENOMEM;
 }
 
 int32_t getpid(void) {
-	return current_task->id;
+	return current_task->pid;
+}
+
+int32_t getpgid(void) {
+	return current_task->gid;
+}
+
+int32_t getsid(void) {
+	return current_task->sid;
 }
 
 int switch_task(void) {
@@ -229,10 +310,12 @@ int switch_task(void) {
 		current_task->esp = esp;
 		current_task->ebp = ebp;
 
-		current_task = current_task->next;
-		// Make sure we didn't fall off the end
-		if (!current_task)
-			current_task = ready_queue;
+		node_t *queue_node = list_find(run_queue, (task_t *)current_task);
+		if (run_queue->tail == queue_node)
+			queue_node = run_queue->head;
+		else
+			queue_node = queue_node->next;
+		current_task = (task_t *)queue_node->data;
 
 		esp = current_task->esp;
 		ebp = current_task->ebp;
@@ -256,42 +339,43 @@ int switch_task(void) {
 	return 0;
 }
 
-void exit_task(void) {
+void exit_task(int32_t status) {
 	asm volatile("cli");
-	int i;
-	task_t *iter = (task_t *)ready_queue;
+	ASSERT(current_task->pid != 1); // Init doesn't exit
+	spin_lock(&process_lock);
+
 	task_t *current_cache = (task_t *)current_task;
+	node_t *queue_node = list_find(run_queue, current_cache);
 
-	// Make sure we're not the only task
-	ASSERT(iter->next != NULL);
+	// Delete from run queue
+	if (run_queue->tail == queue_node)
+		current_task = (task_t *)run_queue->head->data;
+	else
+		current_task = (task_t *)queue_node->next->data;
 
-	// Not the first task in the run queue
-	if (iter != current_task) {
-		// Find the previous task
-		while (iter->next != current_task)
-			iter = iter->next;
-		// Point it to the next one. We're out of the run queue
-		iter->next = current_task->next;
-	} else {
-		// Move the run queue to its second task
-		iter = iter->next;
-		ready_queue = iter;
+	// We don't delete from the process tree/list because we haven't been
+	// waited on
+
+	node_t *child;
+	foreach(child, current_cache->treenode->children) {
+		task_t *child_task = (task_t *)((tree_node_t *)child->data)->data;
+		child_task->gid = child_task->sid = child_task->pid; // Movin' on up
 	}
-	// Prepare for a context switch
-	current_task = iter;
+	tree_inherit_children(proc_tree, proc_tree->root, current_cache->treenode);
+
 	current_dir = current_task->page_dir;
 	set_kernel_stack(current_task->esp);
 	// Use new current_task's paging dir, because we're about to trash ours
 	asm volatile("mov %0, %%cr3" : : "r"(current_dir->physical_address));
 
 	// Free everything
+	int i;
 	for (i = 0; i < MAX_OF; i++)
 		if (current_cache->files[i].file)
 			close_vfs(current_cache->files[i].file);
 
 	free_dir(current_cache->page_dir);
 	kfree(current_cache->cwd);
-	kfree(current_cache);
 
 	// Context switching time
 	asm volatile("mov %0, %%ecx; \
