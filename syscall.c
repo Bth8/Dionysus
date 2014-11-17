@@ -29,38 +29,46 @@
 DEFN_SYSCALL0(fork, 0);
 DEFN_SYSCALL1(exit, 1, int32_t);
 DEFN_SYSCALL0(getpid, 2);
-DEFN_SYSCALL1(nice, 3, int32_t);
-DEFN_SYSCALL3(setresuid, 4, int32_t, int32_t, int32_t);
-DEFN_SYSCALL3(getresuid, 5, int32_t*, int32_t*, int32_t*);
-DEFN_SYSCALL3(setresgid, 6, int32_t, int32_t, int32_t);
-DEFN_SYSCALL3(getresgid, 7, int32_t*, int32_t*, int32_t*);
-DEFN64_SYSCALL4(lseek, 8, int32_t, uint32_t, uint32_t, int32_t);
-DEFN64_SYSCALL6(pread, 9, int32_t, char*, uint32_t, uint32_t, uint32_t, uint32_t);
-DEFN64_SYSCALL4(read, 10, int32_t, char*, uint32_t, uint32_t);
-DEFN64_SYSCALL6(pwrite, 11, int32_t, const char*, uint32_t, uint32_t, uint32_t,
+DEFN_SYSCALL2(setpgid, 3, pid_t, pid_t);
+DEFN_SYSCALL1(getpgid, 4, pid_t);
+DEFN_SYSCALL0(setsid, 5);
+DEFN_SYSCALL0(getsid, 6);
+DEFN_SYSCALL1(nice, 7, int32_t);
+DEFN_SYSCALL3(setresuid, 8, int32_t, int32_t, int32_t);
+DEFN_SYSCALL3(getresuid, 9, int32_t*, int32_t*, int32_t*);
+DEFN_SYSCALL3(setresgid, 10, int32_t, int32_t, int32_t);
+DEFN_SYSCALL3(getresgid, 11, int32_t*, int32_t*, int32_t*);
+DEFN64_SYSCALL4(lseek, 12, int32_t, uint32_t, uint32_t, int32_t);
+DEFN64_SYSCALL6(pread, 13, int32_t, char*, uint32_t, uint32_t, uint32_t, uint32_t);
+DEFN64_SYSCALL4(read, 14, int32_t, char*, uint32_t, uint32_t);
+DEFN64_SYSCALL6(pwrite, 15, int32_t, const char*, uint32_t, uint32_t, uint32_t,
 	uint32_t);
-DEFN64_SYSCALL4(write, 12, int32_t, const char*, uint32_t, uint32_t);
-DEFN_SYSCALL3(open, 13, const char*, uint32_t, uint32_t);
-DEFN_SYSCALL1(close, 14, int32_t);
-DEFN_SYSCALL3(readdir, 15, int32_t, void*, uint32_t);
-DEFN_SYSCALL2(stat, 16, const char*, void*);
-DEFN_SYSCALL2(chmod, 17, int32_t, uint32_t);
-DEFN_SYSCALL3(chown, 18, int32_t, int32_t, int32_t);
-DEFN_SYSCALL3(ioctl, 19, int, unsigned int, void*);
-DEFN_SYSCALL2(link, 20, const char*, const char*);
-DEFN_SYSCALL1(unlink, 21, const char*);
-DEFN_SYSCALL3(mknod, 22, const char*, uint32_t, dev_t);
-DEFN_SYSCALL4(mount, 23, const char*, const char*, const char*, uint32_t);
-DEFN_SYSCALL2(umount, 24, const char*, uint32_t);
-DEFN_SYSCALL1(sbrk, 25, uintptr_t);
-DEFN_SYSCALL3(execve, 26, const char*, char *const*, char *const*);
-DEFN_SYSCALL1(chdir, 27, const char*);
+DEFN64_SYSCALL4(write, 16, int32_t, const char*, uint32_t, uint32_t);
+DEFN_SYSCALL3(open, 17, const char*, uint32_t, uint32_t);
+DEFN_SYSCALL1(close, 18, int32_t);
+DEFN_SYSCALL3(readdir, 19, int32_t, void*, uint32_t);
+DEFN_SYSCALL2(stat, 20, const char*, void*);
+DEFN_SYSCALL2(chmod, 21, int32_t, uint32_t);
+DEFN_SYSCALL3(chown, 22, int32_t, int32_t, int32_t);
+DEFN_SYSCALL3(ioctl, 23, int, unsigned int, void*);
+DEFN_SYSCALL2(link, 24, const char*, const char*);
+DEFN_SYSCALL1(unlink, 25, const char*);
+DEFN_SYSCALL3(mknod, 26, const char*, uint32_t, dev_t);
+DEFN_SYSCALL4(mount, 27, const char*, const char*, const char*, uint32_t);
+DEFN_SYSCALL2(umount, 28, const char*, uint32_t);
+DEFN_SYSCALL1(sbrk, 29, uintptr_t);
+DEFN_SYSCALL3(execve, 30, const char*, char *const*, char *const*);
+DEFN_SYSCALL1(chdir, 31, const char*);
 
 static void *syscalls[] = {
 	// Defined in task.c
 	fork,
 	exit_task,
 	getpid,
+	setpgid,
+	getpgid,
+	setsid,
+	getsid,
 	nice,
 	setresuid,
 	getresuid,
@@ -95,13 +103,13 @@ void syscall_handler(registers_t *regs) {
 		int32_t reta, retd;
 
 		// Push all of the parameters
-		asm volatile("pushl %1; \
-				pushl %2; \
+		asm volatile("pushl %2; \
 				pushl %3; \
 				pushl %4; \
 				pushl %5; \
 				pushl %6; \
-				call *%7; \
+				pushl %7; \
+				call *%8; \
 				popl %%ebx; \
 				popl %%ebx; \
 				popl %%ebx; \

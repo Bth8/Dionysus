@@ -120,7 +120,8 @@ void isr_handler(registers_t *regs) {
 	if ((handler = isr_handlers[regs->int_no]) != NULL)
 		handler(regs);
 	else {
-		printf("Unhandled interrupt: %i\n", regs->int_no);
+		printf("Unhandled interrupt: %i\nErr code: %i\n", regs->int_no,
+			regs->err_code);
 		halt();
 	}
 }

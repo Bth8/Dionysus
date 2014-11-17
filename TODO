@@ -15,9 +15,9 @@ User input sanitization.
 
 Waiting.
 
-Processes need to have children and parents.
-
 IPC would be nice.
+
+Timers.
 
 Need an init program.
 

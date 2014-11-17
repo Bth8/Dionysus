@@ -60,8 +60,7 @@ uint32_t inl(uint16_t port);
 void insw(uint16_t port, void *buf, int count);
 void outsw(uint16_t port, void *src, int count);
 
-extern inline void halt(void) {while(1){};}
-//extern inline void halt(void) {__asm__("hlt");}
+extern inline void halt(void) {while(1){ asm volatile("sti"); asm volatile("hlt"); };}
 void panic(uint32_t line, char *file, char *msg);
 void spin_lock(volatile spinlock_t *lock);
 void spin_unlock(volatile spinlock_t *lock);

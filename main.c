@@ -97,55 +97,12 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	init_devfs();
 	ASSERT(mount(NULL, "/dev", "devfs", 0) == 0);
 
-	char buffer[512];
-	struct dirent dirp;
-	int32_t ret;
-	fs_node_t *file = kopen("/dev", O_RDWR, &ret);
-	if (!file) {
-		printf("%d\n", ret);
-		goto end;
-	}
-	if ((ret = create_vfs(file, "tty0", 0, 0, VFS_CHARDEV | 0666, MKDEV(TERM_MAJOR, 0))) < 0) {
-		printf("%d\n", ret);
-		goto end;
-	}
-	int i;
-	for (i = 0; readdir_vfs(file, &dirp, i) > 0; i++) {
-		printf("%s\n", dirp.d_name);
-	}
-	if ((ret = close_vfs(file)) < 0) {
-		printf("%d\n", ret);
-		goto end;
-	}
-	file = kopen("/dev/tty0", O_RDWR, &ret);
-	if (!file) {
-		printf("%d\n", ret);
-		goto end;
-	}
-	size_t nbytes = 0;
-	while (nbytes != 32) {
-		ret = read_vfs(file, buffer + nbytes, 32 - nbytes, nbytes);
-		if (ret < 0) {
-			printf("%d\n", ret);
-			goto end;
-		}
-		nbytes += ret;
-	}
-	nbytes = 0;
-	while (nbytes != 32) {
-		ret = write_vfs(file, buffer + nbytes, 32 - nbytes, nbytes);
-		if (ret < 0) {
-			printf("%d\n", ret);
-			goto end;
-		}
-		nbytes += ret;
-	}
-	if ((ret = close_vfs(file)) < 0) {
-		printf("%d\n", ret);
-		goto end;
-	}
+	int32_t ret = sys_fork();
+	printf("%d\n", ret);
+	if (ret == 0)
+		sys_exit(-77);
+	printf("Test\n");
 
-end:
 	halt();
 }
 

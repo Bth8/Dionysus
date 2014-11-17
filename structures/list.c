@@ -190,7 +190,9 @@ void list_merge(list_t *dest, list_t *src) {
 	foreach(node, src)
 		node->owner = dest;
 
-	if (!dest->head) {
+	if (!src->head)
+		return;
+	else if (!dest->head) {
 		dest->head = src->head;
 		dest->tail = src->tail;
 	} else {

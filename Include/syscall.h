@@ -23,6 +23,7 @@
 
 #include <common.h>
 #include <vfs.h>
+#include <task.h>
 
 #define DECL_SYSCALL0(fn) int32_t sys_##fn(void);
 #define DECL_SYSCALL1(fn,p1) int32_t sys_##fn(p1);
@@ -155,6 +156,10 @@ int64_t sys_##fn(P1 p1, P2 p2, P3 p3, P4 p4, P5 p5, P6 p6) { \
 DECL_SYSCALL0(fork);
 DECL_SYSCALL1(exit, int32_t);
 DECL_SYSCALL0(getpid);
+DECL_SYSCALL2(setpgid, pid_t, pid_t);
+DECL_SYSCALL1(getpgid, pid_t);
+DECL_SYSCALL0(setsid);
+DECL_SYSCALL0(getsid);
 DECL_SYSCALL1(nice, int32_t);
 DECL_SYSCALL3(setresuid, int32_t, int32_t, int32_t);
 DECL_SYSCALL3(getresuid, int32_t*, int32_t*, int32_t*);

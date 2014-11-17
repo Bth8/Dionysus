@@ -27,26 +27,29 @@
 #include <structures/list.h>
 #include <structures/tree.h>
 
-#define KERNEL_STACK_TOP 0xF0000000
-#define KERNEL_STACK_SIZE 0x2000
-#define MAX_OF 32
+#define KERNEL_STACK_TOP	0xF0000000
+#define KERNEL_STACK_SIZE	0x2000
+#define MAX_OF				32
+#define MAX_PID				32768
 
-#define SEEK_SET 0
-#define SEEK_CUR 1
-#define SEEK_END 2
+#define SEEK_SET			0
+#define SEEK_CUR			1
+#define SEEK_END			2
 
-#define USER_STACK_BOTTOM 0x10000000
-#define USER_STACK_TOP 0x10004000
+#define USER_STACK_BOTTOM	0x10000000
+#define USER_STACK_TOP		0x10004000
+
+typedef int32_t pid_t;
 
 struct filep {
 	fs_node_t *file;
 	off_t off;
 };
 
-typedef struct task {
-	uint32_t pid;
-	uint32_t gid;
-	uint32_t sid;
+typedef struct {
+	pid_t pid;
+	pid_t gid;
+	pid_t sid;
 	uintptr_t esp, ebp;			// Stack and base pointers
 	uintptr_t eip;				// Instruction pointer
 	page_directory_t *page_dir;
@@ -59,17 +62,22 @@ typedef struct task {
 	int ruid, euid, suid;
 	int rgid, egid, sgid;
 	char *cwd;
+	char *cmd;
 	struct filep files[MAX_OF];
 	tree_node_t *treenode;		// Where it is in the process tree
 } task_t;
 
 void init_tasking(uintptr_t ebp);
 int32_t fork(void);
-int32_t getpid(void);
 int switch_task(void);
 void exit_task(int32_t status);
 void switch_user_mode(uint32_t entry, int32_t argc, char **argv, char **envp,
 		uint32_t stack);
+pid_t getpid(void);
+pid_t setpgid(pid_t pid, pid_t pgid);
+pid_t getpgid(pid_t pid);
+pid_t setsid(void);
+pid_t getsid(void);
 int32_t nice(int32_t inc);
 int32_t setresuid(int32_t new_ruid, int32_t new_euid, int32_t new_suid);
 int32_t getresuid(int32_t *ruid, int32_t *euid, int32_t *suid);
