@@ -24,9 +24,12 @@
 #include <printf.h>
 #include <kmalloc.h>
 #include <errno.h>
+#include <structures/list.h>
 
 struct pci_bus bus0;
 struct pci_dev host;
+
+list_t *drivers;
 
 inline uint32_t pciConfigReadDword(uint8_t bus, uint8_t slot, uint8_t func,
 		uint8_t off) {
@@ -219,6 +222,9 @@ void init_pci(void) {
 	host.class = 0x60000;
 
 	bus0.subordinate = check_bus(&bus0);
+
+	drivers = list_create();
+	ASSERT(drivers);
 }
 
 void dump_pci(void) {
@@ -233,4 +239,55 @@ void dump_pci(void) {
 		iter = iter->next;
 	}
 
+}
+
+static void driver_search(struct pci_driver *driver) {
+	ASSERT(driver);
+
+	const struct pci_dev_id *id_iter = driver->table;
+	while (id_iter->mask != 0) {
+		struct pci_dev *dev_iter = &host;
+		for (dev_iter = &host; dev_iter; dev_iter = dev_iter->next) {
+			if (id_iter->vendor != (uint16_t)PCI_ANY &&
+					id_iter->vendor != dev_iter->vendor)
+				continue;
+			if (id_iter->device != (uint16_t)PCI_ANY &&
+					id_iter->device != dev_iter->device)
+				continue;
+			if (id_iter->class != PCI_ANY && 
+					id_iter->class != (dev_iter->class & id_iter->mask))
+				continue;
+			driver->probe(dev_iter, id_iter);
+		}
+	}
+}
+
+spinlock_t pci_lock = 0;
+
+int32_t register_pci(const char *name, const struct pci_dev_id *table,
+		int (*probe)(struct pci_dev*, const struct pci_dev_id*)) {
+	ASSERT(name && table && probe);
+
+	struct pci_driver *driver =
+		(struct pci_driver *)kmalloc(sizeof(struct pci_driver));
+	if (!driver)
+		return -ENOMEM;
+
+	driver->name = name;
+	driver->table = table;
+	driver->probe = probe;
+
+	spin_lock(&pci_lock);
+	node_t *node = list_insert(drivers, driver);
+	if (!node) {
+		spin_unlock(&pci_lock);
+		kfree(driver);
+		return -ENOMEM;
+	}
+
+	driver_search(driver);
+	spin_unlock(&pci_lock);
+
+
+	return 0;
 }
