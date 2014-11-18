@@ -27,6 +27,9 @@
 
 #define KERNEL_BLOCKSIZE	512
 
+#define BLOCK_DIR_READ		0x00
+#define BLOCK_DIR_WRITE		0x01
+
 typedef struct blockdev blkdev_t;
 typedef void (*request_handler_t)(blkdev_t*);
 
@@ -41,7 +44,7 @@ typedef struct {
 	uint32_t flags;
 	uint32_t first_sector;
 	uint32_t nsectors;
-	bio_t *bios;
+	list_t *bios;
 } request_t;
 
 struct part {
@@ -61,24 +64,23 @@ typedef struct blockdev {
 	request_handler_t handler;
 	list_t *queue;
 	void *private_data;
-	struct blockdev *next;
 } blkdev_t;
 
 struct blkdev_driver {
 	const char *name;
 	struct file_ops ops;
-	blkdev_t *devs; // Block devices managed by this driver
+	list_t *devs; // Block devices managed by this driver
 };
 
 void init_blockdev(void);
 struct blkdev_driver *get_blkdev_driver(uint32_t major);
 int32_t register_blkdev(uint32_t major, const char *name, struct file_ops fops);
-blkdev_t *alloc_blkdev(struct blkdev_driver *driver);
+blkdev_t *alloc_blkdev(void);
 int32_t autopopulate_blkdev(blkdev_t *dev);
 void free_blkdev(blkdev_t *dev);
 int32_t add_blkdev(blkdev_t *dev);
 blkdev_t *get_blkdev(dev_t dev);
-int32_t make_request_blkdev(dev_t dev, uint32_t first_sector,
-	uint32_t nsectors, bio_t *bios);
+int32_t make_request_blkdev(dev_t dev, uint32_t first_sector, bio_t *bios,
+	uint32_t dir);
 
 #endif /* BLOCK_H */
