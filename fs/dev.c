@@ -30,8 +30,7 @@
 #include <errno.h>
 #include <block.h>
 
-static struct superblock *return_sb(blkdev_t *dev, uint32_t minor, 
-		uint32_t flags);
+static struct superblock *return_sb(dev_t dev, uint32_t flags);
 static ssize_t read(fs_node_t *node, void *buf, size_t count, off_t off);
 static ssize_t write(fs_node_t *node, const void *buf, size_t count, off_t off);
 static int32_t open(fs_node_t *node, uint32_t flags);
@@ -96,8 +95,7 @@ static int32_t close_fs(struct superblock *sb, uint32_t force) {
 	return 0;
 }
 
-static struct superblock *return_sb(blkdev_t *dev, uint32_t minor, 
-		uint32_t flags) {
+static struct superblock *return_sb(dev_t dev, uint32_t flags) {
 	if (dev)
 		return NULL;
 
@@ -144,7 +142,7 @@ static struct superblock *return_sb(blkdev_t *dev, uint32_t minor,
 		return NULL;
 	}
 
-	sb->dev = NULL;
+	sb->dev = dev;
 	sb->private_data = lock;
 	sb->root = &(root->node);
 	sb->flags = flags;
@@ -504,44 +502,6 @@ static int32_t ioctl(fs_node_t *node, uint32_t request, void *ptr) {
 	}
 
 	return -ENOTTY;
-}
-
-int32_t detect_partitions(struct blockdev *dev) {
-	struct mbr mbr;
-	uint32_t nblocks = sizeof(mbr) / dev->block_size;
-	// Get the disk's MBR
-	if (dev->driver->read(dev->minor / 16, 0, nblocks, &mbr))
-		return -1;
-
-	// Valid?
-	if (mbr.magic[0] != 0x55 || mbr.magic[1] != 0xAA) {
-		printf("Warning: invalid partition table\n\tDriver: %s Device: %u\n",
-				dev->driver->name, dev->minor/16);
-		return 0;
-	}
-
-	uint32_t i;
-	for (i = 0; i < 4; i++) {
-		if (mbr.partitions[i].sys_id != 0) {
-			struct blockdev *part =
-				(struct blockdev *)kmalloc(sizeof(struct blockdev));
-			if (part == NULL)
-				return -ENOMEM;
-			part->driver = dev->driver;
-			part->minor = dev->minor + i + 1;
-			part->block_size = dev->block_size;
-			part->offset = mbr.partitions[i].rel_sect;
-			part->capacity = mbr.partitions[i].nsects;
-			insert_ordered_array(part, &dev->driver->devs);
-		}
-	}
-
-	return 0;
-}
-
-static uint32_t lessthan_blkdev(type_t a, type_t b) {
-	return (((struct blockdev *)a)->minor < ((struct blockdev *)b)->minor) ?
-		1 : 0;
 }
 
 uint32_t read_blkdev(uint32_t major, uint32_t minor, size_t count, off_t off,

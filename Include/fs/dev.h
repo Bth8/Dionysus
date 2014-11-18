@@ -31,32 +31,4 @@ struct dev_file {
 
 void init_devfs(void);
 
-/*
-struct partition {
-	uint8_t boot;
-	uint8_t start_head; // All of the start/end crap is obsolete
-	uint32_t start_sect:	6; // Ignore.
-	uint32_t start_cyl:	10;
-	uint8_t sys_id;
-	uint8_t end_head;
-	uint32_t end_sect:	6;
-	uint32_t end_cyl:		10;
-	uint32_t rel_sect; // This is what we care about
-	uint32_t nsects;
-} __attribute__((packed));
-
-struct mbr {
-	uint8_t bootloader[436];
-	uint8_t disk_id[10];
-	struct partition partitions[4];
-	uint8_t magic[2];
-} __attribute__((packed));
-
-struct blkdev_driver;
-
-int32_t devfs_register(const char *name, uint32_t flags, uint32_t major,
-		uint32_t minor, uint32_t mode, uint32_t uid, uint32_t gid);
-*/
-
-
 #endif /* DEV_H */

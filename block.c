@@ -23,6 +23,7 @@
 #include <vfs.h>
 #include <string.h>
 #include <printf.h>
+#include <paging.h>
 #include <structures/list.h>
 #include <kmalloc.h>
 #include <errno.h>
@@ -88,10 +89,11 @@ blkdev_t *get_blkdev(dev_t dev) {
 	if (!blockdev)
 		return NULL;
 
-	uint32_t i;
-	for (i = 0; i < blockdev->nreal; i++)
-		if (blockdev->partitions[i].minor == MINOR(dev))
+	foreach(node, blockdev->partitions) {
+		struct part *partition = (struct part *)node->data;
+		if (partition->minor == MINOR(dev))
 			return blockdev;
+	}
 
 	return NULL;
 
@@ -110,15 +112,88 @@ blkdev_t *alloc_blkdev(void) {
 		return NULL;
 	}
 
+	blockdev->partitions = list_create();
+	if (!blockdev->partitions) {
+		list_destroy(blockdev->queue);
+		kfree(blockdev);
+		return NULL;
+	}
+
 	return blockdev;
 }
 
-int32_t autopopulate_blkdev(blkdev_t *dev);
+int32_t autopopulate_blkdev(blkdev_t *dev) {
+	ASSERT(!dev->partitions);
+	// Create the first entry
+	struct part *part0 = (struct part *)kmalloc(sizeof(struct part));
+	if (!part0)
+		return -ENOMEM;
+
+	part0->minor = dev->minor;
+	part0->offset = 0;
+	part0->size = dev->size;
+	node_t *node = list_insert(dev->partitions, part0);
+	if (!node) {
+		kfree(part0);
+		return -ENOMEM;
+	}
+
+	struct mbr *mbr = (struct mbr *)kmemalign(KERNEL_BLOCKSIZE, sizeof(struct mbr));
+	if (!mbr)
+		goto nomem;
+
+	bio_t *bio = (bio_t *)kmalloc(sizeof(bio_t));
+	if (!bio) {
+		kfree(mbr);
+		goto nomem;
+	}
+
+	bio->page = (resolve_physical((uintptr_t)mbr) / PAGE_SIZE) * PAGE_SIZE;
+	bio->page = resolve_physical((uintptr_t)mbr) % PAGE_SIZE;
+	bio->nsectors = 1;
+
+	make_request_blkdev(MKDEV(dev->major, dev->minor), 0, bio, 0);
+
+	if (mbr->magic[0] != 0x55 || mbr->magic[1] != 0xAA) {
+		printf("Warning: Invalid partition table\nDevice: %u\n",
+			MKDEV(dev->major, dev->minor));
+		kfree(mbr);
+		return 0;
+	}
+
+	uint32_t i;
+	for (i = 0; i < 4; i++) {
+		if (mbr->partitions[i].sys_id != 0) {
+			struct part *partition = (struct part *)kmalloc(sizeof(struct part));
+			if (!partition) {
+				kfree(partition);
+				kfree(mbr);
+				goto nomem;
+			}
+			partition->minor = dev->minor + i + 1;
+			partition->offset = mbr->partitions[i].rel_sect;
+			partition->size = mbr->partitions[i].nsects;
+			node = list_insert(dev->partitions, partition);
+			if (!node) {
+				kfree(partition);
+				kfree(mbr);
+				goto nomem;
+			}
+		}
+	}
+
+	return 0;
+
+nomem:
+	foreach(node, dev->partitions)
+		list_remove(dev->partitions, node);
+	return -ENOMEM;
+}
 
 void free_blkdev(blkdev_t *dev) {
 	ASSERT(dev);
 
-	kfree(dev->partitions);
+	list_destroy(dev->partitions);
 	list_destroy(dev->queue);
 	kfree(dev);
 }
@@ -155,7 +230,7 @@ int32_t add_blkdev(blkdev_t *dev) {
 	return 0;
 }
 
-static void collate_requests(list_t *queue) {
+static void collate_requests(list_t *queue, uint32_t max_req) {
 	node_t *node;
 	node_t *prev = NULL;
 	foreach(node, queue) {
@@ -173,6 +248,10 @@ static void collate_requests(list_t *queue) {
 			prev = node;
 			continue;
 		}
+		if (prev_req->nsectors + req->nsectors > max_req) {
+			prev = node;
+			continue;
+		}
 		prev_req->nsectors += req->nsectors;
 		list_merge(prev_req->bios, req->bios);
 		list_destroy(req->bios);
@@ -186,6 +265,8 @@ int32_t make_request_blkdev(dev_t dev, uint32_t first_sector, bio_t *bios,
 	if (!bios)
 		return -EFAULT;
 
+	bio_t *bio_iter = bios;
+
 	blkdev_t *blockdev = get_blkdev(dev);
 	if (!blockdev)
 		return -EINVAL;
@@ -195,73 +276,67 @@ int32_t make_request_blkdev(dev_t dev, uint32_t first_sector, bio_t *bios,
 
 	spin_lock(&blockdev->lock);
 
-	struct part *partition = NULL;
-	uint32_t i;
-	for (i = 0; i < blockdev->nreal; i++) {
-		if (blockdev->partitions[i].minor == MINOR(dev)) {
-			partition = &blockdev->partitions[i];
+	struct part *partition;
+	node_t *node = NULL;
+	foreach(node, blockdev->partitions) {
+		partition = (struct part *)node->data;
+		if (partition->minor == MINOR(dev))
+			break;
+	}
+
+	if (!node) {
+		spin_unlock(&blockdev->lock);
+		return -EINVAL;
+	}
+
+	while (bio_iter) {
+
+		if (first_sector > partition->size)
+			break;
+
+		request_t *request = (request_t *)kmalloc(sizeof(request_t));
+		if (!request)
+			break;
+
+		request->flags = write ? BLOCK_DIR_WRITE : BLOCK_DIR_READ;
+		request->first_sector = first_sector + partition->offset;
+		request->nsectors = 0;
+		request->bios = list_create();
+		if (!request->bios) {
+			kfree(request);
+			break;
+		}
+
+		for (; bio_iter; bio_iter = bio_iter->next) {
+			if (request->nsectors + bio_iter->nsectors > blockdev->max_req ||
+					first_sector + request->nsectors + bio_iter->nsectors > partition->size) {
+				first_sector += request->nsectors;
+				break;
+			}
+			request->nsectors += bio_iter->nsectors;
+			list_insert(request->bios, bio_iter);
+		}
+
+		node_t *node;
+		foreach(node, blockdev->queue) {
+			request_t *req = (request_t *)node->data;
+			if (req->first_sector > request->first_sector)
+				break;
+		}
+		if (node)
+			node = list_insert_before(blockdev->queue, node, request);
+		else
+			node = list_insert(blockdev->queue, request);
+
+		if (!node) {
+			kfree(request);
 			break;
 		}
 	}
 
-	if (!partition) {
-		spin_unlock(&blockdev->lock);
-		return -EINVAL;
-	}
-
-	if (first_sector > partition->size){
-		spin_unlock(&blockdev->lock);
-		return -EFAULT;
-	}
-
-	request_t *request = (request_t *)kmalloc(sizeof(request_t));
-	if (!request) {
-		spin_unlock(&blockdev->lock);
-		return -ENOMEM;
-	}
-
-	request->flags = write ? BLOCK_DIR_WRITE : BLOCK_DIR_READ;
-	request->first_sector = first_sector + partition->offset;
-	request->nsectors = 0;
-	request->bios = list_create();
-	if (!request->bios) {
-		spin_unlock(&blockdev->lock);
-		kfree(request);
-		return -EINVAL;
-	}
-
-	bio_t *bio;
-	for (bio = bios; bio; bio = bio->next) {
-		list_insert(request->bios, bio);
-		request->nsectors += bio->nsectors;
-	}
-
-	if (first_sector + request->nsectors > partition->size) {
-		spin_unlock(&blockdev->lock);
-		kfree(request);
-		return -EINVAL;
-	}
-
-	node_t *node;
-	foreach(node, blockdev->queue) {
-		request_t *req = (request_t *)node->data;
-		if (req->first_sector > request->first_sector)
-			break;
-	}
-	if (node)
-		node = list_insert_before(blockdev->queue, node, request);
-	else
-		node = list_insert(blockdev->queue, request);
-
-	if (!node) {
-		spin_unlock(&blockdev->lock);
-		kfree(request);
-		return -ENOMEM;
-	}
-
 	spin_unlock(&blockdev->lock);
 
-	collate_requests(blockdev->queue);
+	collate_requests(blockdev->queue, blockdev->max_req);
 
 	blockdev->handler(blockdev);
 

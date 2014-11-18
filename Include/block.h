@@ -57,9 +57,10 @@ typedef struct blockdev {
 	uint32_t major;
 	uint32_t minor;		// First minor
 	uint32_t max_part;	// Maximum possible partitions
-	uint32_t nreal;		// Actual number of minors
-	struct part *partitions;
+	list_t *partitions;
 	size_t sector_size;
+	uint32_t max_req;	// Max number of sectors in a single request
+	uint32_t size;		// Size in sectors
 	spinlock_t lock;
 	request_handler_t handler;
 	list_t *queue;
@@ -71,6 +72,26 @@ struct blkdev_driver {
 	struct file_ops ops;
 	list_t *devs; // Block devices managed by this driver
 };
+
+struct partition_generic {
+	uint8_t boot;
+	uint8_t start_head; 	// All of the start/end crap is obsolete
+	uint32_t start_sect:	6; // Ignore.
+	uint32_t start_cyl:		10;
+	uint8_t sys_id;
+	uint8_t end_head;
+	uint32_t end_sect:		6;
+	uint32_t end_cyl:		10;
+	uint32_t rel_sect;		// This is what we care about
+	uint32_t nsects;
+} __attribute__((packed));
+
+struct mbr {
+	uint8_t bootloader[436];
+	uint8_t disk_id[10];
+	struct partition_generic partitions[4];
+	uint8_t magic[2];
+} __attribute__((packed));
 
 void init_blockdev(void);
 struct blkdev_driver *get_blkdev_driver(uint32_t major);

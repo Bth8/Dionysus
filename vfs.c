@@ -269,7 +269,7 @@ int32_t stat_vfs(fs_node_t *node, struct stat *buff) {
 	if (!node)
 		return -EBADF;
 
-	buff->st_dev = MKDEV(node->fs_sb->dev->major, node->fs_sb->minor);
+	buff->st_dev = node->fs_sb->dev;
 	buff->st_ino = node->inode;
 	buff->st_mode = node->mode;
 	buff->st_nlink = node->nlink;
@@ -398,6 +398,9 @@ int32_t mount(fs_node_t *dev, const char *relpath, const char *fs_name,
 	if (!dev && !(fs->flags & FS_NODEV))
 		return -ENODEV;
 
+	if (!(dev->mode & VFS_BLOCKDEV))
+		return -ENOTBLK;
+
 	char *path = canonicalize_path(current_task->cwd, relpath);
 	if (!path) {
 		spin_unlock(&vfs_lock);
@@ -474,10 +477,9 @@ int32_t mount(fs_node_t *dev, const char *relpath, const char *fs_name,
 
 	struct superblock *sb = NULL;
 	if (dev)
-		sb = fs->get_super(get_blkdev(dev->dev),
-			MINOR(dev->dev), flags);
+		sb = fs->get_super(dev->dev, flags);
 	else
-		sb = fs->get_super(NULL, 0, flags);
+		sb = fs->get_super(0, flags);
 	if (!sb) {
 		spin_unlock(&vfs_lock);
 		vfs_prune(node);

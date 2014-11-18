@@ -120,7 +120,7 @@ typedef struct fs_node {
 
 typedef struct blockdev blkdev_t;
 struct superblock {
-	blkdev_t *dev;
+	dev_t dev;
 	uint32_t minor;
 	void *private_data;
 	fs_node_t *root;
@@ -136,7 +136,7 @@ struct mountpoint {
 
 typedef struct file_system_type {
 	uint32_t flags;
-	struct superblock *(*get_super)(blkdev_t*, uint32_t, uint32_t);
+	struct superblock *(*get_super)(dev_t, uint32_t);
 } file_system_t;
 
 // Spares are such that it matches newlib's definition
