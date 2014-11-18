@@ -44,11 +44,17 @@
 #define PIT_BIN		0x00
 #define PIT_BCD		0x01
 
-#define HZ			100
+#define HZ			1000
 
+struct timer {
+	void (*callback)(void);
+	uint32_t expires;
+};
 
 void init_timer(void);
 void wait(uint32_t ms);
 void sleep_thread(void);
+int add_timer(struct timer *timer);
+void del_timer(struct timer *timer);
 
 #endif /* TIMER_H */

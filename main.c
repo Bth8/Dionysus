@@ -35,16 +35,16 @@
 #include <chardev/term.h>
 #include <fs/dev.h>
 #include <pci.h>
+#include <kmalloc.h>
 
 // LOOK HERE
 // Defined in linker script
 extern uintptr_t kend;
 
-extern time_t current_time;
-
 uintptr_t placement_address = (uint32_t)&kend;
 
-void print_time(struct tm *time);
+static void timer_callback(void);
+extern uint32_t tick;
 
 void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	monitor_clear();
@@ -59,13 +59,6 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 
 	printf("Initializing IDT\n");
 	init_idt();
-	
-	printf("Getting system time: ");
-	init_time();
-	
-	time_t rawtime = time(NULL);
-	print_time(gmtime(&rawtime));
-	init_timer();
 
 	// Check for modules
 	if (mboot->flags & MULTIBOOT_INFO_MODS && mboot->mods_count) {
@@ -76,6 +69,10 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	printf("Setting up paging\n");
 	init_paging(mboot->mem_lower + mboot->mem_upper, mboot->mmap_addr,
 		mboot->mmap_length);
+
+	printf("Initializing timers\n");
+	init_time();
+	init_timer();
 
 	printf("Starting task scheduling\n");
 	init_tasking(ebp);
@@ -97,20 +94,15 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	init_devfs();
 	ASSERT(mount(NULL, "/dev", "devfs", 0) == 0);
 
-	int32_t ret = sys_fork();
-	printf("%d\n", ret);
-	if (ret == 0)
-		sys_exit(-77);
-	printf("Test\n");
+	printf("%d\n", tick);
+	struct timer *timer = (struct timer *)kmalloc(sizeof(struct timer));
+	timer->callback = timer_callback;
+	timer->expires = tick + 5 * HZ;
+	add_timer(timer);
 
 	halt();
 }
 
-void print_time(struct tm *time) {
-	printf("%s, ", (char *[]){"Sunday", "Monday", "Tuesday", "Wednesday",
-			"Thursday", "Friday", "Saturday"}[time->tm_wday]);
-	printf("%s ", (char *[]){"Jan", "Feb", "March", "April", "May", "June",
-			"July", "Aug", "Sep", "Oct", "Nov", "Dec"}[time->tm_mon]);
-	printf("%i %02i:%02i:%02i %i\n", time->tm_mday, time->tm_hour,
-			time->tm_min, time->tm_sec, time->tm_year + 1900);
+static void timer_callback(void) {
+	printf("Ring ring!\n%d\n", tick);
 }

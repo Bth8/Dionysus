@@ -41,6 +41,8 @@
 #define CMOS_RTC_BIN	0X04
 #define CMOS_RTC_INT	0x40
 
+#define CMOS_RTC_RATE	0x05
+
 #define READ_CMOS(addr) ({ \
 		outb(CMOS_REGISTER, CMOS_RTC_DNMI | addr); \
 		inb(CMOS_SELECTED); \
