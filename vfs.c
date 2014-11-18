@@ -398,7 +398,7 @@ int32_t mount(fs_node_t *dev, const char *relpath, const char *fs_name,
 	if (!dev && !(fs->flags & FS_NODEV))
 		return -ENODEV;
 
-	if (!(dev->mode & VFS_BLOCKDEV))
+	if (dev && !(dev->mode & VFS_BLOCKDEV))
 		return -ENOTBLK;
 
 	char *path = canonicalize_path(current_task->cwd, relpath);
