@@ -32,7 +32,7 @@ void panic(uint32_t line, char *file, char *msg) {
 
 void spin_lock(volatile spinlock_t *lock) {
 	while (__sync_lock_test_and_set(lock, 1)) {
-		sleep_thread();
+		halt();
 	}
 }
 

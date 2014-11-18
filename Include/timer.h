@@ -52,8 +52,6 @@ struct timer {
 };
 
 void init_timer(void);
-void wait(uint32_t ms);
-void sleep_thread(void);
 int add_timer(struct timer *timer);
 void del_timer(struct timer *timer);
 

@@ -47,6 +47,7 @@ extern uint32_t read_eip(void);
 extern page_directory_t *current_dir;
 extern page_directory_t *kernel_dir;
 
+task_t *kidle = NULL;
 volatile task_t *current_task = NULL;
 list_t *processes = NULL;
 list_t *run_queue = NULL;
@@ -95,6 +96,20 @@ static task_t *get_task(pid_t pid) {
 	return (task_t *)process->data;
 }
 
+static task_t *get_ready_task() {
+	// It would be really bad to run out of memory right here...
+	node_t *queue_node;
+	queue_node = run_queue->head;
+	task_t *task = NULL;
+	if (queue_node) {
+		list_dequeue(run_queue, queue_node);
+		task = (task_t *)queue_node->data;
+		kfree(queue_node);
+	} else
+		task = kidle;
+	return task;
+}
+
 static void move_stack(void *new_stack_start, void *old_stack_start, size_t size) {
 	uintptr_t i;
 	// Allocate space
@@ -131,6 +146,10 @@ static void move_stack(void *new_stack_start, void *old_stack_start, size_t size
 	asm volatile("mov %0, %%ebp" :: "r" (new_ebp));
 }
 
+void _kidle(void) {
+	halt();
+}
+
 void init_tasking(uintptr_t ebp) {
 	asm volatile("cli");
 	spin_lock(&process_lock);
@@ -138,7 +157,6 @@ void init_tasking(uintptr_t ebp) {
 	// Relocate stack
 	move_stack((void *)KERNEL_STACK_TOP, (void *)ebp, KERNEL_STACK_SIZE);
 
-	// Init first task (kernel task)
 	run_queue = list_create();
 	processes = list_create();
 	proc_tree = tree_create();
@@ -146,39 +164,67 @@ void init_tasking(uintptr_t ebp) {
 	ASSERT(processes);
 	ASSERT(proc_tree);
 
-	task_t *new_task = (task_t *)kmalloc(sizeof(task_t));
-	ASSERT(new_task);
+	// Create init
+	task_t *init = (task_t *)kmalloc(sizeof(task_t));
+	ASSERT(init);
 
-	memset(new_task, 0, sizeof(new_task));
+	memset(init, 0, sizeof(task_t));
 
-	new_task->pid = nextpid();
-	ASSERT(new_task->pid != 0);
-	new_task->gid = new_task->pid;
-	new_task->sid = new_task->pid;
-	new_task->page_dir = current_dir;
-	new_task->nice = 0;
-	new_task->euid = current_task->suid = current_task->ruid = 0;
-	new_task->egid = current_task->rgid = current_task->sgid = 0;
-	new_task->cwd = kmalloc(2);
-	ASSERT(new_task->cwd);
-	new_task->cwd[0] = PATH_DELIMITER;
-	new_task->cwd[1] = '\0';
-	new_task->cmd = kmalloc(7);
-	strcpy(new_task->cmd, "[init]");
+	init->pid = nextpid();
+	ASSERT(init->pid != 0);
+	init->gid = init->pid;
+	init->sid = init->pid;
+	init->page_dir = current_dir;
+	init->nice = 0;
+	init->euid = init->suid = init->ruid = 0;
+	init->egid = init->rgid = init->sgid = 0;
+	init->cwd = kmalloc(2);
+	ASSERT(init->cwd);
+	init->cwd[0] = PATH_DELIMITER;
+	init->cwd[1] = '\0';
+	init->cmd = kmalloc(7);
+	strcpy(init->cmd, "[init]");
+
+	// No open files yet
+	for (i = 0; i < MAX_OF; i++)
+		init->files[i].file = NULL;
+
+	// Create kidle
+	kidle = (task_t *)kmalloc(sizeof(task_t));
+	ASSERT(kidle);
+
+	memset(kidle, 0, sizeof(task_t));
+
+	kidle->pid = -1;
+	kidle->gid = 0;
+	kidle->sid = 0;
+	kidle->page_dir = clone_directory(current_dir);
+	ASSERT(kidle->page_dir);
+	kidle->eip = (uintptr_t)&_kidle;
+	asm volatile("mov %%esp, %0" : "=g" (kidle->esp));
+	asm volatile("mov %%ebp, %0" : "=g" (kidle->ebp));
+	kidle->nice = 0;
+	kidle->euid = kidle->suid = kidle->ruid = 0;
+	kidle->egid = kidle->rgid = kidle->sgid = 0;
+	kidle->cwd = kmalloc(2);
+	ASSERT(kidle->cwd);
+	kidle->cwd[0] = PATH_DELIMITER;
+	kidle->cwd[1] = '\0';
+	kidle->cmd = kmalloc(8);
+	strcpy(kidle->cmd, "[kidle]");
+
+	for (i = 0; i < MAX_OF; i++)
+		kidle->files[i].file = NULL;
 
 	// Create a user stack
 	for (i = USER_STACK_BOTTOM; i < USER_STACK_TOP; i += PAGE_SIZE);
 		alloc_frame(get_page(i, 1, current_dir), 0, 1);
 
-	// No open files yet
-	for (i = 0; i < MAX_OF; i++)
-		new_task->files[i].file = NULL;
-
-	tree_node_t *treenode = tree_set_root(proc_tree, new_task);
+	tree_node_t *treenode = tree_set_root(proc_tree, init);
 	ASSERT(treenode);
-	new_task->treenode = treenode;
-	ASSERT(list_insert(processes, new_task));
-	current_task = new_task;
+	init->treenode = treenode;
+	ASSERT(list_insert(processes, init));
+	current_task = init;
 
 	spin_unlock(&process_lock);
 	asm volatile("sti");
@@ -335,15 +381,14 @@ int switch_task(void) {
 		current_task->ebp = ebp;
 
 		// It would be really bad to run out of memory right here...
+		node_t *queue_node;
 		spin_lock(&process_lock);
-		node_t *queue_node = list_insert(run_queue, (task_t *)current_task);
-		ASSERT(queue_node);
-		queue_node = run_queue->head;
-		list_dequeue(run_queue, queue_node);
+		if (current_task->pid != -1) {
+			queue_node = list_insert(run_queue, (task_t *)current_task);
+			ASSERT(queue_node);
+		}
+		current_task = get_ready_task();
 		spin_unlock(&process_lock);
-
-		current_task = (task_t *)queue_node->data;
-		kfree(queue_node);
 
 		esp = current_task->esp;
 		ebp = current_task->ebp;
@@ -376,10 +421,7 @@ void exit_task(int32_t status) {
 	current_cache->exit = status;
 
 	// Switch tasks
-	node_t *queue_node = run_queue->head;
-	list_dequeue(run_queue, queue_node);
-	current_task = (task_t *)queue_node->data;
-	kfree(queue_node);
+	current_task = get_ready_task();
 
 	// We don't delete from the process tree/list because we haven't been
 	// waited on
@@ -411,6 +453,81 @@ void exit_task(int32_t status) {
 		jmp *%%ecx" ::
 		"r"(current_task->eip),"r"(current_task->esp),
 		"r"(current_task->ebp) : "ecx");
+}
+
+waitqueue_t *create_waitqueue(void) {
+	waitqueue_t *wq = (waitqueue_t *)kmalloc(sizeof(waitqueue_t));
+	if (!wq)
+		return NULL;
+	wq->queue = list_create();
+	if (!wq->queue)
+		return NULL;
+
+	return wq;
+}
+
+int sleep_thread(waitqueue_t *wq, uint32_t flags) {
+	ASSERT(wq);
+	asm volatile("sti");
+
+	uint32_t esp, ebp, eip;
+	asm volatile("mov %%esp, %0" : "=r" (esp));
+	asm volatile("mov %%ebp, %0" : "=r" (ebp));
+
+	eip = read_eip();
+	if (eip == 0x12345)
+		return current_task->sleep_flags & SLEEP_INTERRUPTED;
+
+	current_task->esp = esp;
+	current_task->ebp = ebp;
+	current_task->eip = eip;
+
+	spin_lock(&process_lock);
+
+	current_task->sleep_flags = SLEEP_ASLEEP | flags;
+	current_task->wq = wq;
+	node_t *queue_node = list_insert(wq->queue, (task_t *)current_task);
+	ASSERT(queue_node);
+	current_task = get_ready_task();
+
+	spin_unlock(&process_lock);
+
+	esp = current_task->esp;
+	ebp = current_task->ebp;
+	eip = current_task->eip;
+
+	current_dir = current_task->page_dir;
+	set_kernel_stack(esp);
+
+	asm volatile("mov %0, %%ecx; \
+		mov %1, %%esp; \
+		mov %2, %%ebp; \
+		mov %3, %%cr3; \
+		mov $0x12345, %%eax; \
+		jmp *%%ecx" : : "r"(eip), "r"(esp), "r"(ebp),
+		"r"(current_dir->physical_address) : "ecx");
+
+	return 0;
+}
+
+void wake_queue(waitqueue_t *wq) {
+	ASSERT(wq);
+
+	spin_lock(&process_lock);
+	node_t *node = wq->queue->head;
+	while (node) {
+		node_t *cache = node;
+		node = node->next;
+		task_t *task = (task_t *)cache->data;
+		list_dequeue(wq->queue, cache);
+		kfree(cache);
+
+		task->sleep_flags &= ~SLEEP_ASLEEP;
+		task->wq = NULL;
+		cache = list_insert(run_queue, task);
+		ASSERT(cache);
+	}
+	spin_unlock(&process_lock);
 }
 
 void switch_user_mode(uint32_t entry, int32_t argc, char **argv, char **envp,

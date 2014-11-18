@@ -39,12 +39,20 @@
 #define USER_STACK_BOTTOM	0x10000000
 #define USER_STACK_TOP		0x10004000
 
+#define SLEEP_ASLEEP		0x01
+#define SLEEP_INTERRUPTABLE	0x02
+#define SLEEP_INTERRUPTED	0x04
+
 typedef int32_t pid_t;
 
 struct filep {
 	fs_node_t *file;
 	off_t off;
 };
+
+typedef struct {
+	list_t *queue;
+} waitqueue_t;
 
 typedef struct {
 	pid_t pid;
@@ -65,12 +73,17 @@ typedef struct {
 	char *cmd;
 	struct filep files[MAX_OF];
 	tree_node_t *treenode;		// Where it is in the process tree
+	waitqueue_t *wq;
+	uint32_t sleep_flags;
 } task_t;
 
 void init_tasking(uintptr_t ebp);
 int32_t fork(void);
 int switch_task(void);
 void exit_task(int32_t status);
+waitqueue_t *create_waitqueue(void);
+int sleep_thread(waitqueue_t *wq, uint32_t flags);
+void wake_queue(waitqueue_t *wq);
 void switch_user_mode(uint32_t entry, int32_t argc, char **argv, char **envp,
 		uint32_t stack);
 pid_t getpid(void);
@@ -85,5 +98,8 @@ int32_t setresgid(int32_t new_rgid, int32_t new_egid, int32_t new_sgid);
 int32_t getresgid(int32_t *ruid, int32_t *euid, int32_t *suid);
 uintptr_t sbrk(uintptr_t inc);
 uint32_t chdir(const char *path);
+
+#define wait_event(wq, expr) {while (sleep_thread(wq, 0) == 0) { if (expr) { break; } }}
+#define wait_event_interruptable(wq, expr) {while (sleep_thread(wq, SLEEP_INTERRUPTABLE) == 0) { if (expr) { break; } }}
 
 #endif /* TASK_H */

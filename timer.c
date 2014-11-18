@@ -80,16 +80,6 @@ void init_timer(void) {
 	asm volatile("sti");
 }
 
-void wait(uint32_t ms) {
-	uint32_t finish = tick + ms;
-	while (tick > finish)
-		continue;
-}
-
-void sleep_thread(void) {
-	task_tick = 0;
-}
-
 int add_timer(struct timer *timer) {
 	ASSERT(timer);
 	node_t *node = list_insert(timers, timer);

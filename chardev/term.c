@@ -23,9 +23,9 @@
 #include <monitor.h>
 #include <idt.h>
 #include <vfs.h>
-#include <timer.h>
 #include <char.h>
 #include <errno.h>
+#include <task.h>
 
 #define ESCAPE 0x01
 #define BACKSPACE 0x0E
@@ -60,6 +60,8 @@ char inbuf[BUFSIZE];
 char *readbufpos = inbuf;
 char *writebufpos = inbuf;
 int echo = 1;
+
+waitqueue_t *wq = NULL;
 
 static void update_leds(uint8_t stat) {
 	// Spin until keyboard buffer is 0
@@ -135,6 +137,7 @@ static void kbd_isr(registers_t *regs) {
 					readbufpos++;
 				if (echo)
 					monitor_put(trans_code);
+				wake_queue(wq);
 			}
 			break;
 		}
@@ -146,8 +149,8 @@ static void kbd_isr(registers_t *regs) {
 static ssize_t read(struct fs_node *node, void *dest, size_t count,
 		off_t off) {
 	// Block if we're up to date
-	while (readbufpos == writebufpos)
-		sleep_thread();
+	if (readbufpos == writebufpos)
+		wait_event_interruptable(wq, readbufpos != writebufpos);
 
 	uint32_t i;
 	for (i = 0; i < count; i++) {
@@ -197,6 +200,8 @@ struct file_ops fops = {
 };
 
 void init_term(void) {
+	wq = create_waitqueue();
+	ASSERT(wq);
 	register_interrupt_handler(IRQ1, kbd_isr);
 	update_leds(leds);
 	register_chrdev(TERM_MAJOR, "tty", fops);

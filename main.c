@@ -43,9 +43,6 @@ extern uintptr_t kend;
 
 uintptr_t placement_address = (uint32_t)&kend;
 
-static void timer_callback(void);
-extern uint32_t tick;
-
 void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	monitor_clear();
 	printf("Booting Dionysus!\n");
@@ -94,15 +91,49 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	init_devfs();
 	ASSERT(mount(NULL, "/dev", "devfs", 0) == 0);
 
-	printf("%d\n", tick);
-	struct timer *timer = (struct timer *)kmalloc(sizeof(struct timer));
-	timer->callback = timer_callback;
-	timer->expires = tick + 5 * HZ;
-	add_timer(timer);
+	char buffer[512];
+	int32_t ret;
+	fs_node_t *file = kopen("/dev", O_RDWR, &ret);
+	if (!file) {
+		printf("%d\n", ret);
+		goto end;
+	}
+	if ((ret = create_vfs(file, "tty0", 0, 0, VFS_CHARDEV | 0666, MKDEV(TERM_MAJOR, 0))) < 0) {
+		printf("%d\n", ret);
+		goto end;
+	}
+	if ((ret = close_vfs(file)) < 0) {
+		printf("%d\n", ret);
+		goto end;
+	}
+	file = kopen("/dev/tty0", O_RDWR, &ret);
+	if (!file) {
+		printf("%d\n", ret);
+		goto end;
+	}
+	size_t nbytes = 0;
+	while (nbytes != 32) {
+		ret = read_vfs(file, buffer + nbytes, 32 - nbytes, nbytes);
+		if (ret < 0) {
+			printf("%d\n", ret);
+			goto end;
+		}
+		nbytes += ret;
+	}
+	nbytes = 0;
+	while (nbytes != 32) {
+		ret = write_vfs(file, buffer + nbytes, 32 - nbytes, nbytes);
+		if (ret < 0) {
+			printf("%d\n", ret);
+			goto end;
+		}
+		nbytes += ret;
+	}
+	if ((ret = close_vfs(file)) < 0) {
+		printf("%d\n", ret);
+		goto end;
+	}
 
+end:
 	halt();
-}
-
-static void timer_callback(void) {
-	printf("Ring ring!\n%d\n", tick);
 }
