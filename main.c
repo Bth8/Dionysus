@@ -37,6 +37,7 @@
 #include <pci.h>
 #include <pci_regs.h>
 #include <kmalloc.h>
+#include <pci/ide.h>
 
 // LOOK HERE
 // Defined in linker script
@@ -94,8 +95,9 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	init_devfs();
 	ASSERT(mount(NULL, "/dev", "devfs", 0) == 0);
 
-	sleep_until(tick + 5 * HZ);
-	printf("Yep.\n");
+	init_ide();
+	//magic_break();
+	//printf("Testing\n");
 
 	halt();
 }

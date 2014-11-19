@@ -100,18 +100,20 @@
 #define ATA_REG_CONTROL			0x0C
 #define ATA_REG_ALTSTATUS		0x0C
 #define ATA_REG_DEVADDRESS		0x0D
-
-// Channels
-#define ATA_PRIMARY				0x00
-#define ATA_SECONDARY			0x01
+#define ATA_REG_BMIDE_CMD		0x0E
+#define ATA_REG_BMIDE_STATUS	0x10
+#define ATA_REG_BMIDE_PRD_TAB	0x12
 
 // Directions
 #define ATA_READ				0x00
 #define ATA_WRITE				0x01
 
 #define IDE_MAJOR				1
+#define IDE_SECTOR_SIZE			512
+#define IDE_MAX_PRD				16
 
 struct IDEChannelRegisters {
+	uint8_t channel;
 	uint16_t base;
 	uint16_t ctrl;
 	uint16_t bmide;
@@ -119,19 +121,22 @@ struct IDEChannelRegisters {
 };
 
 struct IDEDevice {
-	uint8_t reserved;		// Does exist if set
-	uint8_t channel;		// Secondary if set
-	uint8_t drive;		// Slave if set
+	struct IDEChannelRegisters channel;
+	uint8_t drive;			// Slave if set
 	uint8_t type;			// ATAPI if set
 	uint16_t sig;
 	uint16_t cap;			// Drive features
 	uint32_t commandsets;
-	uint32_t size;		// Drive size in sectors
-	char model[41];		// Model string
+	uint32_t size;			// Drive size in sectors
+	char model[41];			// Model string
 };
 
-void init_ide(uint32_t BAR0, uint32_t BAR1, uint32_t BAR2, uint32_t BAR3,
-		uint32_t BAR4);
-uint8_t ide_atapi_eject(uint8_t drive);
+struct PRD {
+	uint32_t phys_addr;
+	uint16_t count;
+	uint16_t EOT;
+} __attribute__((packed));
+
+void init_ide(void);
 
 #endif /* IDE_H */
