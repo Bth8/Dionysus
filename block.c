@@ -151,10 +151,15 @@ int32_t autopopulate_blkdev(blkdev_t *dev) {
 	bio->page = resolve_physical((uintptr_t)mbr) % PAGE_SIZE;
 	bio->nbytes = KERNEL_BLOCKSIZE;
 
-	make_request_blkdev(MKDEV(dev->major, dev->minor), 0, bio, 0);
+	if (make_request_blkdev(MKDEV(dev->major, dev->minor), 0, bio, 0) < 0) {
+		printf("Warning: No valid method for reading\nDevice: 0x%08X\n",
+			MKDEV(dev->major, dev->minor));
+		kfree(mbr);
+		return 0;
+	}
 
 	if (mbr->magic[0] != 0x55 || mbr->magic[1] != 0xAA) {
-		printf("Warning: Invalid partition table\nDevice: %u\n",
+		printf("Warning: Invalid partition table\nDevice: 0x%08X\n",
 			MKDEV(dev->major, dev->minor));
 		kfree(mbr);
 		return 0;
@@ -332,6 +337,8 @@ int32_t make_request_blkdev(dev_t dev, uint32_t first_sector, bio_t *bios,
 	spin_unlock(&blockdev->lock);
 
 	collate_requests(blockdev->queue);
+
+	magic_break();
 
 	blockdev->handler(blockdev);
 

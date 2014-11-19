@@ -248,20 +248,20 @@ void dump_pci(void) {
 static void driver_search(struct pci_driver *driver) {
 	ASSERT(driver);
 
-	const struct pci_dev_id *id_iter = driver->table;
-	while (id_iter->mask != 0) {
+	uint32_t i;
+	for (i = 0; driver->table[i].mask != 0; i++) {
 		struct pci_dev *dev_iter = &host;
 		for (dev_iter = &host; dev_iter; dev_iter = dev_iter->next) {
-			if (id_iter->vendor != PCI_ANY &&
-					id_iter->vendor != dev_iter->vendor)
+			if (driver->table[i].vendor != PCI_ANY &&
+					driver->table[i].vendor != dev_iter->vendor)
 				continue;
-			if (id_iter->device != PCI_ANY &&
-					id_iter->device != dev_iter->device)
+			if (driver->table[i].device != PCI_ANY &&
+					driver->table[i].device != dev_iter->device)
 				continue;
-			if (id_iter->class != PCI_ANY && 
-					id_iter->class != (dev_iter->class & id_iter->mask))
+			if (driver->table[i].class != PCI_ANY && 
+					driver->table[i].class != (dev_iter->class & driver->table[i].mask))
 				continue;
-			while (driver->probe(dev_iter, id_iter) == -ENOMEM)
+			while (driver->probe(dev_iter, &driver->table[i]) == -ENOMEM)
 				continue;
 		}
 	}
