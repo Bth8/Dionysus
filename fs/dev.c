@@ -27,6 +27,7 @@
 #include <kmalloc.h>
 #include <printf.h>
 #include <structures/list.h>
+#include <structures/mutex.h>
 #include <errno.h>
 #include <block.h>
 
@@ -70,7 +71,7 @@ void init_devfs(void) {
 }
 
 static int32_t close_fs(struct superblock *sb, uint32_t force) {
-	spin_lock((spinlock_t *)sb->private_data);
+	acquire_semaphore_write((rw_sem_t *)sb->private_data);
 
 	if (!force) {
 		struct dev_file *iter = container_of(sb->root, struct dev_file, node);
@@ -90,7 +91,7 @@ static int32_t close_fs(struct superblock *sb, uint32_t force) {
 		iter = next;
 	}
 
-	kfree(sb->private_data);
+	PANIC("Need to free semaphore");
 	kfree(sb);
 	return 0;
 }
@@ -103,16 +104,15 @@ static struct superblock *return_sb(dev_t dev, uint32_t flags) {
 	if (!sb)
 		return NULL;
 
-	spinlock_t *lock = (spinlock_t *)kmalloc(sizeof(spinlock_t));
-	if (!lock) {
+	rw_sem_t *sem = (rw_sem_t *)kmalloc(sizeof(rw_sem_t));
+	if (!sem) {
 		kfree(sb);
 		return NULL;
 	}
-	*lock = 0;
 
 	struct dev_file *root = (struct dev_file *)kmalloc(sizeof(struct dev_file));
 	if (!root) {
-		kfree(lock);
+		PANIC("Need to free semaphore");
 		kfree(sb);
 		return NULL;
 	}
@@ -143,7 +143,7 @@ static struct superblock *return_sb(dev_t dev, uint32_t flags) {
 	}
 
 	sb->dev = dev;
-	sb->private_data = lock;
+	sb->private_data = sem;
 	sb->root = &(root->node);
 	sb->flags = flags;
 	sb->close_fs = close_fs;
@@ -220,14 +220,15 @@ static ssize_t write(fs_node_t *node, const void *buf, size_t count, off_t off) 
 
 
 static int32_t open(fs_node_t *node, uint32_t flags) {
-	spin_lock((spinlock_t *)node->fs_sb->private_data);
-	fs_node_t *master = get_inode(node->fs_sb, node->inode);
-	if (!master)
-		return -ENOENT;
-	if (master->nlink == 0)
-		return -ENOENT;
-
 	int32_t ret = 0;
+
+	acquire_semaphore_read((rw_sem_t *)node->fs_sb->private_data);
+
+	fs_node_t *master = get_inode(node->fs_sb, node->inode);
+	if (!master || master->nlink == 0) {
+		ret = -ENOENT;
+		goto exit;
+	}
 
 	if (node->mode & VFS_CHARDEV) {
 		struct chrdev_driver *driver = get_chrdev_driver(MAJOR(node->dev));
@@ -241,20 +242,23 @@ static int32_t open(fs_node_t *node, uint32_t flags) {
 
 	if (ret == 0)
 		master->refcount++;
-	spin_unlock((spinlock_t *)node->fs_sb->private_data);
+
+exit:
+	release_semaphore_read((rw_sem_t *)node->fs_sb->private_data);
 
 	return ret;
 }
 
 static int32_t close(fs_node_t *node) {
-	spin_lock((spinlock_t *)node->fs_sb->private_data);
+	int32_t ret = 0;
+
+	acquire_semaphore_write((rw_sem_t *)node->fs_sb->private_data);
+
 	fs_node_t *master = get_inode(node->fs_sb, node->inode);
 	if (!master)
-		return 0;
+		goto exit;
 
 	master->refcount--;
-
-	int32_t ret = 0;
 
 	if (master->refcount == 0) {
 		if (node->mode & VFS_CHARDEV) {
@@ -269,7 +273,9 @@ static int32_t close(fs_node_t *node) {
 		if (ret == 0 && master->nlink == 0)
 			file_remove(node->fs_sb, node->inode);
 	}
-	spin_unlock((spinlock_t *)node->fs_sb->private_data);
+
+exit:
+	release_semaphore_write((rw_sem_t *)node->fs_sb->private_data);
 
 	return ret;
 }
