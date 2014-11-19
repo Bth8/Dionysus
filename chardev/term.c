@@ -61,7 +61,7 @@ char *readbufpos = inbuf;
 char *writebufpos = inbuf;
 int echo = 1;
 
-waitqueue_t *wq = NULL;
+waitqueue_t *term_wq = NULL;
 
 static void update_leds(uint8_t stat) {
 	// Spin until keyboard buffer is 0
@@ -137,7 +137,7 @@ static void kbd_isr(registers_t *regs) {
 					readbufpos++;
 				if (echo)
 					monitor_put(trans_code);
-				wake_queue(wq);
+				wake_queue(term_wq);
 			}
 			break;
 		}
@@ -150,7 +150,7 @@ static ssize_t read(struct fs_node *node, void *dest, size_t count,
 		off_t off) {
 	// Block if we're up to date
 	if (readbufpos == writebufpos)
-		wait_event_interruptable(wq, readbufpos != writebufpos);
+		wait_event_interruptable(term_wq, readbufpos != writebufpos);
 
 	uint32_t i;
 	for (i = 0; i < count; i++) {
@@ -200,8 +200,8 @@ struct file_ops fops = {
 };
 
 void init_term(void) {
-	wq = create_waitqueue();
-	ASSERT(wq);
+	term_wq = create_waitqueue();
+	ASSERT(term_wq);
 	register_interrupt_handler(IRQ1, kbd_isr);
 	update_leds(leds);
 	register_chrdev(TERM_MAJOR, "tty", fops);

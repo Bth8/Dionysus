@@ -54,5 +54,6 @@ struct timer {
 void init_timer(void);
 int add_timer(struct timer *timer);
 void del_timer(struct timer *timer);
+void sleep_until(uint32_t expires);
 
 #endif /* TIMER_H */

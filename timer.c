@@ -24,6 +24,7 @@
 #include <task.h>
 #include <time.h>
 #include <structures/list.h>
+#include <kmalloc.h>
 
 // Defined in time.c
 extern time_t current_time;
@@ -32,6 +33,8 @@ uint32_t tick = 0;
 int32_t task_tick = 200;
 uint32_t rtc_tick = 1024;
 list_t *timers = NULL;
+
+waitqueue_t *timer_wq = NULL;
 
 static void pit_callback(registers_t *regs) {
 	++tick;
@@ -63,6 +66,8 @@ void init_timer(void) {
 
 	timers = list_create();
 	ASSERT(timers);
+	timer_wq = create_waitqueue();
+	ASSERT(timer_wq);
 
 	// Command byte
 	outb(PIT_CMD, PIT_CHAN0 | PIT_LOHI | PIT_MODE3 | PIT_BIN);
@@ -92,4 +97,21 @@ void del_timer(struct timer *timer) {
 	ASSERT(timer);
 	node_t *node = list_find(timers, timer);
 	list_remove(timers, node);
+}
+
+void wake_timers() {
+	wake_queue(timer_wq);
+}
+
+void sleep_until(uint32_t expires) {
+	if (expires <= tick)
+		return;
+	struct timer *timer = (struct timer *)kmalloc(sizeof(struct timer));
+	ASSERT(timer);
+
+	timer->callback = wake_timers;
+	timer->expires = expires;
+	add_timer(timer);
+
+	wait_event(timer_wq, tick >= expires);
 }
