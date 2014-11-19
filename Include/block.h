@@ -59,7 +59,6 @@ typedef struct blockdev {
 	uint32_t max_part;	// Maximum possible partitions
 	list_t *partitions;
 	size_t sector_size;
-	uint32_t max_req;	// Max number of sectors in a single request
 	uint32_t size;		// Size in sectors
 	spinlock_t lock;
 	request_handler_t handler;

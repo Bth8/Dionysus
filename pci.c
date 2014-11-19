@@ -21,10 +21,12 @@
 #include <common.h>
 #include <pci.h>
 #include <pci_regs.h>
+#include <pci_ids.h>
 #include <printf.h>
 #include <kmalloc.h>
 #include <errno.h>
 #include <structures/list.h>
+#include <string.h>
 
 struct pci_bus bus0;
 struct pci_dev host;
@@ -97,8 +99,10 @@ static uint8_t check_func(struct pci_bus *bus, uint8_t slot, uint8_t func) {
 		dev->device =
 			pciConfigReadWord(bus->secondary, slot, func, PCI_DEVICE_ID);
 		dev->class =
-			pciConfigReadDword(bus->secondary, slot, func,
-					PCI_CLASS_REVISION) >> 8;
+			pciConfigReadWord(bus->secondary, slot, func, PCI_CLASS_DEVICE);
+		dev->prog = 
+			pciConfigReadWord(bus->secondary, slot, func, PCI_CLASS_PROG);
+		dev->claimed = 0;
 
 		if (iter == NULL) {
 			bus->devs = dev;
@@ -116,7 +120,7 @@ static uint8_t check_func(struct pci_bus *bus, uint8_t slot, uint8_t func) {
 
 		iter->next = dev;
 
-		if ((dev->class >> 8) == 0x604)
+		if ((dev->class >> 8) == PCI_CLASS_BRIDGE_PCI)
 			return fill_bus(bus, dev);
 	}
 	return 0;
@@ -219,7 +223,7 @@ void init_pci(void) {
 	host.slot = 0;
 	host.func = 0;
 	host.vendor = pciConfigReadWord(0, 0, 0, PCI_VENDOR_ID);
-	host.class = 0x60000;
+	host.class = PCI_CLASS_BRIDGE_HOST;
 
 	bus0.subordinate = check_bus(&bus0);
 
@@ -232,7 +236,7 @@ void dump_pci(void) {
 
 	while (iter != NULL) {
 		printf("Bus %u Slot %u Func %u:\n\tVendor: 0x%04X\n\tDevice:"
-				"0x%04X\n\tClass: 0x%06X\n",
+				"0x%04X\n\tClass: 0x%04X\n",
 				iter->bus->secondary, iter->slot, iter->func, iter->vendor,
 				iter->device, iter->class);
 
@@ -248,16 +252,18 @@ static void driver_search(struct pci_driver *driver) {
 	while (id_iter->mask != 0) {
 		struct pci_dev *dev_iter = &host;
 		for (dev_iter = &host; dev_iter; dev_iter = dev_iter->next) {
-			if (id_iter->vendor != (uint16_t)PCI_ANY &&
+			if (id_iter->vendor != PCI_ANY &&
 					id_iter->vendor != dev_iter->vendor)
 				continue;
-			if (id_iter->device != (uint16_t)PCI_ANY &&
+			if (id_iter->device != PCI_ANY &&
 					id_iter->device != dev_iter->device)
 				continue;
 			if (id_iter->class != PCI_ANY && 
 					id_iter->class != (dev_iter->class & id_iter->mask))
 				continue;
-			driver->probe(dev_iter, id_iter);
+			while (driver->probe(dev_iter, id_iter) == -ENOMEM) {
+				continue;
+			}
 		}
 	}
 }
@@ -267,6 +273,16 @@ spinlock_t pci_lock = 0;
 int32_t register_pci(const char *name, const struct pci_dev_id *table,
 		int (*probe)(struct pci_dev*, const struct pci_dev_id*)) {
 	ASSERT(name && table && probe);
+
+	node_t *node;
+	foreach(node, drivers) {
+		struct pci_driver *driver = (struct pci_driver *)node->data;
+		if (strcmp(driver->name, name) == 0)
+			break;
+	}
+
+	if (node)
+		return -EEXIST;
 
 	struct pci_driver *driver =
 		(struct pci_driver *)kmalloc(sizeof(struct pci_driver));
@@ -278,7 +294,7 @@ int32_t register_pci(const char *name, const struct pci_dev_id *table,
 	driver->probe = probe;
 
 	spin_lock(&pci_lock);
-	node_t *node = list_insert(drivers, driver);
+	node = list_insert(drivers, driver);
 	if (!node) {
 		spin_unlock(&pci_lock);
 		kfree(driver);
@@ -290,4 +306,22 @@ int32_t register_pci(const char *name, const struct pci_dev_id *table,
 
 
 	return 0;
+}
+
+int32_t claim_pci_dev(struct pci_dev *dev) {
+	ASSERT(dev);
+	int32_t ret = 0;
+	spin_lock(&pci_lock);
+	if (dev->claimed) 
+		ret = -1;
+	else
+		dev->claimed = 1;
+	spin_unlock(&pci_lock);
+	return ret;
+}
+
+void release_pci_dev(struct pci_dev *dev) {
+	spin_lock(&pci_lock);
+	dev->claimed = 0;
+	spin_unlock(&pci_lock);
 }

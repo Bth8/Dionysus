@@ -114,4 +114,6 @@ void sleep_until(uint32_t expires) {
 	add_timer(timer);
 
 	wait_event(timer_wq, tick >= expires);
+
+	del_timer(timer);
 }

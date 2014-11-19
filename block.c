@@ -230,7 +230,7 @@ int32_t add_blkdev(blkdev_t *dev) {
 	return 0;
 }
 
-static void collate_requests(list_t *queue, uint32_t max_req) {
+static void collate_requests(list_t *queue) {
 	node_t *node;
 	node_t *prev = NULL;
 	foreach(node, queue) {
@@ -245,10 +245,6 @@ static void collate_requests(list_t *queue, uint32_t max_req) {
 			continue;
 		}
 		if (prev_req->flags != req->flags) {
-			prev = node;
-			continue;
-		}
-		if (prev_req->nsectors + req->nsectors > max_req) {
 			prev = node;
 			continue;
 		}
@@ -308,8 +304,8 @@ int32_t make_request_blkdev(dev_t dev, uint32_t first_sector, bio_t *bios,
 		}
 
 		for (; bio_iter; bio_iter = bio_iter->next) {
-			if (request->nsectors + bio_iter->nsectors > blockdev->max_req ||
-					first_sector + request->nsectors + bio_iter->nsectors > partition->size) {
+			if ( first_sector + request->nsectors + bio_iter->nsectors >
+					partition->size) {
 				first_sector += request->nsectors;
 				break;
 			}
@@ -336,7 +332,7 @@ int32_t make_request_blkdev(dev_t dev, uint32_t first_sector, bio_t *bios,
 
 	spin_unlock(&blockdev->lock);
 
-	collate_requests(blockdev->queue, blockdev->max_req);
+	collate_requests(blockdev->queue);
 
 	blockdev->handler(blockdev);
 

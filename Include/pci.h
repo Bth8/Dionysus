@@ -25,10 +25,10 @@
 #define CONFIG_ADDRESS	0x0CF8
 #define CONFIG_DATA		0x0CFC
 
-#define PCI_ANY			0xFFFFFFFF
+#define PCI_ANY			0xFFFF
 
 #define PCI_DEVICE(v, d) {.vendor = v, .device = d, .class = PCI_ANY, .mask = PCI_ANY}
-#define PIC_DEVICE_CLASS(c, m) {.vendor = PCI_ANY, .device = PCI_ANY, .class = c, .mask = m}
+#define PCI_DEVICE_CLASS(c, m) {.vendor = PCI_ANY, .device = PCI_ANY, .class = c, .mask = m}
 
 struct pci_dev;
 
@@ -55,14 +55,17 @@ struct pci_dev {
 	uint8_t func;				// Function number (for multifunction devices)
 	uint16_t vendor;			// Vendor number
 	uint16_t device;			// Device ID
-	uint32_t class;				// Class, subclass, Prog IF
+	uint16_t class;				// Class, subclass
+	uint8_t prog;
+
+	uint32_t claimed;
 };
 
 struct pci_dev_id {
 	uint16_t vendor;
 	uint16_t device;
-	uint32_t class;
-	uint32_t mask;
+	uint16_t class;
+	uint16_t mask;
 };
 
 struct pci_driver {
@@ -88,5 +91,7 @@ void init_pci(void);
 void dump_pci(void);
 int32_t register_pci(const char *name, const struct pci_dev_id *table,
 	int (*probe)(struct pci_dev*, const struct pci_dev_id*));
+int32_t claim_pci_dev(struct pci_dev *dev);
+void release_pci_dev(struct pci_dev *dev);
 
 #endif /* PCI_H */
