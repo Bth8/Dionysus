@@ -123,7 +123,6 @@ blkdev_t *alloc_blkdev(void) {
 }
 
 int32_t autopopulate_blkdev(blkdev_t *dev) {
-	ASSERT(!dev->partitions);
 	// Create the first entry
 	struct part *part0 = (struct part *)kmalloc(sizeof(struct part));
 	if (!part0)
@@ -150,7 +149,7 @@ int32_t autopopulate_blkdev(blkdev_t *dev) {
 
 	bio->page = (resolve_physical((uintptr_t)mbr) / PAGE_SIZE) * PAGE_SIZE;
 	bio->page = resolve_physical((uintptr_t)mbr) % PAGE_SIZE;
-	bio->nsectors = 1;
+	bio->nbytes = KERNEL_BLOCKSIZE;
 
 	make_request_blkdev(MKDEV(dev->major, dev->minor), 0, bio, 0);
 
@@ -304,12 +303,12 @@ int32_t make_request_blkdev(dev_t dev, uint32_t first_sector, bio_t *bios,
 		}
 
 		for (; bio_iter; bio_iter = bio_iter->next) {
-			if ( first_sector + request->nsectors + bio_iter->nsectors >
-					partition->size) {
+			if ( first_sector + request->nsectors +
+					bio_iter->nbytes / KERNEL_BLOCKSIZE > partition->size) {
 				first_sector += request->nsectors;
 				break;
 			}
-			request->nsectors += bio_iter->nsectors;
+			request->nsectors += bio_iter->nbytes / KERNEL_BLOCKSIZE;
 			list_insert(request->bios, bio_iter);
 		}
 
@@ -337,4 +336,32 @@ int32_t make_request_blkdev(dev_t dev, uint32_t first_sector, bio_t *bios,
 	blockdev->handler(blockdev);
 
 	return 0;
+}
+
+uint32_t end_request(request_t *req, uint32_t nsectors) {
+	req->nsectors -= nsectors;
+	req->first_sector += nsectors;
+	if (req->nsectors == 0)
+		return 0;
+
+	while (1) {
+		node_t *node = req->bios->head;
+		bio_t *bio = (bio_t *)node->data;
+
+		if (bio->nbytes / KERNEL_BLOCKSIZE < nsectors) {
+			list_remove(req->bios, node);
+			nsectors -= bio->nbytes / KERNEL_BLOCKSIZE;
+			continue;
+		}
+		bio->offset += nsectors * KERNEL_BLOCKSIZE;
+		bio->nbytes -= nsectors * KERNEL_BLOCKSIZE;
+		break;
+	}
+
+	return req->nsectors;
+}
+
+void free_request(request_t *req) {
+	list_destroy(req->bios);
+	kfree(req);
 }

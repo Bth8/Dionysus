@@ -6,7 +6,7 @@ SOURCES_FS=dev.o
 
 SOURCES_CHARDEV=term.o
 
-SOURCES_PCI=
+SOURCES_PCI=ide.o
 
 SOURCES_STRUCTURES=tree.o list.o hashmap.o
 

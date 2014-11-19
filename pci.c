@@ -261,9 +261,8 @@ static void driver_search(struct pci_driver *driver) {
 			if (id_iter->class != PCI_ANY && 
 					id_iter->class != (dev_iter->class & id_iter->mask))
 				continue;
-			while (driver->probe(dev_iter, id_iter) == -ENOMEM) {
+			while (driver->probe(dev_iter, id_iter) == -ENOMEM)
 				continue;
-			}
 		}
 	}
 }
@@ -304,6 +303,7 @@ int32_t register_pci(const char *name, const struct pci_dev_id *table,
 	driver_search(driver);
 	spin_unlock(&pci_lock);
 
+	printf("PCI driver %s added\n", name);
 
 	return 0;
 }
@@ -311,12 +311,10 @@ int32_t register_pci(const char *name, const struct pci_dev_id *table,
 int32_t claim_pci_dev(struct pci_dev *dev) {
 	ASSERT(dev);
 	int32_t ret = 0;
-	spin_lock(&pci_lock);
 	if (dev->claimed) 
 		ret = -1;
 	else
 		dev->claimed = 1;
-	spin_unlock(&pci_lock);
 	return ret;
 }
 

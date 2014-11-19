@@ -29,7 +29,7 @@
 // Defined in time.c
 extern time_t current_time;
 
-uint32_t tick = 0;
+volatile uint32_t tick = 0;
 int32_t task_tick = 200;
 uint32_t rtc_tick = 1024;
 list_t *timers = NULL;
