@@ -466,6 +466,13 @@ waitqueue_t *create_waitqueue(void) {
 	return wq;
 }
 
+// This doesn't really need to be atomic
+void destroy_waitqueue(waitqueue_t *queue) {
+	ASSERT(queue->queue->head == NULL);
+	list_destroy(queue->queue);
+	kfree(queue);
+}
+
 int sleep_thread(waitqueue_t *wq, uint32_t flags) {
 	ASSERT(wq);
 	asm volatile("sti");

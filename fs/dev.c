@@ -91,7 +91,7 @@ static int32_t close_fs(struct superblock *sb, uint32_t force) {
 		iter = next;
 	}
 
-	PANIC("Need to free semaphore");
+	destroy_rw_semaphore((rw_sem_t *)sb->private_data);
 	kfree(sb);
 	return 0;
 }
@@ -112,7 +112,7 @@ static struct superblock *return_sb(dev_t dev, uint32_t flags) {
 
 	struct dev_file *root = (struct dev_file *)kmalloc(sizeof(struct dev_file));
 	if (!root) {
-		PANIC("Need to free semaphore");
+		destroy_rw_semaphore(sem);
 		kfree(sb);
 		return NULL;
 	}

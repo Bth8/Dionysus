@@ -82,6 +82,7 @@ int32_t fork(void);
 int switch_task(void);
 void exit_task(int32_t status);
 waitqueue_t *create_waitqueue(void);
+void destroy_waitqueue(waitqueue_t *queue);
 int sleep_thread(waitqueue_t *wq, uint32_t flags);
 void wake_queue(waitqueue_t *wq);
 void switch_user_mode(uint32_t entry, int32_t argc, char **argv, char **envp,

@@ -17,6 +17,11 @@ mutex_t *create_mutex(uint32_t locked) {
 	return mutex;
 }
 
+void destroy_mutex(mutex_t *mutex) {
+	destroy_waitqueue(mutex->wq);
+	kfree(mutex);
+}
+
 void acquire_mutex(volatile mutex_t *mutex) {
 	wait_event_interruptable(mutex->wq,
 		__sync_lock_test_and_set(&mutex->mutex, 1) == 1);
@@ -46,6 +51,11 @@ sem_t *create_semaphore(uint32_t max) {
 	return sem;
 }
 
+void destroy_semaphore(sem_t *sem) {
+	destroy_waitqueue(sem->wq);
+	kfree(sem);
+}
+
 void acquire_semaphore(volatile sem_t *sem) {
 	while (__sync_add_and_fetch(&sem->semaphore, 1) > sem->max) {
 		// This probably doesn't need to be atomic
@@ -69,10 +79,18 @@ rw_sem_t *create_rw_semaphore(uint32_t max) {
 	}
 
 	sem->semaphore = create_semaphore(max);
-	if (!sem->semaphore)
-		PANIC("Need to free mutexes");
+	if (!sem->semaphore) {
+		destroy_mutex(sem->write);
+		kfree(sem);
+	}
 
 	return sem;
+}
+
+void destroy_rw_semaphore(rw_sem_t *sem) {
+	destroy_mutex(sem->write);
+	destroy_semaphore(sem->semaphore);
+	kfree(sem);
 }
 
 void acquire_semaphore_read(volatile rw_sem_t *sem) {

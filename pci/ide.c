@@ -336,7 +336,7 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 			}
 		}
 		if (refs == 0) {
-			PANIC("Need to free mutex");
+			destroy_mutex(channel->mutex);
 			kfree(channel);
 		}
 
