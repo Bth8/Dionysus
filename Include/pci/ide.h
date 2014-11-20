@@ -75,6 +75,10 @@
 #define ATA_IDENT_COMMANDSETS	164
 #define ATA_IDENT_MAX_LBA_EXT	200
 
+// Capabilities
+#define ATA_CAP_DMA				0x0100
+#define ATA_CAP_LBA				0x0200
+
 // Type of drive
 #define IDE_ATA					0x00
 #define IDE_ATAPI				0x01
@@ -111,7 +115,10 @@
 
 #define IDE_MAJOR				1
 #define IDE_SECTOR_SIZE			512
-#define IDE_MAX_PRD				16
+#define IDE_MAX_TRANSFER_28		255
+#define IDE_MAX_TRANSFER_48		65535
+
+#define IDE_TRANSFER_INVALID	0xFFFFFFFFUL
 
 struct IDEChannelRegisters {
 	uint8_t channel;

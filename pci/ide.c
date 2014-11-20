@@ -83,6 +83,7 @@ static uint8_t ide_read(struct IDEChannelRegisters *channel, uint8_t reg) {
 	return ret;
 }
 
+// Fills buffer with count words
 static void ide_read_buffer(struct IDEChannelRegisters *channel, uint8_t reg,
 		void *buffer, uint32_t count) {
 	if (reg > 0x07 && reg < 0x0C)
@@ -157,32 +158,41 @@ static uint8_t ide_print_err(struct IDEDevice *dev, uint8_t err) {
 	return err;
 }
 
-static int ide_blkdev_create(struct IDEDevice *ide) {
+static blkdev_t *ide_blkdev_create(struct IDEDevice *ide) {
 	blkdev_t *dev = alloc_blkdev();
 	if (!dev)
-		return -ENOMEM;
+		return NULL;
 
 	dev->major = IDE_MAJOR;
 	dev->minor = 16 * (2 * ide->channel->channel + ide->drive);
 	dev->max_part = 16;
 	dev->sector_size = IDE_SECTOR_SIZE;
 	dev->size = ide->size * IDE_SECTOR_SIZE / KERNEL_BLOCKSIZE;
-	dev->lock = 1;
+	dev->lock = 0;
 	dev->handler = NULL;
 	dev->private_data = ide;
 
-	if (add_blkdev(dev) < 0)
-		return -EEXIST;
-
-	while (autopopulate_blkdev(dev) < 0)
-		continue;
-
-	return 0;
+	return dev;
 }
 
 static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 	if (claim_pci_dev(pci) < 0)
 		return 0;
+
+	blkdev_t *blkdevs[4] = {NULL, NULL, NULL, NULL};
+
+	uint16_t command = pciConfigReadWord(pci->bus->secondary, pci->slot,
+		pci->func, PCI_COMMAND);
+	command |= 0x04;
+	pciConfigWriteWord(pci->bus->secondary, pci->slot, pci->func, PCI_COMMAND,
+		command);
+	command = pciConfigReadWord(pci->bus->secondary, pci->slot, pci->func,
+		PCI_COMMAND);
+
+	if (!(command & 0x04)) {
+		release_pci_dev(pci);
+		return 0;
+	}
 
 	uint16_t prog = pciConfigReadWord(pci->bus->secondary, pci->slot,
 		pci->func, PCI_CLASS_PROG);
@@ -203,12 +213,15 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 	uint32_t BAR3 = 0x0376;
 	uint32_t BAR4 = pciConfigReadDword(pci->bus->secondary, pci->slot, 
 		pci->func, PCI_BASE_ADDRESS_4);
+//	uint8_t int0 = 14;
 
 	if (prog & 0x01) {
 		BAR0 = pciConfigReadDword(pci->bus->secondary, pci->slot, pci->func,
 			PCI_BASE_ADDRESS_0);
 		BAR1 = pciConfigReadDword(pci->bus->secondary, pci->slot, pci->func,
 			PCI_BASE_ADDRESS_1);
+//		int0 = pciConfigReadByte(pci->bus->secondary, pci->slot, pci->func,
+//			PCI_INTERRUPT_LINE);
 	}
 
 	if (prog & 0x04) {
@@ -218,7 +231,6 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 			PCI_BASE_ADDRESS_3);
 	}
 
-	int32_t ret = 0;
 	int i, j;
 	// Detect ATA/ATAPI devices
 	for (i = 0; i < 2; i++) {
@@ -226,7 +238,7 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 		struct IDEChannelRegisters *channel = 
 			(struct IDEChannelRegisters *)kmalloc(sizeof(struct IDEChannelRegisters));
 		if (!channel)
-			return -ENOMEM;
+			break;
 
 		channel->channel = i;
 		channel->nEIN = 0;
@@ -243,7 +255,7 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 		channel->mutex = create_mutex(1);
 		if (!channel->mutex) {
 			kfree(channel);
-			return -ENOMEM;
+			goto fail;
 		}
 
 		// Disable interrupts
@@ -267,7 +279,7 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 			uint8_t err = 0;
 			while (1) {
 				uint8_t status = ide_read(channel, ATA_REG_STATUS);
-				if (status & ATA_SR_ERR) {err = 1; break;} // Device is ATA
+				if (status & ATA_SR_ERR) {err = 1; break;} // Device isn't ATA
 				if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRQ)) break;
 			}
 
@@ -288,14 +300,19 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 				sleep_until(tick + 1 * HZ / 1000);
 			}
 
-			char *buff = kmalloc(128);
-			ASSERT(buff);
+			unsigned char *buff = kmalloc(sizeof(uint16_t) * 256);
+			if (!buff)
+				break;
+
 			// Read id space
-			ide_read_buffer(channel, ATA_REG_DATA, buff, 128);
+			ide_read_buffer(channel, ATA_REG_DATA, buff, 256);
 
 			struct IDEDevice *dev =
 				(struct IDEDevice *)kmalloc(sizeof(struct IDEDevice));
-			ASSERT(dev);
+			if (!dev) {
+				kfree(buff);
+				break;
+			}
 
 			// Read device parameters
 			dev->channel = channel;
@@ -325,11 +342,11 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 
 			printf("Found %s%i-%i %iMB - %s\n",
 				(char *[]){"ATA", "ATAPI"}[dev->type],
-				i / 2, i % 2, dev->size * 512 / 1024 / 1024,
+				i / 2, i % 2, dev->size * IDE_SECTOR_SIZE / 1024 / 1024,
 				dev->model);
 
-			ret = ide_blkdev_create(dev);
-			if (ret < 0) {
+			blkdevs[i + j] = ide_blkdev_create(dev);
+			if (blkdevs[i + j] == NULL) {
 				refs--;
 				kfree(dev);
 				break;
@@ -340,11 +357,44 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 			kfree(channel);
 		}
 
+		release_mutex(channel->mutex);
+
 		if (j < 2)
-			return -ENOMEM;
+			goto fail;
+	}
+
+	for (i = 0; i < 4; i++) {
+		if (blkdevs[i]) {
+			struct IDEDevice *ide = (struct IDEDevice *)blkdevs[i]->private_data;
+			if (add_blkdev(blkdevs[i]) < 0) {
+				if (i % 2 == 0 && !blkdevs[i + 1]) {
+					destroy_mutex(ide->channel->mutex);
+					kfree(ide->channel);
+				}
+				kfree(ide);
+				kfree(blkdevs[i]);
+				continue;
+			}
+			autopopulate_blkdev(blkdevs[i]);
+		}
 	}
 
 	return 0;
+
+fail:
+	for (i = 0; i < 4; i++) {
+		if (blkdevs[i]) {
+			struct IDEDevice *ide = (struct IDEDevice *)blkdevs[i]->private_data;
+			if (i % 2 == 0) {
+				destroy_mutex(ide->channel->mutex);
+				kfree(ide->channel);
+			}
+			kfree(ide);
+			kfree(blkdevs[i]);
+		}
+	}
+
+	return -ENOMEM;
 }
 
 void init_ide(void) {
@@ -364,22 +414,40 @@ void init_ide(void) {
 		printf("IDE: error registering pci\n");
 }
 
+static int32_t request_pci(blkdev_t *dev) {
+	struct IDEDevice *ide = (struct IDEDevice *)dev->private_data;
+	acquire_mutex(ide->channel->mutex);
 
-/*
-static void request_pci(blkdev_t *dev) {
 	node_t *node = dev->queue->head;
 	while (node) {
 		request_t *req = (request_t *)node->data;
-		uint32_t sectors_xferred = 0;// ide_do_transfer(dev, req);
-		if (end_request(req, sectors_xferred) == 0) {
+		uint32_t sectors_xferred = 0;// ide_do_transfer(ide, req);
+		int32_t cont;
+
+		if (sectors_xferred == IDE_TRANSFER_INVALID)
+			cont = end_request(req, 0, sectors_xferred);
+		else
+			cont = end_request(req, 1, sectors_xferred);
+
+		if (cont < 0)
+			break;
+		else if (cont == 0) {
 			list_dequeue(dev->queue, node);
 			free_request(req);
 			kfree(node);
 		}
 		node = dev->queue->head;
 	}
+
+	release_mutex(ide->channel->mutex);
+
+	if (node)
+		return -EIO;
+
+	return 0;
 }
 
+/*
 static uint32_t ide_do_transfer(blkdev_t *dev, request_t *req) {
 	if (0) {
 		struct PRD *prd_table =
@@ -417,7 +485,7 @@ static uint32_t ide_do_transfer(blkdev_t *dev, request_t *req) {
  *   - CHS.            (+)
  *  Reading Modes:
  *  ================
- *   - PIO Modes (0 : 6)       (+) // Slower than DMA, but not a problem.
+ *   - PIO Modes (0 : 6)       (+)
  *   - Single Word DMA Modes (0, 1, 2).
  *   - Double Word DMA Modes (0, 1, 2).
  *   - Ultra DMA Modes (0 : 6).
@@ -425,14 +493,19 @@ static uint32_t ide_do_transfer(blkdev_t *dev, request_t *req) {
  *  ================
  *   - IRQs
  *   - Polling Status   (+) // Suitable for Singletasking
+ */
 
-uint8_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
+/*
+uint32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 	uint8_t lba_io[6];
-	uint32_t lba_mode;
+	uint32_t lba_ext = 0;
 	uint32_t cmd = 0;
 	uint32_t slave = dev->drive;
-	uint32_t bus = dev->channel->base
-	uint32_t words = 256;
+	uint32_t bus = dev->channel->base;
+	uint32_t lba = req->first_sector;
+	uint32_t dma = (dev->cap & ATA_CAP_DMA) ? 1 : 0;
+	uint32_t direction = (req->flags & BLOCK_DIR_WRITE) ? ATA_WRITE : ATA_READ;
+	uint32_t head;
 
 	// Disable interrupts
 	ide_write(dev->channel, ATA_REG_CONTROL, 2);
@@ -441,7 +514,7 @@ uint8_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 	// Select CHS, LBA28 or 48
 	if (lba >= 0x10000000) {
 		// LBA48
-		lba_mode = 2;
+		lba_ext = 1;
 		lba_io[0] = lba & 0xFF;
 		lba_io[1] = (lba & 0xFF00) >> 8;
 		lba_io[2] = (lba & 0xFF0000) >> 16;
@@ -449,9 +522,8 @@ uint8_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 		lba_io[4] = 0;	// 32 bits is enough for 2 TB
 		lba_io[5] = 0;
 		head = 0;
-	} else if (ide_devices[drive].cap & 0x200) { // Supports LBA
+	} else if (dev->cap & ATA_CAP_LBA) { // Supports LBA
 		// LBA28
-		lba_mode = 1;
 		lba_io[0] = lba & 0xFF;
 		lba_io[1] = (lba & 0xFF00) >> 8;
 		lba_io[2] = (lba & 0xFF0000) >> 16;
@@ -461,9 +533,8 @@ uint8_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 		head = (lba & 0xF000000) >> 24;
 	} else {
 		// CHS
-		lba_mode = 0;
-		sect = (lba % 63) + 1;
-		cyl = (lba + 1 - sect) / (63*16);
+		uint32_t sect = (lba % 63) + 1;
+		uint32_t cyl = (lba + 1 - sect) / (63*16);
 		lba_io[0] = sect;
 		lba_io[1] = cyl & 0xFF;
 		lba_io[2] = (cyl >> 8) & 0xFF;
@@ -473,90 +544,131 @@ uint8_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 		head = (lba + 1 - sect) % (63 * 16) / (63);
 	}
 
-	// See if drive supports DMA
-	dma = 0; // TODO
-
 	// Wait if drive is busy
-	while (ide_read(channel, ATA_REG_STATUS) & ATA_SR_BSY)
+	while (ide_read(dev->channel, ATA_REG_STATUS) & ATA_SR_BSY)
 		continue;
 
-	// Select drive
-	if (!lba_mode) {
-		 // Drive and CHS
-		ide_write(channel, ATA_REG_HDDEVSEL, 0xA0 | (slave << 4) | head);
-	} else {
-		//Drive and LBA
-		ide_write(channel, ATA_REG_HDDEVSEL, 0xE0 | (slave << 4) | head);
-	}
+	// Select drive and method
+	if (dev->cap & ATA_CAP_LBA)
+		ide_write(dev->channel, ATA_REG_HDDEVSEL, 0xE0 | (slave << 4) | head);
+	else
+		ide_write(dev->channel, ATA_REG_HDDEVSEL, 0xA0 | (slave << 4) | head);
 
 	// Wait 400ns
+	uint32_t i;
 	for (i = 0; i < 4; i++)
-		ide_read(channel, ATA_REG_ALTSTATUS);
+		ide_read(dev->channel, ATA_REG_ALTSTATUS);
 
 	// Write parameters
-	if (lba_mode == 2) {
-		ide_write(channel, ATA_REG_SECCOUNT1, 0);
-		ide_write(channel, ATA_REG_LBA3, lba_io[3]);
-		ide_write(channel, ATA_REG_LBA4, lba_io[4]);
-		ide_write(channel, ATA_REG_LBA5, lba_io[5]);
+	if (lba_ext) {
+		ide_write(dev->channel, ATA_REG_SECCOUNT1, 0);
+		ide_write(dev->channel, ATA_REG_LBA3, lba_io[3]);
+		ide_write(dev->channel, ATA_REG_LBA4, lba_io[4]);
+		ide_write(dev->channel, ATA_REG_LBA5, lba_io[5]);
 	}
-	ide_write(channel, ATA_REG_SECCOUNT0, numsects);
-	ide_write(channel, ATA_REG_LBA0, lba_io[0]);
-	ide_write(channel, ATA_REG_LBA1, lba_io[1]);
-	ide_write(channel, ATA_REG_LBA2, lba_io[2]);
+	ide_write(dev->channel, ATA_REG_SECCOUNT0, numsects);
+	ide_write(dev->channel, ATA_REG_LBA0, lba_io[0]);
+	ide_write(dev->channel, ATA_REG_LBA1, lba_io[1]);
+	ide_write(dev->channel, ATA_REG_LBA2, lba_io[2]);
 
-	if (lba_mode == 0 && dma == 0 && direction == 0)
+	if (!lba_ext && !dma && direction == ATA_READ)
 		cmd = ATA_CMD_READ_PIO;
-	else if (lba_mode == 1 && dma == 0 && direction == 0)
-		cmd = ATA_CMD_READ_PIO;
-	else if (lba_mode == 2 && dma == 0 && direction == 0)
+	else if (lba_ext && !dma && direction == ATA_READ)
 		cmd = ATA_CMD_READ_PIO_EXT;
-	else if (lba_mode == 0 && dma == 1 && direction == 0)
+	else if (!lba_ext && dma && direction == ATA_READ)
 		cmd = ATA_CMD_READ_DMA;
-	else if (lba_mode == 1 && dma == 1 && direction == 0)
-		cmd = ATA_CMD_READ_DMA;
-	else if (lba_mode == 2 && dma == 1 && direction == 0)
+	else if (lba_ext && dma && direction == ATA_READ)
 		cmd = ATA_CMD_READ_DMA_EXT;
-	else if (lba_mode == 0 && dma == 0 && direction == 1)
+	else if (!lba_ext && !dma && direction == ATA_WRITE)
 		cmd = ATA_CMD_WRITE_PIO;
-	else if (lba_mode == 1 && dma == 0 && direction == 1)
-		cmd = ATA_CMD_WRITE_PIO;
-	else if (lba_mode == 2 && dma == 0 && direction == 1)
+	else if (lba_ext && !dma && direction == ATA_WRITE)
 		cmd = ATA_CMD_WRITE_PIO_EXT;
-	else if (lba_mode == 0 && dma == 1 && direction == 1)
+	else if (!lba_ext && dma && direction == ATA_WRITE)
 		cmd = ATA_CMD_WRITE_DMA;
-	else if (lba_mode == 1 && dma == 1 && direction == 1)
-		cmd = ATA_CMD_WRITE_DMA;
-	else if (lba_mode == 2 && dma == 1 && direction == 1)
+	else if (lba_ext && dma && direction == ATA_WRITE)
 		cmd = ATA_CMD_WRITE_DMA_EXT;
 
-	ide_write(channel, ATA_REG_COMMAND, cmd);	// Send command
+	ide_write(dev->channel, ATA_REG_COMMAND, cmd);	// Send command
 
-	if (dma) {} // TODO
-	else {
-		if (direction == 0) // PIO read
-			for (i = 0; i < numsects; i++) {
+	if (dma) { // TODO
+		uint32_t nsects = 0;
+		struct PRD *prd_table =
+			(struct PRD *)kmemalign(4, sizeof(struct PRD) * IDE_MAX_TRANSFER);
+		if (!prd_table)
+			return 0;
+
+		memset(prd_table, 0, sizeof(struct PRD) * IDE_MAX_TRANSFER);
+
+		node_t *node;
+		foreach(node, req->bios) {
+			bio_t *bio = (bio_t *)node->data;
+
+			if (lba_ext) {
+				if (nsects + bio->nbytes / IDE_SECTOR_SIZE > IDE_MAX_TRANSFER_48)
+					break;
+			} else {
+				if (nsects + bio->nbytes / IDE_SECTOR_SIZE > IDE_MAX_TRANSFER_28)
+					break;
+			}
+
+			prd_table[i].phys_addr = bio->page + bio->offset;
+			prd-table[i].count = bio->nbytes;
+
+			if (i == 15 || node == req->bios->tail)
+				prd_table[i].EOT = 0x8000;
+			else
+				prd_table[i].EOT = 0x0000;
+			nsects += bio->nbytes / KERNEL_BLOCKSIZE;
+		}
+	} else {
+		node_t *node;
+		bio_t *bio = (bio_t *)req->queue->head->data;
+
+		uint32_t nsects = bio->nbytes / IDE_SECTOR_SIZE;
+
+		if (lba_ext) {
+			if (nsects > IDE_MAX_TRANSFER_48)
+				nsects = IDE_MAX_TRANSFER_48;
+			ide_write(dev->channel, ATA_REG_SECCOUNT1, (nsects >> 8) & 0xFF);
+		} else {
+			if (nsects > IDE_MAX_TRANSFER_28)
+				nsects = IDE_MAX_TRANSFER_28;
+		}
+
+		ide_write(dev->channel, ATA_REG_SECCOUNT0, numsects & 0xFF);
+
+		void *edi = map_kernel(bio->page) + bio->offset;
+		uintptr_t offset = 0;
+
+		if (direction == ATA_READ) // PIO read
+			for (i = 0; i < nsects; i++) {
 				if ((err = ide_polling(channel, 1)))
 					return err;
-				insw(bus, edi, words);
-				edi += words * 2;
+				insw(bus, edi + offset, IDE_SECTOR_SIZE / 2);
+				offset += IDE_SECTOR_SIZE;
 			}
 		else { // PIO write
-			for (i = 0; i < numsects; i++) {
+			for (i = 0; i < bio->nbytes / KERNEL_BLOCKSIZE; i++) {
 				ide_polling(channel, 0);
-				outsw(bus, edi, words);
-				edi += words * 2;
+				outsw(bus, edi + offset, IDE_SECTOR_SIZE / 2);
+				offset += IDE_SECTOR_SIZE;
 			}
-			ide_write(channel, ATA_REG_COMMAND,
-					(char []) {ATA_CMD_CACHE_FLUSH, ATA_CMD_CACHE_FLUSH,
-					ATA_CMD_CACHE_FLUSH_EXT}[lba_mode]);
-			ide_polling(channel, 0);
+			if (lba_ext)
+				ide_write(channel, ATA_REG_COMMAND, ATA_CMD_CACHE_FLUSH_EXT);
+			else
+				ide_write(channel, ATA_REG_COMMAND, ATA_CMD_CAHCE_FLUSH);
+
+				ide_polling(channel, 0);
 		}
+
+		kernel_unmap(edi);
+
+		return nsects;
 	}
 
 	return 0;
-}
-
+} */
+/*
 void ide_wait_irq(void) {
 	while (!ide_irq_invoked) {}
 	ide_irq_invoked = 0;
