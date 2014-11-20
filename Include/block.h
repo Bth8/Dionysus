@@ -31,11 +31,11 @@
 #define BLOCK_DIR_WRITE		0x01
 
 typedef struct blockdev blkdev_t;
-typedef void (*request_handler_t)(blkdev_t*);
+typedef int32_t (*request_handler_t)(blkdev_t*);
 
 typedef struct bio {
 	uintptr_t page;
-	off_t offset;
+	uintptr_t offset;
 	uint32_t nbytes;
 	struct bio *next;
 } bio_t;
@@ -102,7 +102,7 @@ int32_t add_blkdev(blkdev_t *dev);
 blkdev_t *get_blkdev(dev_t dev);
 int32_t make_request_blkdev(dev_t dev, uint32_t first_sector, bio_t *bios,
 	uint32_t dir);
-uint32_t end_request(request_t *req, uint32_t nsectors);
+int32_t end_request(request_t *req, uint32_t success, uint32_t nsectors);
 void free_request(request_t *req);
 
 #endif /* BLOCK_H */

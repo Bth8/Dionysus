@@ -152,15 +152,17 @@ int32_t autopopulate_blkdev(blkdev_t *dev) {
 	bio->nbytes = KERNEL_BLOCKSIZE;
 
 	if (make_request_blkdev(MKDEV(dev->major, dev->minor), 0, bio, 0) < 0) {
-		printf("Warning: No valid method for reading\nDevice: 0x%08X\n",
-			MKDEV(dev->major, dev->minor));
+		printf("Warning: No valid method for reading device %d %d\n",
+			dev->major, dev->minor);
+		kfree(bio);
 		kfree(mbr);
 		return 0;
 	}
 
 	if (mbr->magic[0] != 0x55 || mbr->magic[1] != 0xAA) {
-		printf("Warning: Invalid partition table\nDevice: 0x%08X\n",
-			MKDEV(dev->major, dev->minor));
+		printf("Warning: Invalid partition table device %d %d\n",
+			dev->major, dev->minor);
+		kfree(bio);
 		kfree(mbr);
 		return 0;
 	}
@@ -171,6 +173,7 @@ int32_t autopopulate_blkdev(blkdev_t *dev) {
 			struct part *partition = (struct part *)kmalloc(sizeof(struct part));
 			if (!partition) {
 				kfree(partition);
+				kfree(bio);
 				kfree(mbr);
 				goto nomem;
 			}
@@ -180,6 +183,7 @@ int32_t autopopulate_blkdev(blkdev_t *dev) {
 			node = list_insert(dev->partitions, partition);
 			if (!node) {
 				kfree(partition);
+				kfree(bio);
 				kfree(mbr);
 				goto nomem;
 			}
@@ -338,18 +342,15 @@ int32_t make_request_blkdev(dev_t dev, uint32_t first_sector, bio_t *bios,
 
 	collate_requests(blockdev->queue);
 
-	magic_break();
-
-	blockdev->handler(blockdev);
-
-	return 0;
+	return blockdev->handler(blockdev);
 }
 
-uint32_t end_request(request_t *req, uint32_t nsectors) {
+int32_t end_request(request_t *req, uint32_t success, uint32_t nsectors) {
+	if (!success)
+		return -EIO;
+
 	req->nsectors -= nsectors;
 	req->first_sector += nsectors;
-	if (req->nsectors == 0)
-		return 0;
 
 	while (1) {
 		node_t *node = req->bios->head;
@@ -365,7 +366,10 @@ uint32_t end_request(request_t *req, uint32_t nsectors) {
 		break;
 	}
 
-	return req->nsectors;
+	if (req->nsectors > 0)
+		return 1;
+
+	return 0;
 }
 
 void free_request(request_t *req) {
