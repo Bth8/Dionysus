@@ -21,6 +21,7 @@
 #ifndef IDE_H
 #define IDE_H
 #include <common.h>
+#include <structures/mutex.h>
 
 // Status masks
 #define ATA_SR_BSY				0x80
@@ -118,10 +119,11 @@ struct IDEChannelRegisters {
 	uint16_t ctrl;
 	uint16_t bmide;
 	uint8_t nEIN;
+	mutex_t *mutex;
 };
 
 struct IDEDevice {
-	struct IDEChannelRegisters channel;
+	struct IDEChannelRegisters *channel;
 	uint8_t drive;			// Slave if set
 	uint8_t type;			// ATAPI if set
 	uint16_t sig;

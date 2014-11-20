@@ -56,7 +56,6 @@ struct pci_dev {
 	uint16_t vendor;			// Vendor number
 	uint16_t device;			// Device ID
 	uint16_t class;				// Class, subclass
-	uint8_t prog;
 
 	uint32_t claimed;
 };

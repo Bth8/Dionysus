@@ -133,7 +133,7 @@ static uint8_t ide_print_err(struct IDEDevice *dev, uint8_t err) {
 	printf("IDE:\n\t");
 	if (err == 1) {printf("- Device fault\n\t"); err = 19;}
 	else if (err == 2) {
-		uint8_t st = ide_read(&dev->channel, ATA_REG_ERROR);
+		uint8_t st = ide_read(dev->channel, ATA_REG_ERROR);
 		if (st & ATA_ER_AMNF) {printf("- Address mark not found\n\t");
 			err = 7;}
 		if (st & ATA_ER_TK0NF) {printf("- No media or media error\n\t");
@@ -150,7 +150,7 @@ static uint8_t ide_print_err(struct IDEDevice *dev, uint8_t err) {
 	} else if (err == 3) {printf("- Reads nothing\n\t"); err = 23;}
 	else if (err == 4) {printf("- Write protected\n\t"); err = 8;}
 	printf("- [%s %s] %s\n",
-		(char *[]){"Primary", "Secondary"}[dev->channel.channel],
+		(char *[]){"Primary", "Secondary"}[dev->channel->channel],
 		(char *[]){"master", "slave"}[dev->drive],
 		dev->model);
 
@@ -163,7 +163,7 @@ static int ide_blkdev_create(struct IDEDevice *ide) {
 		return -ENOMEM;
 
 	dev->major = IDE_MAJOR;
-	dev->minor = 16 * (2 * ide->channel.channel + ide->drive);
+	dev->minor = 16 * (2 * ide->channel->channel + ide->drive);
 	dev->max_part = 16;
 	dev->sector_size = IDE_SECTOR_SIZE;
 	dev->size = ide->size * IDE_SECTOR_SIZE / KERNEL_BLOCKSIZE;
@@ -184,63 +184,97 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 	if (claim_pci_dev(pci) < 0)
 		return 0;
 
-	uint32_t BAR0 = pciConfigReadDword(pci->bus->secondary, pci->slot, 
-		pci->func, PCI_BASE_ADDRESS_0);
-	uint32_t BAR1 = pciConfigReadDword(pci->bus->secondary, pci->slot, 
-		pci->func, PCI_BASE_ADDRESS_1);
-	uint32_t BAR2 = pciConfigReadDword(pci->bus->secondary, pci->slot, 
-		pci->func, PCI_BASE_ADDRESS_2);
-	uint32_t BAR3 = pciConfigReadDword(pci->bus->secondary, pci->slot, 
-		pci->func, PCI_BASE_ADDRESS_3);
+	uint16_t prog = pciConfigReadWord(pci->bus->secondary, pci->slot,
+		pci->func, PCI_CLASS_PROG);
+
+	if (prog & 0x02)
+		prog |= 0x01;
+	if (prog & 0x08)
+		prog |= 0x04;
+
+	pciConfigWriteWord(pci->bus->secondary, pci->slot, pci->func,
+		PCI_CLASS_PROG, prog);
+	prog = pciConfigReadWord(pci->bus->secondary, pci->slot, pci->func,
+		PCI_CLASS_PROG);
+
+	uint32_t BAR0 = 0x01F0;
+	uint32_t BAR1 = 0x03F6;
+	uint32_t BAR2 = 0x0170;
+	uint32_t BAR3 = 0x0376;
 	uint32_t BAR4 = pciConfigReadDword(pci->bus->secondary, pci->slot, 
 		pci->func, PCI_BASE_ADDRESS_4);
 
-	struct IDEChannelRegisters channels[2];
-	// Detect IO ports
-	channels[0].channel = 0;
-	channels[0].base = (BAR0 & 0xFFFFFFFC) + 0x01F0 * (!(BAR0 & 0xFFFFFFFC));
-	channels[0].ctrl = (BAR1 & 0xFFFFFFFC) + 0x03F6 * (!(BAR0 & 0xFFFFFFFC));
-	channels[0].bmide = (BAR4 & 0xFFFFFFFC);
-	channels[0].nEIN = 0;
-	channels[1].channel = 1;
-	channels[1].base = (BAR2 & 0xFFFFFFFC) + 0x0170 * (!(BAR0 & 0xFFFFFFFC));
-	channels[1].ctrl = (BAR3 & 0xFFFFFFFC) + 0x0376 * (!(BAR0 & 0xFFFFFFFC));
-	channels[1].bmide = (BAR4 & 0xFFFFFFFC) + 8;
-	channels[1].nEIN = 0;
+	if (prog & 0x01) {
+		BAR0 = pciConfigReadDword(pci->bus->secondary, pci->slot, pci->func,
+			PCI_BASE_ADDRESS_0);
+		BAR1 = pciConfigReadDword(pci->bus->secondary, pci->slot, pci->func,
+			PCI_BASE_ADDRESS_1);
+	}
 
-	// Disable IRQs by setting bit 1
-	ide_write(&channels[0], ATA_REG_CONTROL, 2);
-	ide_write(&channels[1], ATA_REG_CONTROL, 2);
+	if (prog & 0x04) {
+		BAR2 = pciConfigReadDword(pci->bus->secondary, pci->slot, pci->func,
+			PCI_BASE_ADDRESS_2);
+		BAR3 = pciConfigReadDword(pci->bus->secondary, pci->slot, pci->func,
+			PCI_BASE_ADDRESS_3);
+	}
 
+	int32_t ret = 0;
 	int i, j;
 	// Detect ATA/ATAPI devices
-	for (i = 0; i < 2; i++)
+	for (i = 0; i < 2; i++) {
+		int refs = 0;
+		struct IDEChannelRegisters *channel = 
+			(struct IDEChannelRegisters *)kmalloc(sizeof(struct IDEChannelRegisters));
+		if (!channel)
+			return -ENOMEM;
+
+		channel->channel = i;
+		channel->nEIN = 0;
+		channel->bmide = BAR4 + 8 * i;
+
+		if (i == 0) {
+			channel->base = BAR0;
+			channel->ctrl = BAR1;
+		} else {
+			channel->base = BAR2;
+			channel->ctrl = BAR3;
+		}
+
+		channel->mutex = create_mutex(1);
+		if (!channel->mutex) {
+			kfree(channel);
+			return -ENOMEM;
+		}
+
+		// Disable interrupts
+		ide_write(channel, ATA_REG_CONTROL, 2);
+
 		for (j = 0; j < 2; j++) {
 			uint8_t type = IDE_ATA;
 
 			// Select drive
-			ide_write(&channels[i], ATA_REG_HDDEVSEL, j << 4);
+			ide_write(channel, ATA_REG_HDDEVSEL, j << 4);
 			sleep_until(tick + 2 * HZ / 1000);
 
 			// Send ATA identify command
-			ide_write(&channels[i], ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
+			ide_write(channel, ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
 			sleep_until(tick + 2 * HZ / 1000);
 
 			// Polling
-			if (ide_read(&channels[i], ATA_REG_STATUS) == 0)
+			if (ide_read(channel, ATA_REG_STATUS) == 0)
 				continue;	// Status 0 means no device
 
 			uint8_t err = 0;
 			while (1) {
-				uint8_t status = ide_read(&channels[i], ATA_REG_STATUS);
+				uint8_t status = ide_read(channel, ATA_REG_STATUS);
 				if (status & ATA_SR_ERR) {err = 1; break;} // Device is ATA
 				if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRQ)) break;
 			}
 
 			// Probe for ATAPI
 			if (err) {
-				uint8_t cl = ide_read(&channels[i], ATA_REG_LBA1);
-				uint8_t ch = ide_read(&channels[i], ATA_REG_LBA2);
+				uint8_t cl = ide_read(channel, ATA_REG_LBA1);
+				uint8_t ch = ide_read(channel, ATA_REG_LBA2);
 
 				if (cl == 0x14 && ch == 0xEB)
 					type = IDE_ATAPI;
@@ -249,7 +283,7 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 				else
 					continue;
 
-				ide_write(&channels[i], ATA_REG_COMMAND,
+				ide_write(channel, ATA_REG_COMMAND,
 					ATA_CMD_IDENTIFY_PACKET);
 				sleep_until(tick + 1 * HZ / 1000);
 			}
@@ -257,15 +291,15 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 			char *buff = kmalloc(128);
 			ASSERT(buff);
 			// Read id space
-			ide_read_buffer(&channels[i], ATA_REG_DATA, buff, 128);
+			ide_read_buffer(channel, ATA_REG_DATA, buff, 128);
 
 			struct IDEDevice *dev =
 				(struct IDEDevice *)kmalloc(sizeof(struct IDEDevice));
 			ASSERT(dev);
 
 			// Read device parameters
-			memcpy(&(dev->channel), &channels[i],
-				sizeof(struct IDEChannelRegisters));
+			dev->channel = channel;
+			refs++;
 			dev->drive = j;
 			dev->type = type;
 			dev->sig = *(uint16_t *)(buff + ATA_IDENT_DEVICETYPE);
@@ -294,14 +328,23 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 				i / 2, i % 2, dev->size * 512 / 1024 / 1024,
 				dev->model);
 
-			int32_t ret = ide_blkdev_create(dev);
+			ret = ide_blkdev_create(dev);
 			if (ret < 0) {
+				refs--;
 				kfree(dev);
-				return ret;
+				break;
 			}
 		}
+		if (refs == 0) {
+			PANIC("Need to free mutex");
+			kfree(channel);
+		}
 
-		return 0;
+		if (j < 2)
+			return -ENOMEM;
+	}
+
+	return 0;
 }
 
 void init_ide(void) {
@@ -321,11 +364,13 @@ void init_ide(void) {
 		printf("IDE: error registering pci\n");
 }
 
+
+/*
 static void request_pci(blkdev_t *dev) {
 	node_t *node = dev->queue->head;
 	while (node) {
 		request_t *req = (request_t *)node->data;
-		uint32_t sectors_xferred = 0; //ide_do_transfer(dev, req);
+		uint32_t sectors_xferred = 0;// ide_do_transfer(dev, req);
 		if (end_request(req, sectors_xferred) == 0) {
 			list_dequeue(dev->queue, node);
 			free_request(req);
@@ -334,30 +379,33 @@ static void request_pci(blkdev_t *dev) {
 		node = dev->queue->head;
 	}
 }
-/*
+
 static uint32_t ide_do_transfer(blkdev_t *dev, request_t *req) {
-	struct PRD *prd_table =
-		(struct PRD *)kmemalign(4, sizeof(struct PRD) * IDE_MAX_PRD);
-	if (!prd_table)
-		return 0;
+	if (0) {
+		struct PRD *prd_table =
+			(struct PRD *)kmemalign(4, sizeof(struct PRD) * IDE_MAX_PRD);
+		if (!prd_table)
+			return 0;
 
-	memset(prd_table, 0, sizeof(struct PRD) * IDE_MAX_PRD);
+		memset(prd_table, 0, sizeof(struct PRD) * IDE_MAX_PRD);
 
-	node_t *node;
-	int i = 0;
-	foreach(node, req->bios) {
-		if (i > 16)
-			break;
-		bio_t *bio = (bio_t *)node->data;
-		prd_table[i].phys_addr = bio->page + bio->offset;
-		prd-table[i].count = bio->nbytes;
-		if (i == 15 || node == req->bios->tail)
-			prd_table[i].EOT = 0x8000;
-		else
-			prd_table[i].EOT = 0x0000;
-		i++;
+		node_t *node;
+		int i = 0;
+		foreach(node, req->bios) {
+			if (i > 16)
+				break;
+			bio_t *bio = (bio_t *)node->data;
+			prd_table[i].phys_addr = bio->page + bio->offset;
+			prd-table[i].count = bio->nbytes;
+			if (i == 15 || node == req->bios->tail)
+				prd_table[i].EOT = 0x8000;
+			else
+				prd_table[i].EOT = 0x0000;
+			i++;
+		}
+	} else {
+
 	}
-
 } */
 
 /* ATA/ATAPI Read/Write Modes:
@@ -377,19 +425,18 @@ static uint32_t ide_do_transfer(blkdev_t *dev, request_t *req) {
  *  ================
  *   - IRQs
  *   - Polling Status   (+) // Suitable for Singletasking
- 
- 
-uint8_t ide_ata_access(struct IDEDevice *dev, uint32_t lba, uint32_t numsects,
-		void *edi, uint32_t dir) {
-	uint8_t lba_mode, dma, cmd = 0, lba_io[6];
-	uint32_t channel = ide_devices[drive].channel;
-	uint32_t slave = ide_devices[drive].drive;
-	uint32_t bus = channels[channel].base, words = 256;
-	uint16_t cyl, i;
-	uint8_t head, sect, err;
 
-	ide_write(channel, ATA_REG_CONTROL,
-			channels[channel].nEIN = (ide_irq_invoked = 0) + 2);
+uint8_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
+	uint8_t lba_io[6];
+	uint32_t lba_mode;
+	uint32_t cmd = 0;
+	uint32_t slave = dev->drive;
+	uint32_t bus = dev->channel->base
+	uint32_t words = 256;
+
+	// Disable interrupts
+	ide_write(dev->channel, ATA_REG_CONTROL, 2);
+	dev->channel->nEIN = 2;
 
 	// Select CHS, LBA28 or 48
 	if (lba >= 0x10000000) {
@@ -458,7 +505,8 @@ uint8_t ide_ata_access(struct IDEDevice *dev, uint32_t lba, uint32_t numsects,
 	ide_write(channel, ATA_REG_LBA1, lba_io[1]);
 	ide_write(channel, ATA_REG_LBA2, lba_io[2]);
 
-	if (lba_mode == 0 && dma == 0 && direction == 0) cmd = ATA_CMD_READ_PIO;
+	if (lba_mode == 0 && dma == 0 && direction == 0)
+		cmd = ATA_CMD_READ_PIO;
 	else if (lba_mode == 1 && dma == 0 && direction == 0)
 		cmd = ATA_CMD_READ_PIO;
 	else if (lba_mode == 2 && dma == 0 && direction == 0)
@@ -481,6 +529,7 @@ uint8_t ide_ata_access(struct IDEDevice *dev, uint32_t lba, uint32_t numsects,
 		cmd = ATA_CMD_WRITE_DMA;
 	else if (lba_mode == 2 && dma == 1 && direction == 1)
 		cmd = ATA_CMD_WRITE_DMA_EXT;
+
 	ide_write(channel, ATA_REG_COMMAND, cmd);	// Send command
 
 	if (dma) {} // TODO
@@ -681,5 +730,4 @@ uint8_t ide_atapi_eject(uint8_t drive) {
 		}
 		return ide_print_err(drive, err);
 	}
-}
-*/
+} */

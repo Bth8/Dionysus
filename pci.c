@@ -100,8 +100,6 @@ static uint8_t check_func(struct pci_bus *bus, uint8_t slot, uint8_t func) {
 			pciConfigReadWord(bus->secondary, slot, func, PCI_DEVICE_ID);
 		dev->class =
 			pciConfigReadWord(bus->secondary, slot, func, PCI_CLASS_DEVICE);
-		dev->prog = 
-			pciConfigReadWord(bus->secondary, slot, func, PCI_CLASS_PROG);
 		dev->claimed = 0;
 
 		if (iter == NULL) {
@@ -235,10 +233,12 @@ void dump_pci(void) {
 	struct pci_dev *iter = &host;
 
 	while (iter != NULL) {
+		uint16_t prog = pciConfigReadWord(iter->bus->secondary, iter->slot,
+			iter->func, PCI_CLASS_PROG);
 		printf("Bus %u Slot %u Func %u:\n\tVendor: 0x%04X\n\tDevice:"
-				"0x%04X\n\tClass: 0x%04X\n",
+				"0x%04X\n\tClass: 0x%04X%02X\n",
 				iter->bus->secondary, iter->slot, iter->func, iter->vendor,
-				iter->device, iter->class);
+				iter->device, iter->class, prog);
 
 		iter = iter->next;
 	}

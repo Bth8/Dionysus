@@ -19,7 +19,7 @@ CC=i686-pc-dionysus-gcc
 CFLAGS=-Wall -Wextra -Werror -Wno-unused-parameter \
 	   -Wno-missing-field-initializers -nostdlib \
 	   -fomit-frame-pointer -I./Include -fno-leading-underscore -O \
-	   -ffreestanding
+	   -ffreestanding -Wno-unused-function
 LDFLAGS=-Tlink.ld
 LIBS=-lgcc
 AS=nasm
