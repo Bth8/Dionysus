@@ -44,7 +44,7 @@ void destroy_mutex(mutex_t *mutex) {
 
 void acquire_mutex(volatile mutex_t *mutex) {
 	wait_event_interruptable(mutex->wq,
-		__sync_lock_test_and_set(&mutex->mutex, 1) == 1);
+		__sync_lock_test_and_set(&mutex->mutex, 1) != 1);
 
 }
 

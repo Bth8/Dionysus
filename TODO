@@ -2,8 +2,6 @@ Practically everything. Very little's actually been implemented.
 
 Immediate concerns:
 
-Reevaluate mutexes.
-
 Finish IDE.
 
 Finish integrating new blockdev rewrite.
