@@ -148,7 +148,7 @@ int32_t autopopulate_blkdev(blkdev_t *dev) {
 	}
 
 	bio->page = (resolve_physical((uintptr_t)mbr) / PAGE_SIZE) * PAGE_SIZE;
-	bio->page = resolve_physical((uintptr_t)mbr) % PAGE_SIZE;
+	bio->offset = resolve_physical((uintptr_t)mbr) % PAGE_SIZE;
 	bio->nbytes = KERNEL_BLOCKSIZE;
 
 	if (make_request_blkdev(MKDEV(dev->major, dev->minor), 0, bio, 0) < 0) {
@@ -338,16 +338,16 @@ int32_t make_request_blkdev(dev_t dev, uint32_t first_sector, bio_t *bios,
 		}
 	}
 
-	spin_unlock(&blockdev->lock);
-
 	collate_requests(blockdev->queue);
+
+	spin_unlock(&blockdev->lock);
 
 	return blockdev->handler(blockdev);
 }
 
 int32_t end_request(request_t *req, uint32_t success, uint32_t nsectors) {
 	if (!success)
-		return -EIO;
+		nsectors = req->nsectors;
 
 	req->nsectors -= nsectors;
 	req->first_sector += nsectors;

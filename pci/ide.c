@@ -108,7 +108,7 @@ static void ide_read_buffer(struct IDEChannelRegisters *channel, uint8_t reg,
 		ide_write(channel, ATA_REG_CONTROL, channel->nEIN);
 }
 
-static uint8_t ide_polling(struct IDEChannelRegisters *channel,
+/* static uint8_t ide_polling(struct IDEChannelRegisters *channel,
 		uint32_t advanced_check) {
 	int i;
 	// Delay 400 ns for BSY to be set
@@ -133,7 +133,7 @@ static uint8_t ide_polling(struct IDEChannelRegisters *channel,
 	}
 
 	return 0;
-}
+} */
 
 static uint8_t ide_print_err(struct IDEDevice *dev, uint8_t err) {
 	if (!err)
@@ -427,44 +427,43 @@ void init_ide(void) {
 		printf("IDE: error registering pci\n");
 }
 
-static uint32_t ide_ata_access(struct IDEDevice *dev, request_t *req);
+static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req);
 
 static int32_t request_ide(blkdev_t *dev) {
+	int32_t ret = 0;
+	spin_lock(&dev->lock);
 	struct IDEDevice *ide = (struct IDEDevice *)dev->private_data;
 	acquire_mutex(ide->channel->mutex);
 
 	node_t *node = dev->queue->head;
 	while (node) {
 		request_t *req = (request_t *)node->data;
-		uint32_t sectors_xferred = ide_ata_access(ide, req);
+		int32_t sectors_xferred = ide_ata_access(ide, req);
 		int32_t cont;
 
-		if (sectors_xferred == IDE_TRANSFER_INVALID)
-			cont = end_request(req, 0, sectors_xferred);
-		else
-			cont = end_request(req, 1, sectors_xferred);
+		if (sectors_xferred < 0) {
+			ret = sectors_xferred;
+			cont = end_request(req, 0, 0);
+		} else
+			cont = end_request(req, 1, (uint32_t)sectors_xferred);
 
-		if (cont < 0)
-			break;
-		else if (cont == 0) {
+		if (cont == 0) {
 			list_dequeue(dev->queue, node);
 			free_request(req);
 			kfree(node);
+			if (ret < 0)
+				break;
 		}
 		node = dev->queue->head;
 	}
 
 	release_mutex(ide->channel->mutex);
+	spin_unlock(&dev->lock);
 
-	if (node)
-		return -EIO;
-
-	return 0;
+	return ret;
 }
 
 static int statusgood(uint8_t status) {
-	if (status & ATA_SR_BSY)
-		return 0;
 	if (status & ATA_SR_ERR)
 		return 0;
 	if (status & ATA_SR_DF)
@@ -473,6 +472,12 @@ static int statusgood(uint8_t status) {
 		return 0;
 
 	return 1;
+}
+
+static void waste400(struct IDEChannelRegisters *channel) {
+	int i;
+	for (i = 0; i < 4; i++)
+		ide_read(channel, ATA_REG_ALTSTATUS);
 }
 
 /* ATA/ATAPI Read/Write Modes:
@@ -490,11 +495,11 @@ static int statusgood(uint8_t status) {
  *   - Ultra DMA Modes (0 : 6).
  *  Polling Modes:
  *  ================
- *   - IRQs
+ *   - IRQs				(+)
  *   - Polling Status   (+) // Suitable for Singletasking
  */
 
-static uint32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
+static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 	uint8_t lba_io[6];
 	uint32_t lba_ext = 0;
 	uint32_t cmd = 0;
@@ -552,9 +557,7 @@ static uint32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 		ide_write(dev->channel, ATA_REG_HDDEVSEL, 0xA0 | (slave << 4) | head);
 
 	// Wait 400ns
-	uint32_t i;
-	for (i = 0; i < 4; i++)
-		ide_read(dev->channel, ATA_REG_ALTSTATUS);
+	waste400();
 
 	// Write parameters
 	if (lba_ext) {
@@ -639,22 +642,36 @@ static uint32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 
 		if (direction == ATA_READ) // PIO read
 			for (i = 0; i < nsects; i++) {
+				waste400(dev->channel);
 				uint8_t status = 0;
 				wait_event_interruptable(ide_wq, 
-					(status = ide_read(dev->channel, ATA_REG_STATUS)) & ATA_SR_BSY);
-				if (!statusgood(status))
-					return IDE_TRANSFER_INVALID;
+					!((status = ide_read(dev->channel, ATA_REG_STATUS)) & ATA_SR_BSY));
+				if (status & ATA_SR_BSY) {
+					kernel_unmap((uintptr_t)edi);
+					return -EINTR;
+				}
+				if (!statusgood(status)) {
+					kernel_unmap((uintptr_t)edi);
+					return -EIO;
+				}
 
 				insw(bus, edi + bio->offset + offset, IDE_SECTOR_SIZE / 2);
 				offset += IDE_SECTOR_SIZE;
 			}
 		else { // PIO write
 			for (i = 0; i < bio->nbytes / KERNEL_BLOCKSIZE; i++) {
+				waste400(dev->channel);
 				uint8_t status = 0;
 				wait_event_interruptable(ide_wq, 
-					(status = ide_read(dev->channel, ATA_REG_STATUS)) & ATA_SR_BSY);
-				if (!statusgood(status))
-					return IDE_TRANSFER_INVALID;
+					!((status = ide_read(dev->channel, ATA_REG_STATUS)) & ATA_SR_BSY));
+				if (status & ATA_SR_BSY) {
+					kernel_unmap((uintptr_t)edi);
+					return -EINTR;
+				}
+				if (!statusgood(status)) {
+					kernel_unmap((uintptr_t)edi);
+					return -EIO;
+				}
 
 				outsw(bus, edi + offset, IDE_SECTOR_SIZE / 2);
 				offset += IDE_SECTOR_SIZE;
@@ -669,7 +686,7 @@ static uint32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 
 		kernel_unmap((uintptr_t)edi);
 
-		return nsects;
+		return (int32_t)nsects;
 	}
 
 	return 0;
