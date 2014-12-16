@@ -95,7 +95,7 @@ typedef struct registers {
 typedef void (*isr_t)(registers_t*);
 
 void init_idt(void);
-void register_interrupt_handler(uint8_t n, isr_t handler);
+int32_t register_interrupt_handler(uint8_t n, isr_t handler);
 
 // Interrupts. Define in interrupt.s
 extern void isr0(void);

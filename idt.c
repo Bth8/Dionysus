@@ -41,8 +41,16 @@ void idt_set_gate(uint8_t num, uint32_t handler, uint16_t sel, uint8_t flags) {
 	idt_entries[num].flags = flags;
 }
 
-void register_interrupt_handler(uint8_t n, isr_t handler) {
+int32_t register_interrupt_handler(uint8_t n, isr_t handler) {
+	if (isr_handlers[n])
+		return -1;
+
 	isr_handlers[n] = handler;
+	return 0;
+}
+
+void release_interrupt_handler(uint8_t n) {
+	isr_handlers[n] = NULL;
 }
 
 void init_idt(void) {
