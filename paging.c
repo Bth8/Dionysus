@@ -133,7 +133,7 @@ uintptr_t kernel_map(uintptr_t addr) {
 		if (page->present)
 			continue;
 		dm_frame(page, 1, 1, addr);
-		return page->frame << 12;
+		return virtaddr;
 	}
 
 	return (uintptr_t)NULL;
