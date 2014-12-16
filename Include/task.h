@@ -100,7 +100,9 @@ int32_t getresgid(int32_t *ruid, int32_t *euid, int32_t *suid);
 uintptr_t sbrk(uintptr_t inc);
 uint32_t chdir(const char *path);
 
-#define wait_event(wq, expr) {while (sleep_thread(wq, 0) == 0) { if (expr) { break; } }}
-#define wait_event_interruptable(wq, expr) {while (sleep_thread(wq, SLEEP_INTERRUPTABLE) == 0) { if (expr) { break; } }}
+#define wait_event(wq, expr) do { if (expr) { break; } } \
+	while (sleep_thread(wq, 0) == 0);
+#define wait_event_interruptable(wq, expr) do { if (expr) { break; } } \
+	while (sleep_thread(wq, SLEEP_INTERRUPTABLE) == 0);
 
 #endif /* TASK_H */
