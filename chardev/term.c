@@ -202,7 +202,7 @@ struct file_ops fops = {
 void init_term(void) {
 	term_wq = create_waitqueue();
 	ASSERT(term_wq);
-	register_interrupt_handler(IRQ1, kbd_isr);
+	ASSERT(register_interrupt_handler(IRQ1, kbd_isr) == 0);
 	update_leds(leds);
 	register_chrdev(TERM_MAJOR, "tty", fops);
 }

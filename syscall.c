@@ -132,5 +132,5 @@ void syscall_handler(registers_t *regs) {
 
 void init_syscalls(void) {
 	num_syscalls = sizeof(syscalls) / sizeof(void *);
-	register_interrupt_handler(0x80, &syscall_handler);
+	ASSERT(register_interrupt_handler(0x80, &syscall_handler) == 0);
 }

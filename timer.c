@@ -60,7 +60,7 @@ static void rtc_callback(registers_t *regs) {
 void init_timer(void) {
 	asm volatile("cli");
 	// PIT
-	register_interrupt_handler(IRQ0, &pit_callback);
+	ASSERT(register_interrupt_handler(IRQ0, &pit_callback) == 0);
 
 	uint32_t divisor = 1193182 / HZ;
 
@@ -76,7 +76,7 @@ void init_timer(void) {
 	outb(PIT_PORT0, divisor >> 8);
 
 	// RTC
-	register_interrupt_handler(IRQ8, &rtc_callback);
+	ASSERT(register_interrupt_handler(IRQ8, &rtc_callback) == 0);
 
 	uint8_t prev = READ_CMOS(CMOS_RTC_STAT_B);
 	WRITE_CMOS(CMOS_RTC_STAT_B, prev | CMOS_RTC_INT | CMOS_RTC_RATE);
