@@ -30,12 +30,14 @@
 #include <pci_ids.h>
 #include <errno.h>
 #include <block.h>
+#include <paging.h>
 
 extern volatile uint32_t tick;
 uint8_t ide_irq_invoked = 0;
 
-int32_t open(fs_node_t *node, uint32_t flags) { return 0; }
-int32_t close(fs_node_t *node) { return 0; }
+static int32_t open(fs_node_t *node, uint32_t flags) { return 0; }
+static int32_t close(fs_node_t *node) { return 0; }
+static int32_t request_ide(blkdev_t *dev);
 
 struct file_ops ide_fops = {
 	.open = open,
@@ -47,8 +49,14 @@ struct pci_dev_id ide_ids[] = {
 	{ 0, }
 };
 
+waitqueue_t *ide_wq = NULL;
+
+static void wake_ide() {
+	wake_queue(ide_wq);
+}
+
 static void ide_irq(registers_t *regs) {
-	ide_irq_invoked = 1;
+	wake_ide();
 }
 
 static void ide_write(struct IDEChannelRegisters *channel, uint8_t reg, uint8_t data) {
@@ -169,7 +177,7 @@ static blkdev_t *ide_blkdev_create(struct IDEDevice *ide) {
 	dev->sector_size = IDE_SECTOR_SIZE;
 	dev->size = ide->size * IDE_SECTOR_SIZE / KERNEL_BLOCKSIZE;
 	dev->lock = 0;
-	dev->handler = NULL;
+	dev->handler = request_ide;
 	dev->private_data = ide;
 
 	return dev;
@@ -213,15 +221,15 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 	uint32_t BAR3 = 0x0376;
 	uint32_t BAR4 = pciConfigReadDword(pci->bus->secondary, pci->slot, 
 		pci->func, PCI_BASE_ADDRESS_4);
-//	uint8_t int0 = 14;
+
+	register_interrupt_handler(IRQ14, ide_irq);
+	register_interrupt_handler(IRQ15, ide_irq);
 
 	if (prog & 0x01) {
 		BAR0 = pciConfigReadDword(pci->bus->secondary, pci->slot, pci->func,
 			PCI_BASE_ADDRESS_0);
 		BAR1 = pciConfigReadDword(pci->bus->secondary, pci->slot, pci->func,
 			PCI_BASE_ADDRESS_1);
-//		int0 = pciConfigReadByte(pci->bus->secondary, pci->slot, pci->func,
-//			PCI_INTERRUPT_LINE);
 	}
 
 	if (prog & 0x04) {
@@ -252,7 +260,7 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 			channel->ctrl = BAR3;
 		}
 
-		channel->mutex = create_mutex(1);
+		channel->mutex = create_mutex(0);
 		if (!channel->mutex) {
 			kfree(channel);
 			goto fail;
@@ -357,8 +365,6 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 			kfree(channel);
 		}
 
-		release_mutex(channel->mutex);
-
 		if (j < 2)
 			goto fail;
 	}
@@ -399,6 +405,13 @@ fail:
 
 void init_ide(void) {
 	int32_t ret;
+
+	ide_wq = create_waitqueue();
+	if (!ide_wq) {
+		printf("IDE: error creating waitqueue");
+		return;
+	}
+
 	while ((ret = register_blkdev(IDE_MAJOR, "IDE", ide_fops)) == -ENOMEM)
 		continue;
 
@@ -414,14 +427,16 @@ void init_ide(void) {
 		printf("IDE: error registering pci\n");
 }
 
-static int32_t request_pci(blkdev_t *dev) {
+static uint32_t ide_ata_access(struct IDEDevice *dev, request_t *req);
+
+static int32_t request_ide(blkdev_t *dev) {
 	struct IDEDevice *ide = (struct IDEDevice *)dev->private_data;
 	acquire_mutex(ide->channel->mutex);
 
 	node_t *node = dev->queue->head;
 	while (node) {
 		request_t *req = (request_t *)node->data;
-		uint32_t sectors_xferred = 0;// ide_do_transfer(ide, req);
+		uint32_t sectors_xferred = ide_ata_access(ide, req);
 		int32_t cont;
 
 		if (sectors_xferred == IDE_TRANSFER_INVALID)
@@ -447,34 +462,18 @@ static int32_t request_pci(blkdev_t *dev) {
 	return 0;
 }
 
-/*
-static uint32_t ide_do_transfer(blkdev_t *dev, request_t *req) {
-	if (0) {
-		struct PRD *prd_table =
-			(struct PRD *)kmemalign(4, sizeof(struct PRD) * IDE_MAX_PRD);
-		if (!prd_table)
-			return 0;
+static int statusgood(uint8_t status) {
+	if (status & ATA_SR_BSY)
+		return 0;
+	if (status & ATA_SR_ERR)
+		return 0;
+	if (status & ATA_SR_DF)
+		return 0;
+	if (!(status & ATA_SR_DRQ))
+		return 0;
 
-		memset(prd_table, 0, sizeof(struct PRD) * IDE_MAX_PRD);
-
-		node_t *node;
-		int i = 0;
-		foreach(node, req->bios) {
-			if (i > 16)
-				break;
-			bio_t *bio = (bio_t *)node->data;
-			prd_table[i].phys_addr = bio->page + bio->offset;
-			prd-table[i].count = bio->nbytes;
-			if (i == 15 || node == req->bios->tail)
-				prd_table[i].EOT = 0x8000;
-			else
-				prd_table[i].EOT = 0x0000;
-			i++;
-		}
-	} else {
-
-	}
-} */
+	return 1;
+}
 
 /* ATA/ATAPI Read/Write Modes:
  * ++++++++++++++++++++++++++++++++
@@ -495,21 +494,19 @@ static uint32_t ide_do_transfer(blkdev_t *dev, request_t *req) {
  *   - Polling Status   (+) // Suitable for Singletasking
  */
 
-/*
-uint32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
+static uint32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 	uint8_t lba_io[6];
 	uint32_t lba_ext = 0;
 	uint32_t cmd = 0;
 	uint32_t slave = dev->drive;
 	uint32_t bus = dev->channel->base;
 	uint32_t lba = req->first_sector;
-	uint32_t dma = (dev->cap & ATA_CAP_DMA) ? 1 : 0;
+	uint32_t dma = (dev->cap & ATA_CAP_DMA && 0) ? 1 : 0;
 	uint32_t direction = (req->flags & BLOCK_DIR_WRITE) ? ATA_WRITE : ATA_READ;
 	uint32_t head;
 
-	// Disable interrupts
-	ide_write(dev->channel, ATA_REG_CONTROL, 2);
-	dev->channel->nEIN = 2;
+	// Enable interrupts
+	dev->channel->nEIN = 0;
 
 	// Select CHS, LBA28 or 48
 	if (lba >= 0x10000000) {
@@ -530,7 +527,7 @@ uint32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 		lba_io[3] = 0; // unused
 		lba_io[4] = 0;
 		lba_io[5] = 0;
-		head = (lba & 0xF000000) >> 24;
+		head = (lba & 0x0F000000) >> 24;
 	} else {
 		// CHS
 		uint32_t sect = (lba % 63) + 1;
@@ -561,12 +558,10 @@ uint32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 
 	// Write parameters
 	if (lba_ext) {
-		ide_write(dev->channel, ATA_REG_SECCOUNT1, 0);
 		ide_write(dev->channel, ATA_REG_LBA3, lba_io[3]);
 		ide_write(dev->channel, ATA_REG_LBA4, lba_io[4]);
 		ide_write(dev->channel, ATA_REG_LBA5, lba_io[5]);
 	}
-	ide_write(dev->channel, ATA_REG_SECCOUNT0, numsects);
 	ide_write(dev->channel, ATA_REG_LBA0, lba_io[0]);
 	ide_write(dev->channel, ATA_REG_LBA1, lba_io[1]);
 	ide_write(dev->channel, ATA_REG_LBA2, lba_io[2]);
@@ -588,10 +583,8 @@ uint32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 	else if (lba_ext && dma && direction == ATA_WRITE)
 		cmd = ATA_CMD_WRITE_DMA_EXT;
 
-	ide_write(dev->channel, ATA_REG_COMMAND, cmd);	// Send command
-
 	if (dma) { // TODO
-		uint32_t nsects = 0;
+	/*	uint32_t nsects = 0;
 		struct PRD *prd_table =
 			(struct PRD *)kmemalign(4, sizeof(struct PRD) * IDE_MAX_TRANSFER);
 		if (!prd_table)
@@ -619,10 +612,9 @@ uint32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 			else
 				prd_table[i].EOT = 0x0000;
 			nsects += bio->nbytes / KERNEL_BLOCKSIZE;
-		}
+		} */
 	} else {
-		node_t *node;
-		bio_t *bio = (bio_t *)req->queue->head->data;
+		bio_t *bio = (bio_t *)req->bios->head->data;
 
 		uint32_t nsects = bio->nbytes / IDE_SECTOR_SIZE;
 
@@ -635,39 +627,53 @@ uint32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 				nsects = IDE_MAX_TRANSFER_28;
 		}
 
-		ide_write(dev->channel, ATA_REG_SECCOUNT0, numsects & 0xFF);
+		ide_write(dev->channel, ATA_REG_SECCOUNT0, nsects & 0xFF);
 
-		void *edi = map_kernel(bio->page) + bio->offset;
+		void *edi = (void *)kernel_map(bio->page);
+		if (!edi)
+			return 0;
+
 		uintptr_t offset = 0;
+
+		ide_write(dev->channel, ATA_REG_COMMAND, cmd);	// Send command
 
 		if (direction == ATA_READ) // PIO read
 			for (i = 0; i < nsects; i++) {
-				if ((err = ide_polling(channel, 1)))
-					return err;
-				insw(bus, edi + offset, IDE_SECTOR_SIZE / 2);
+				uint8_t status = 0;
+				wait_event_interruptable(ide_wq, 
+					(status = ide_read(dev->channel, ATA_REG_STATUS)) & ATA_SR_BSY);
+				if (!statusgood(status))
+					return IDE_TRANSFER_INVALID;
+
+				insw(bus, edi + bio->offset + offset, IDE_SECTOR_SIZE / 2);
 				offset += IDE_SECTOR_SIZE;
 			}
 		else { // PIO write
 			for (i = 0; i < bio->nbytes / KERNEL_BLOCKSIZE; i++) {
-				ide_polling(channel, 0);
+				uint8_t status = 0;
+				wait_event_interruptable(ide_wq, 
+					(status = ide_read(dev->channel, ATA_REG_STATUS)) & ATA_SR_BSY);
+				if (!statusgood(status))
+					return IDE_TRANSFER_INVALID;
+
 				outsw(bus, edi + offset, IDE_SECTOR_SIZE / 2);
 				offset += IDE_SECTOR_SIZE;
 			}
-			if (lba_ext)
+			/* if (lba_ext)
 				ide_write(channel, ATA_REG_COMMAND, ATA_CMD_CACHE_FLUSH_EXT);
 			else
-				ide_write(channel, ATA_REG_COMMAND, ATA_CMD_CAHCE_FLUSH);
+				ide_write(channel, ATA_REG_COMMAND, ATA_CMD_CACHE_FLUSH);
 
-				ide_polling(channel, 0);
+				ide_polling(channel, 0); */
 		}
 
-		kernel_unmap(edi);
+		kernel_unmap((uintptr_t)edi);
 
 		return nsects;
 	}
 
 	return 0;
-} */
+}
 /*
 void ide_wait_irq(void) {
 	while (!ide_irq_invoked) {}

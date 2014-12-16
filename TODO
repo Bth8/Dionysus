@@ -1,9 +1,12 @@
 Practically everything. Very little's actually been implemented.
 
 Immediate concerns:
-Some kind of PCI registration. IDE would be the first, easiest part.
 
-Finish blockdev rewrite.
+Reevaluate mutexes.
+
+Finish IDE.
+
+Finish integrating new blockdev rewrite.
 
 Test shit
 
@@ -18,9 +21,6 @@ IPC would be nice.
 Need an init program.
 
 Need a shell.
-
-Work needs to be done on improving hard disk operations. Need to be able to
-write to ATAPI, need to implement DMA, etc.
 
 Race conditions need to be brought into consideration.
 
