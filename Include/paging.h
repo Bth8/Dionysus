@@ -23,8 +23,12 @@
 #include <common.h>
 #include <multiboot.h>
 
-#define KERNEL_BASE 0xC0000000
-#define PAGE_SIZE 0x1000
+#define KERNEL_BASE		0xC0000000
+#define PAGE_SIZE		0x1000
+
+// No one process should really be mapping 16 pages at one time
+#define FREE_MAP_BASE	0xF0000000
+#define FREE_MAP_MAX	0x00010000
 
 typedef struct page {
 	uint32_t present	: 1;	// Present in memory
@@ -72,6 +76,9 @@ void switch_page_dir(page_directory_t *newdir);
 void global_flush(void);
 void alloc_frame(page_t *page, int kernel, int rw);
 void dm_frame(page_t *page, int kernel, int rw, uintptr_t addr);
+void du_frame(page_t *page, int free);
+uintptr_t kernel_map(uintptr_t addr);
+void kernel_unmap(uintptr_t addr);
 void free_frame(page_t *page);
 uintptr_t resolve_physical(uintptr_t addr);
 // Gets specified page from dir. If make, create if not already present

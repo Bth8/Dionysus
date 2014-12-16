@@ -112,6 +112,39 @@ void dm_frame(page_t *page, int kernel, int rw, uintptr_t addr) {
 	spin_unlock(&frame_lock);
 }
 
+// Directly unmap page
+void du_frame(page_t *page, int free) {
+	if (!page)
+		return;
+	spin_lock(&frame_lock);
+	if ((page->frame) < nframes && free) {
+		clear_frame(page->frame << 12);
+	}
+	page->present = 0;
+	spin_unlock(&frame_lock);
+}
+
+uintptr_t kernel_map(uintptr_t addr) {
+	uintptr_t virtaddr;
+
+	for (virtaddr = FREE_MAP_BASE; virtaddr < FREE_MAP_BASE + FREE_MAP_MAX;
+			virtaddr += PAGE_SIZE) {
+		page_t *page = get_page(virtaddr, 1, current_dir);
+		if (page->present)
+			continue;
+		dm_frame(page, 1, 1, addr);
+		return page->frame << 12;
+	}
+
+	return (uintptr_t)NULL;
+}
+
+void kernel_unmap(uintptr_t addr) {
+	ASSERT(addr >= FREE_MAP_BASE && addr < FREE_MAP_BASE + FREE_MAP_MAX);
+
+	du_frame(get_page(addr, 0, current_dir), 0);
+}
+
 void free_frame(page_t *page) {
 	uint32_t frame;
 	if (!(frame = page->frame))
@@ -201,7 +234,7 @@ void init_paging(uint32_t memlength, uintptr_t mmap_addr,
 	for (i = 0xC0100000; i < placement_address + PAGE_SIZE; i += PAGE_SIZE)
 		dm_frame(get_page(i, 1, kernel_dir), 1, 1, i - KERNEL_BASE);
 
-	register_interrupt_handler(14, page_fault);
+	ASSERT(register_interrupt_handler(14, page_fault) == 0);
 	switch_page_dir(kernel_dir);
 
 	kheap = 1;
