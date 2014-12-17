@@ -25,9 +25,6 @@
 #include <vfs.h>
 #include <structures/list.h>
 
-#define KERNEL_BLOCKSIZE	512
-
-#define BLOCK_DIR_READ		0x00
 #define BLOCK_DIR_WRITE		0x01
 
 typedef struct blockdev blkdev_t;
@@ -36,7 +33,7 @@ typedef int32_t (*request_handler_t)(blkdev_t*);
 typedef struct bio {
 	uintptr_t page;
 	uintptr_t offset;
-	uint32_t nbytes;
+	uint32_t nsectors;
 	struct bio *next;
 } bio_t;
 
@@ -44,12 +41,13 @@ typedef struct {
 	uint32_t flags;
 	uint32_t first_sector;
 	uint32_t nsectors;
+	blkdev_t *dev;
 	list_t *bios;
 } request_t;
 
 struct part {
 	uint32_t minor;
-	uint32_t offset;	// in 512B sectors
+	uint32_t offset;	// in sectors
 	uint32_t size;
 };
 
@@ -100,8 +98,8 @@ int32_t autopopulate_blkdev(blkdev_t *dev);
 void free_blkdev(blkdev_t *dev);
 int32_t add_blkdev(blkdev_t *dev);
 blkdev_t *get_blkdev(dev_t dev);
-int32_t make_request_blkdev(dev_t dev, uint32_t first_sector, bio_t *bios,
-	uint32_t dir);
+int32_t make_request_blkdev(blkdev_t *blockdev, dev_t dev, uint32_t first_sector,
+	bio_t *bios, int write);
 int32_t end_request(request_t *req, uint32_t success, uint32_t nsectors);
 void free_request(request_t *req);
 

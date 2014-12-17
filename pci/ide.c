@@ -135,35 +135,39 @@ static void ide_read_buffer(struct IDEChannelRegisters *channel, uint8_t reg,
 	return 0;
 } */
 
-static uint8_t ide_print_err(struct IDEDevice *dev, uint8_t err) {
-	if (!err)
-		return err;
+static void ide_print_err(struct IDEDevice *dev, uint8_t status) {
+	if (status == 0)
+		return;
+
+	ASSERT(dev);
 
 	printf("IDE:\n\t");
-	if (err == 1) {printf("- Device fault\n\t"); err = 19;}
-	else if (err == 2) {
+	if (status & ATA_SR_DF)
+		printf("- Device fault\n\t");
+	else if (status & ATA_SR_ERR) {
 		uint8_t st = ide_read(dev->channel, ATA_REG_ERROR);
-		if (st & ATA_ER_AMNF) {printf("- Address mark not found\n\t");
-			err = 7;}
-		if (st & ATA_ER_TK0NF) {printf("- No media or media error\n\t");
-			err = 3;}
-		if (st & ATA_ER_ABRT) {printf("- Command aborted\n\t"); err = 20;}
-		if (st & ATA_ER_MCR) {printf("- No media or media error\n\t");
-			err = 3;}
-		if (st & ATA_ER_IDNF) {printf("- ID mark not found\n\t"); err = 21;}
-		if (st & ATA_ER_MC) {printf("- No media or media error\n\t");
-			err = 3;}
-		if (st & ATA_ER_UNC) {printf("- Uncorrectable data error\n\t");
-			err = 22;}
-		if (st & ATA_ER_BBK) {printf("- Bad sectors\n\t"); err = 13;}
-	} else if (err == 3) {printf("- Reads nothing\n\t"); err = 23;}
-	else if (err == 4) {printf("- Write protected\n\t"); err = 8;}
+		if (st & ATA_ER_AMNF)
+			printf("- Address mark not found\n\t");
+		if (st & ATA_ER_TK0NF)
+			printf("- No media or media error\n\t");
+		if (st & ATA_ER_ABRT)
+			printf("- Command aborted\n\t");
+		if (st & ATA_ER_MCR)
+			printf("- No media or media error\n\t");
+		if (st & ATA_ER_IDNF)
+			printf("- ID mark not found\n\t");
+		if (st & ATA_ER_MC)
+			printf("- No media or media error\n\t");
+		if (st & ATA_ER_UNC)
+			printf("- Uncorrectable data error\n\t");
+		if (st & ATA_ER_BBK)
+			printf("- Bad sectors\n\t");
+	} else if (status & ATA_SR_DRQ)
+		printf("- Reads nothing\n\t");
 	printf("- [%s %s] %s\n",
 		(char *[]){"Primary", "Secondary"}[dev->channel->channel],
 		(char *[]){"master", "slave"}[dev->drive],
 		dev->model);
-
-	return err;
 }
 
 static blkdev_t *ide_blkdev_create(struct IDEDevice *ide) {
@@ -175,7 +179,7 @@ static blkdev_t *ide_blkdev_create(struct IDEDevice *ide) {
 	dev->minor = 16 * (2 * ide->channel->channel + ide->drive);
 	dev->max_part = 16;
 	dev->sector_size = IDE_SECTOR_SIZE;
-	dev->size = ide->size * IDE_SECTOR_SIZE / KERNEL_BLOCKSIZE;
+	dev->size = ide->size;
 	dev->lock = 0;
 	dev->handler = request_ide;
 	dev->private_data = ide;
@@ -293,6 +297,7 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 
 			// Probe for ATAPI
 			if (err) {
+				continue; // Because we don't support ATAPI yet
 				uint8_t cl = ide_read(channel, ATA_REG_LBA1);
 				uint8_t ch = ide_read(channel, ATA_REG_LBA2);
 
@@ -557,7 +562,7 @@ static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 		ide_write(dev->channel, ATA_REG_HDDEVSEL, 0xA0 | (slave << 4) | head);
 
 	// Wait 400ns
-	waste400();
+	waste400(dev->channel);
 
 	// Write parameters
 	if (lba_ext) {
@@ -619,7 +624,7 @@ static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 	} else {
 		bio_t *bio = (bio_t *)req->bios->head->data;
 
-		uint32_t nsects = bio->nbytes / IDE_SECTOR_SIZE;
+		uint32_t nsects = bio->nsectors;
 
 		if (lba_ext) {
 			if (nsects > IDE_MAX_TRANSFER_48)
@@ -640,7 +645,8 @@ static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 
 		ide_write(dev->channel, ATA_REG_COMMAND, cmd);	// Send command
 
-		if (direction == ATA_READ) // PIO read
+		if (direction == ATA_READ) { // PIO read
+			uint32_t i;
 			for (i = 0; i < nsects; i++) {
 				waste400(dev->channel);
 				uint8_t status = 0;
@@ -652,14 +658,16 @@ static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 				}
 				if (!statusgood(status)) {
 					kernel_unmap((uintptr_t)edi);
+					ide_print_err(dev, status);
 					return -EIO;
 				}
 
 				insw(bus, edi + bio->offset + offset, IDE_SECTOR_SIZE / 2);
 				offset += IDE_SECTOR_SIZE;
 			}
-		else { // PIO write
-			for (i = 0; i < bio->nbytes / KERNEL_BLOCKSIZE; i++) {
+		} else { // PIO write
+			uint32_t i;
+			for (i = 0; i < nsects; i++) {
 				waste400(dev->channel);
 				uint8_t status = 0;
 				wait_event_interruptable(ide_wq, 
@@ -670,6 +678,7 @@ static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 				}
 				if (!statusgood(status)) {
 					kernel_unmap((uintptr_t)edi);
+					ide_print_err(dev, status);
 					return -EIO;
 				}
 

@@ -128,8 +128,6 @@
 #define IDE_MAX_TRANSFER_28		255
 #define IDE_MAX_TRANSFER_48		65535
 
-#define IDE_TRANSFER_INVALID	0xFFFFFFFFUL
-
 struct IDEChannelRegisters {
 	uint8_t channel;
 	uint16_t base;
