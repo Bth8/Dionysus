@@ -171,11 +171,10 @@ static fs_node_t *getparent(const char *path, char *child, int32_t *retval) {
 	}
 
 	int32_t ret;
-	if (fname == path_cpy) {
-		char *name = ".";
-		parent = kopen(name, O_WRONLY, &ret);
-	} else 
-		parent = kopen(path, O_WRONLY, &ret);
+	if (fname == path_cpy)
+		parent = kopen(".", O_WRONLY, &ret);
+	else
+		parent = kopen(path_cpy, O_WRONLY, &ret);
 
 	if (retval)
 		*retval = ret;
@@ -187,9 +186,8 @@ static fs_node_t *getparent(const char *path, char *child, int32_t *retval) {
 		return NULL;
 	}
 
-	if (child) {
+	if (child)
 		strcpy(child, fname);
-	}
 
 	kfree(path_cpy);
 	return parent;
