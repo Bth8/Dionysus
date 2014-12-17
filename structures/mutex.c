@@ -95,13 +95,14 @@ rw_sem_t *create_rw_semaphore(uint32_t max) {
 	sem->write = create_mutex(0);
 	if (!sem->write) {
 		kfree(sem);
-		return 0;
+		return NULL;
 	}
 
 	sem->semaphore = create_semaphore(max);
 	if (!sem->semaphore) {
 		destroy_mutex(sem->write);
 		kfree(sem);
+		return NULL;
 	}
 
 	return sem;

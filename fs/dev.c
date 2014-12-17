@@ -104,7 +104,7 @@ static struct superblock *return_sb(dev_t dev, uint32_t flags) {
 	if (!sb)
 		return NULL;
 
-	rw_sem_t *sem = (rw_sem_t *)kmalloc(sizeof(rw_sem_t));
+	rw_sem_t *sem = create_rw_semaphore(32);
 	if (!sem) {
 		kfree(sb);
 		return NULL;
@@ -387,6 +387,8 @@ static int32_t create(fs_node_t *parent, const char *fname, uint32_t uid,
 		return -ENOMEM;
 	}
 
+	acquire_semaphore_write((rw_sem_t *)parent->fs_sb->private_data);
+
 	new_file->node.inode = get_empty_inode(parent->fs_sb);
 	new_file->node.uid = uid;
 	new_file->node.gid = gid;
@@ -404,6 +406,7 @@ static int32_t create(fs_node_t *parent, const char *fname, uint32_t uid,
 		if (!new_file->node.private_data) {
 			kfree(dirp);
 			kfree(new_file);
+			release_semaphore_write((rw_sem_t *)parent->fs_sb->private_data);
 			return -ENOMEM;
 		}
 	} else {
@@ -418,30 +421,42 @@ static int32_t create(fs_node_t *parent, const char *fname, uint32_t uid,
 	strcpy(dirp->d_name, fname);
 	list_insert((list_t *)parent->private_data, dirp);
 
+	release_semaphore_write((rw_sem_t *)parent->fs_sb->private_data);
+
 	return 0;
 }
 
 static int32_t link(fs_node_t *parent, fs_node_t *child, const char *fname) {
+	acquire_semaphore_write((rw_sem_t *)parent->fs_sb->private_data);
 	fs_node_t *master = get_inode(child->fs_sb, child->inode);
-	if (!child)
+	if (!child) {
+		release_semaphore_write((rw_sem_t*)parent->fs_sb->private_data);
 		return -ENOTDIR;
+	}
 
 	struct dirent *dirp = (struct dirent *)kmalloc(sizeof(struct dirent));
-	if (!dirp)
+	if (!dirp) {
+		release_semaphore_write((rw_sem_t*)parent->fs_sb->private_data);
 		return -ENOMEM;
+	}
 	dirp->d_ino = child->inode;
 	strcpy(dirp->d_name, fname);
 
 	child->nlink = ++(master->nlink);
 	list_insert((list_t *)parent->private_data, dirp);
 
+	release_semaphore_write((rw_sem_t*)parent->fs_sb->private_data);
+
 	return 0;
 }
 
 static int32_t unlink(fs_node_t *parent, const char *fname) {
+	acquire_semaphore_write((rw_sem_t *)parent->fs_sb->private_data);
 	fs_node_t *master = get_inode(parent->fs_sb, parent->inode);
-	if (!master)
+	if (!master) {
+		release_semaphore_write((rw_sem_t*)parent->fs_sb->private_data);
 		return -ENOTDIR;
+	}
 
 	node_t *iter;
 	foreach(iter, ((list_t *)parent->private_data)) {
@@ -449,18 +464,24 @@ static int32_t unlink(fs_node_t *parent, const char *fname) {
 			break;
 	}
 
-	if (!iter)
+	if (!iter) {
+		release_semaphore_write((rw_sem_t*)parent->fs_sb->private_data);
 		return -ENOENT;
+	}
 
 	fs_node_t *child = get_inode(parent->fs_sb, 
 		((struct dirent *)iter->data)->d_ino);
-	if (!child) // This... would not be expected
+	if (!child) {// This... would not be expected
+		release_semaphore_write((rw_sem_t*)parent->fs_sb->private_data);
 		return -ENOENT;
+	}
 
 	list_remove((list_t *)parent->private_data, iter);
 
 	if (--child->nlink == 0 && child->refcount == 0)
 		file_remove(parent->fs_sb, child->inode);
+
+	release_semaphore_write((rw_sem_t*)parent->fs_sb->private_data);
 
 	return 0;
 }
