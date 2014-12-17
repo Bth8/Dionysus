@@ -8,19 +8,17 @@ Finish integrating new blockdev rewrite.
 
 Test shit
 
-Rewrite other filesystems.
-
 FAT32 needs to be finished. It would be nice if we could get EXT2, too.
 
 User input sanitization.
 
-IPC would be nice.
+IPC would be nice. Interrupts especially.
 
 Need an init program.
 
 Need a shell.
 
-Race conditions need to be brought into consideration.
+Race conditions need to be checked rigorously.
 
 Improvements with ELF. Relocatable code, dynamic linking, etc.
 

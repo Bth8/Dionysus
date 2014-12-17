@@ -466,10 +466,6 @@ static int32_t unlink(fs_node_t *parent, const char *fname) {
 }
 
 /*
-uint32_t read_blkdev(uint32_t major, uint32_t minor, size_t count, off_t off,
-		char *buf);
-uint32_t write_blkdev(uint32_t major, uint32_t minor, size_t count, off_t off,
-		const char *buf);
 
 static ssize_t read(fs_node_t *node, void *buf, size_t count, off_t off) {
 	if (node->flags & VFS_CHARDEV) {
@@ -494,20 +490,6 @@ static ssize_t write(fs_node_t *node, const void *buf, size_t count,
 				off, buf);
 
 	return 0;
-}
-
-static int32_t ioctl(fs_node_t *node, uint32_t request, void *ptr) {
-	if (node->flags & VFS_CHARDEV) {
-		if (char_drivers[MAJOR(node->impl) - 1].ops.ioctl)
-			return char_drivers[MAJOR(node->impl) - 1].ops.ioctl(node,
-					request, ptr);
-	} else if (node->flags & VFS_BLOCKDEV) {
-		if (blk_drivers[MAJOR(node->impl) - 1].ioctl)
-			return blk_drivers[MAJOR(node->impl) - 1].ioctl(
-					MINOR(node->impl) / 16, request, ptr);
-	}
-
-	return -ENOTTY;
 }
 
 uint32_t read_blkdev(uint32_t major, uint32_t minor, size_t count, off_t off,

@@ -191,33 +191,3 @@ int sprintf(char *out, const char *format, ...)
         va_start( args, format );
         return print( &out, format, args );
 }
-
-/*
- * if you compile this file with
- *   gcc -Wall $(YOUR_C_OPTIONS) -DTEST_PRINTF -c printf.c
- * you will get a normal warning:
- *   printf.c:214: warning: spurious trailing `%' in format
- * this line is testing an invalid % at the end of the format string.
- *
- * this should display (on 32bit int machine) :
- *
- * Hello world!
- * printf test
- * (null) is null pointer
- * 5 = 5
- * -2147483647 = - max int
- * char a = 'a'
- * hex ff = ff
- * hex 00 = 00
- * signed -3 = unsigned 4294967293 = hex fffffffd
- * 0 message(s)
- * 0 message(s) with %
- * justif: "left      "
- * justif: "     right"
- *  3: 0003 zero padded
- *  3: 3    left justif.
- *  3:    3 right justif.
- * -3: -003 zero padded
- * -3: -3   left justif.
- * -3:   -3 right justif.
- */

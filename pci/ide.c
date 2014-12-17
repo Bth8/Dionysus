@@ -108,33 +108,6 @@ static void ide_read_buffer(struct IDEChannelRegisters *channel, uint8_t reg,
 		ide_write(channel, ATA_REG_CONTROL, channel->nEIN);
 }
 
-/* static uint8_t ide_polling(struct IDEChannelRegisters *channel,
-		uint32_t advanced_check) {
-	int i;
-	// Delay 400 ns for BSY to be set
-	for (i = 0; i < 4; i++)
-		// Reading alternate status port wastes 100 ns
-		ide_read(channel, ATA_REG_ALTSTATUS);
-	// Wait for BSY to clear
-	while (ide_read(channel, ATA_REG_STATUS) & ATA_SR_BSY)
-		continue;
-
-	if (advanced_check) {
-		uint8_t state = ide_read(channel, ATA_REG_STATUS);
-		// Check for errors
-		if (state & ATA_SR_ERR)
-			return 2;
-		// Check for device fault
-		if (state & ATA_SR_DF)
-			return 1;
-		// Check DRQ
-		if (!(state & ATA_SR_DRQ))
-			return 3; // DRQ should be set
-	}
-
-	return 0;
-} */
-
 static void ide_print_err(struct IDEDevice *dev, uint8_t status) {
 	if (status == 0)
 		return;
@@ -685,12 +658,6 @@ static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 				outsw(bus, edi + offset, IDE_SECTOR_SIZE / 2);
 				offset += IDE_SECTOR_SIZE;
 			}
-			/* if (lba_ext)
-				ide_write(channel, ATA_REG_COMMAND, ATA_CMD_CACHE_FLUSH_EXT);
-			else
-				ide_write(channel, ATA_REG_COMMAND, ATA_CMD_CACHE_FLUSH);
-
-				ide_polling(channel, 0); */
 		}
 
 		kernel_unmap((uintptr_t)edi);
@@ -700,12 +667,8 @@ static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 
 	return 0;
 }
-/*
-void ide_wait_irq(void) {
-	while (!ide_irq_invoked) {}
-	ide_irq_invoked = 0;
-}
 
+/*
 uint32_t ide_atapi_read(uint32_t drive, uint32_t lba, uint32_t numsects, void *edi) {
 	uint32_t channel = ide_devices[drive].channel;
 	uint32_t slave = ide_devices[drive].drive;
