@@ -135,8 +135,8 @@ static void ide_print_err(struct IDEDevice *dev, uint8_t status) {
 			printf("- Uncorrectable data error\n\t");
 		if (st & ATA_ER_BBK)
 			printf("- Bad sectors\n\t");
-	} else if (status & ATA_SR_DRQ)
-		printf("- Reads nothing\n\t");
+	}
+
 	printf("- [%s %s] %s\n",
 		(char *[]){"Primary", "Secondary"}[dev->channel->channel],
 		(char *[]){"master", "slave"}[dev->drive],
@@ -446,8 +446,6 @@ static int statusgood(uint8_t status) {
 		return 0;
 	if (status & ATA_SR_DF)
 		return 0;
-	if (!(status & ATA_SR_DRQ))
-		return 0;
 
 	return 1;
 }
@@ -456,6 +454,42 @@ static void waste400(struct IDEChannelRegisters *channel) {
 	int i;
 	for (i = 0; i < 4; i++)
 		ide_read(channel, ATA_REG_ALTSTATUS);
+}
+
+static int32_t wait_irq(struct IDEDevice *dev, uint32_t timeout) {
+	struct timer *timer = (struct timer *)kmalloc(sizeof(struct timer));
+	if (!timer)
+		return -ENOMEM;
+
+	timer->expires = tick + timeout * HZ;
+	timer->callback = wake_ide;
+	if (add_timer(timer) < 0) {
+		kfree(timer);
+		return -ENOMEM;
+	}
+
+	int32_t ret = 0;
+
+	uint32_t status = 0;
+	do {
+		int interrupted = sleep_thread(ide_wq, SLEEP_INTERRUPTABLE);
+		if (interrupted) {
+			ret = -EINTR;
+			break;
+		}
+
+		status = ide_read(dev->channel, ATA_REG_STATUS);
+	} while (status & ATA_SR_BSY);
+
+	if (ret == 0 && !statusgood(status)) {
+		ide_print_err(dev, status);
+		ret = -EIO;
+	}
+
+	del_timer(timer);
+	kfree(timer);
+
+	return ret;
 }
 
 /* ATA/ATAPI Read/Write Modes:
@@ -564,7 +598,7 @@ static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 	else if (lba_ext && dma && direction == ATA_WRITE)
 		cmd = ATA_CMD_WRITE_DMA_EXT;
 
-	if (dma) { // TODO
+	if (dma) {
 	/*	uint32_t nsects = 0;
 		struct PRD *prd_table =
 			(struct PRD *)kmemalign(4, sizeof(struct PRD) * IDE_MAX_TRANSFER);
@@ -622,17 +656,10 @@ static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 			uint32_t i;
 			for (i = 0; i < nsects; i++) {
 				waste400(dev->channel);
-				uint8_t status = 0;
-				wait_event_interruptable(ide_wq, 
-					!((status = ide_read(dev->channel, ATA_REG_STATUS)) & ATA_SR_BSY));
-				if (status & ATA_SR_BSY) {
+				int32_t error = wait_irq(dev, IDE_TIMEOUT);
+				if (error < 0) {
 					kernel_unmap((uintptr_t)edi);
-					return -EINTR;
-				}
-				if (!statusgood(status)) {
-					kernel_unmap((uintptr_t)edi);
-					ide_print_err(dev, status);
-					return -EIO;
+					return error;
 				}
 
 				insw(bus, edi + bio->offset + offset, IDE_SECTOR_SIZE / 2);
@@ -642,17 +669,10 @@ static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 			uint32_t i;
 			for (i = 0; i < nsects; i++) {
 				waste400(dev->channel);
-				uint8_t status = 0;
-				wait_event_interruptable(ide_wq, 
-					!((status = ide_read(dev->channel, ATA_REG_STATUS)) & ATA_SR_BSY));
-				if (status & ATA_SR_BSY) {
+				int32_t error = wait_irq(dev, IDE_TIMEOUT);
+				if (error < 0) {
 					kernel_unmap((uintptr_t)edi);
-					return -EINTR;
-				}
-				if (!statusgood(status)) {
-					kernel_unmap((uintptr_t)edi);
-					ide_print_err(dev, status);
-					return -EIO;
+					return error;
 				}
 
 				outsw(bus, edi + offset, IDE_SECTOR_SIZE / 2);
