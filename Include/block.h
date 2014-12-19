@@ -34,7 +34,6 @@ typedef struct bio {
 	uintptr_t page;
 	uintptr_t offset;
 	uint32_t nsectors;
-	struct bio *next;
 } bio_t;
 
 typedef struct {
@@ -99,7 +98,7 @@ void free_blkdev(blkdev_t *dev);
 int32_t add_blkdev(blkdev_t *dev);
 blkdev_t *get_blkdev(dev_t dev);
 int32_t make_request_blkdev(blkdev_t *blockdev, dev_t dev, uint32_t first_sector,
-	bio_t *bios, int write);
+	list_t *bios, int write);
 int32_t end_request(request_t *req, uint32_t success, uint32_t nsectors);
 void free_request(request_t *req);
 

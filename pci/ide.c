@@ -328,7 +328,8 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 
 			printf("Found %s%i-%i %iMB - %s\n",
 				(char *[]){"ATA", "ATAPI"}[dev->type],
-				i / 2, i % 2, dev->size * IDE_SECTOR_SIZE / 1024 / 1024,
+				dev->channel->channel, dev->drive,
+				dev->size * IDE_SECTOR_SIZE / 1024 / 1024,
 				dev->model);
 
 			blkdevs[i + j] = ide_blkdev_create(dev);
@@ -359,7 +360,10 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 				kfree(blkdevs[i]);
 				continue;
 			}
-			autopopulate_blkdev(blkdevs[i]);
+			if (autopopulate_blkdev(blkdevs[i]) < 0)
+				printf("Error populating %s%i-%i\n",
+					(char *[]){"ATA", "ATAPI"}[ide->type],
+					ide->channel->channel, ide->drive);
 		}
 	}
 
