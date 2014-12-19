@@ -40,6 +40,8 @@
 #include <pci/ide.h>
 #include <cpuid.h>
 
+#include <fileops.h>
+
 // LOOK HERE
 // Defined in linker script
 extern uintptr_t kend;
@@ -98,5 +100,24 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 
 	init_ide();
 
+	char buff[1024];
+	int32_t ret;
+
+	if ((ret = mknod("/dev/hda", VFS_BLOCKDEV | 0666, MKDEV(IDE_MAJOR, 0))) < 0) {
+		printf("mknod %d\n", ret);
+		goto end;
+	}
+
+	fs_node_t *file = kopen("/dev/hda", O_RDWR, &ret);
+	if (!file) {
+		printf("kopen %d\n", ret);
+		goto end;
+	}
+
+	ssize_t bytes = read_vfs(file, buff, 1024, 0x00E3A365);
+	printf("%d\n%s\n0x%08x\n", (uint32_t)bytes, buff, buff);
+	magic_break();
+
+end:
 	halt();
 }

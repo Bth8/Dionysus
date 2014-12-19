@@ -198,12 +198,79 @@ static void file_remove(struct superblock *sb, uint32_t inode) {
 	kfree(iter);
 }
 
+static ssize_t read_blkdev(dev_t dev, void *buf, size_t count, off_t off) {
+	blkdev_t *blockdev = get_blkdev(dev);
+	if (!blockdev)
+		return -EINVAL;
+
+	// Align to a sector boundary
+	off_t delta = off % blockdev->sector_size;
+	off -= delta;
+
+	uint32_t nsects = (count + delta) / blockdev->sector_size;
+	if ((count + delta) % blockdev->sector_size)
+		nsects++;
+
+	char *bounce = kmemalign(blockdev->sector_size,
+		nsects * blockdev->sector_size);
+	if (!bounce)
+		return -ENOMEM;
+
+	list_t *bios = list_create();
+	if (!bios) {
+		kfree(bounce);
+		return -ENOMEM;
+	}
+
+	uintptr_t buff_offset = 0;
+	while (nsects) {
+		bio_t *bio = (bio_t *)kmalloc(sizeof(bio_t));
+		if (!bio) {
+			list_destroy(bios);
+			kfree(bounce);
+			return -ENOMEM;
+		}
+
+		bio->page = resolve_physical((uintptr_t)bounce + buff_offset);
+		bio->offset = bio->page % PAGE_SIZE;
+		bio->page = (bio->page / PAGE_SIZE) * PAGE_SIZE;
+
+		if (PAGE_SIZE - bio->offset < nsects * blockdev->sector_size)
+			bio->nsectors = (PAGE_SIZE - bio->offset) / blockdev->sector_size;
+		else
+			bio->nsectors = nsects;
+
+		buff_offset += bio->nsectors * blockdev->sector_size;
+		nsects -= bio->nsectors;
+
+		node_t *node = list_insert(bios, bio);
+		if (!node) {
+			kfree(bio);
+			list_destroy(bios);
+			kfree(bounce);
+			return -ENOMEM;
+		}
+	}
+
+	int32_t ret = make_request_blkdev(blockdev, dev, off / blockdev->sector_size,
+		bios, 0);
+	if (ret < 0) {
+		kfree(bounce);
+		return ret;
+	}
+
+	memcpy(buf, bounce + delta, count);
+	kfree(bounce);
+	return count;
+}
+
 static ssize_t read(fs_node_t *node, void *buf, size_t count, off_t off) {
 	if (node->mode & VFS_CHARDEV) {
 		struct chrdev_driver *driver = get_chrdev_driver(MAJOR(node->dev));
 		if (driver && driver->ops.read)
 			return driver->ops.read(node, buf, count, off);
-	}
+	} else if (node->mode & VFS_BLOCKDEV)
+		return read_blkdev(node->dev, buf, count, off);
 
 	return -EINVAL;
 }
