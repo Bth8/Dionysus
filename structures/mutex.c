@@ -132,6 +132,6 @@ void acquire_semaphore_write(volatile rw_sem_t *sem) {
 }
 
 void release_semaphore_write(volatile rw_sem_t *sem) {
-	sem->semaphore -= sem->semaphore->max;
+	sem->semaphore->semaphore -= sem->semaphore->max;
 	wake_queue(sem->semaphore->wq);
 }
