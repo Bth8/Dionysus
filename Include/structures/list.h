@@ -37,6 +37,7 @@ typedef struct {
 list_t *list_create(void);
 void list_destroy(list_t *list);
 node_t *list_insert(list_t *list, void *data);
+node_t *list_push(list_t *list, void *data);
 node_t *list_insert_after(list_t *list, node_t *node, void *data);
 node_t *list_insert_before(list_t *list, node_t *node, void *data);
 void list_remove(list_t *list, node_t *node);

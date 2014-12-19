@@ -76,6 +76,30 @@ node_t *list_insert(list_t *list, void *data) {
 	return node;
 }
 
+node_t *list_push(list_t *list, void *data) {
+	if (!list)
+		return NULL;
+
+	node_t *node = (node_t *)kmalloc(sizeof(node_t));
+	if (!node)
+		return NULL;
+
+	node->data = data;
+	node->owner = list;
+	node->prev = NULL;
+
+	node->next = list->head;
+	list->head = node;
+
+	if (!list->tail) {
+		list->tail = node;
+		return node;
+	}
+
+	node->next->prev = node;
+	return node;
+}
+
 node_t *list_insert_after(list_t *list, node_t *node, void *data) {
 	if (!list || !node)
 		return NULL;
