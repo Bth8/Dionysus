@@ -360,9 +360,12 @@ static void context_switch(void) {
 	asm volatile("mov %0, %%ecx; \
 		mov %1, %%esp; \
 		mov %2, %%ebp; \
+		mov %3, %%cr3; \
 		mov $0x12345, %%eax; \
 		jmp *%%ecx" : : "r"(current_task->eip), "r"(current_task->esp),
-		"r"(current_task->ebp) : "ecx");
+		"r"(current_task->ebp), "r"(current_dir->physical_address) : "ecx");
+}
+
 }
 
 int switch_task(void) {
@@ -403,7 +406,6 @@ int switch_task(void) {
 		current_dir = current_task->page_dir;
 		set_kernel_stack(esp);
 
-		asm volatile("mov %0, %%cr3" : : "r"(current_dir->physical_address));
 		context_switch();
 	}
 
@@ -497,8 +499,6 @@ int sleep_thread(waitqueue_t *wq, uint32_t flags) {
 
 	current_dir = current_task->page_dir;
 	set_kernel_stack(esp);
-
-	asm volatile("mov %0, %%cr3" : : "r"(current_dir->physical_address));
 
 	context_switch();
 
