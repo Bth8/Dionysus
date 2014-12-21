@@ -356,6 +356,15 @@ error1:
 	return -ENOMEM;
 }
 
+static void context_switch(void) {
+	asm volatile("mov %0, %%ecx; \
+		mov %1, %%esp; \
+		mov %2, %%ebp; \
+		mov $0x12345, %%eax; \
+		jmp *%%ecx" : : "r"(current_task->eip), "r"(current_task->esp),
+		"r"(current_task->ebp) : "ecx");
+}
+
 int switch_task(void) {
 	if (current_task) {
 		uint32_t esp, ebp, eip;
@@ -394,15 +403,8 @@ int switch_task(void) {
 		current_dir = current_task->page_dir;
 		set_kernel_stack(esp);
 
-		// Put new eip in ecx, load stack/base pointers, change page dir, put
-		// dummy value in eax, jump to [ecx]
-		asm volatile("mov %0, %%ecx; \
-			mov %1, %%esp; \
-			mov %2, %%ebp; \
-			mov %3, %%cr3; \
-			mov $0x12345, %%eax; \
-			jmp *%%ecx" : : "r"(eip), "r"(esp), "r"(ebp),
-			"r"(current_dir->physical_address) : "ecx");
+		asm volatile("mov %0, %%cr3" : : "r"(current_dir->physical_address));
+		context_switch();
 	}
 
 	return 0;
@@ -442,14 +444,7 @@ void exit_task(int32_t status) {
 	free_dir(current_cache->page_dir);
 	kfree(current_cache->cwd);
 
-	// Context switching time
-	asm volatile("mov %0, %%ecx; \
-		mov %1, %%esp; \
-		mov %2, %%ebp; \
-		mov $0x12345, %%eax; \
-		jmp *%%ecx" ::
-		"r"(current_task->eip),"r"(current_task->esp),
-		"r"(current_task->ebp) : "ecx");
+	context_switch();
 }
 
 waitqueue_t *create_waitqueue(void) {
@@ -503,13 +498,9 @@ int sleep_thread(waitqueue_t *wq, uint32_t flags) {
 	current_dir = current_task->page_dir;
 	set_kernel_stack(esp);
 
-	asm volatile("mov %0, %%ecx; \
-		mov %1, %%esp; \
-		mov %2, %%ebp; \
-		mov %3, %%cr3; \
-		mov $0x12345, %%eax; \
-		jmp *%%ecx" : : "r"(eip), "r"(esp), "r"(ebp),
-		"r"(current_dir->physical_address) : "ecx");
+	asm volatile("mov %0, %%cr3" : : "r"(current_dir->physical_address));
+
+	context_switch();
 
 	return 0;
 }
