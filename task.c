@@ -57,21 +57,16 @@ spinlock_t process_lock = 0;
 
 // We get the first free pid, rather than go in order
 static pid_t nextpid(void) {
-	ASSERT(processes);
-
 	pid_t pid = 1;
 	while (1) {
 		if (pid > MAX_PID)
 			return 0;
 		node_t *node;
-		int exist = 0;
 		foreach(node, processes) {
-			if (((task_t *)node->data)->pid == pid) {
-				exist = 1;
+			if (((task_t *)node->data)->pid == pid)
 				break;
-			}
 		}
-		if (exist) {
+		if (node) {
 			pid++;
 			continue;
 		}
@@ -232,7 +227,6 @@ void init_tasking(uintptr_t ebp) {
 
 int32_t fork(void) {
 	asm volatile("cli");
-	spin_lock(&process_lock);
 	int i;
 	page_directory_t *directory = clone_directory(current_dir);
 
@@ -245,10 +239,13 @@ int32_t fork(void) {
 
 	memset(new_task, 0, sizeof(task_t));
 
+	spin_lock(&process_lock);
+
 	new_task->pid = nextpid();
 	if (new_task->pid == 0) {
 		free_dir(directory);
 		kfree(new_task);
+		spin_unlock(&process_lock);
 		return -EAGAIN;
 	}
 	new_task->gid = current_task->gid;

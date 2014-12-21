@@ -2,6 +2,8 @@ Practically everything. Very little's actually been implemented.
 
 Immediate concerns:
 
+Improve blockdev request handling
+
 Finish IDE.
 
 Finish integrating new blockdev rewrite.
