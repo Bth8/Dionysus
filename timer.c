@@ -49,7 +49,7 @@ static void pit_callback(registers_t *regs) {
 static void rtc_callback(registers_t *regs) {
 	if (--rtc_tick <= 0) {
 		current_time++;
-		rtc_tick = 1024;
+		rtc_tick = 4096;
 	}
 	if (--task_tick <= 0)
 		task_tick = 10 * (20 - switch_task());

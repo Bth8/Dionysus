@@ -568,8 +568,10 @@ waitqueue_t *create_waitqueue(void) {
 	if (!wq)
 		return NULL;
 	wq->queue = list_create();
-	if (!wq->queue)
+	if (!wq->queue) {
+		kfree(wq);
 		return NULL;
+	}
 
 	return wq;
 }
