@@ -44,6 +44,7 @@
 #define SLEEP_INTERRUPTED	0x04
 
 typedef int32_t pid_t;
+typedef void (*tasklet_body_t)(void*);
 
 struct filep {
 	fs_node_t *file;
@@ -77,8 +78,14 @@ typedef struct {
 	uint32_t sleep_flags;
 } task_t;
 
+typedef struct {
+	task_t task;
+	void *stack;
+} tasklet_t;
+
 void init_tasking(uintptr_t ebp);
 int32_t fork(void);
+int32_t create_tasklet(tasklet_body_t body, const char *name, void *argp);
 int switch_task(void);
 void exit_task(int32_t status);
 waitqueue_t *create_waitqueue(void);

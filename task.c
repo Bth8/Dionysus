@@ -37,6 +37,10 @@
 #include <structures/tree.h>
 #include <structures/list.h>
 
+#define PUSH(esp, type, object) ({ \
+	esp -= sizeof(type); \
+	*((type *)esp) = (type)object; })
+
 // Defined in main.c
 extern uint32_t initial_esp;
 
@@ -366,6 +370,115 @@ static void context_switch(void) {
 		"r"(current_task->ebp), "r"(current_dir->physical_address) : "ecx");
 }
 
+static void _tasklet_exit(void) {
+	spin_lock(&process_lock);
+
+	tasklet_t *tasklet = container_of((task_t *)current_task, tasklet_t, task);
+	current_task = get_ready_task();
+	tree_inherit_children(proc_tree, proc_tree->root, tasklet->task.treenode);
+
+	tree_detach_branch(proc_tree, tasklet->task.treenode);
+	tree_delete_node(tasklet->task.treenode);
+
+	node_t *proc;
+	foreach(proc, processes) {
+		if (&tasklet->task == proc->data)
+			break;
+	}
+	ASSERT(proc);
+
+	list_dequeue(processes, proc);
+	kfree(proc);
+
+	spin_unlock(&process_lock);
+
+	current_dir = current_task->page_dir;
+	set_kernel_stack(current_task->esp);
+
+	kfree(tasklet->task.cmd);
+	kfree(tasklet->stack);
+	kfree(tasklet);
+
+	context_switch();
+}
+
+int32_t create_tasklet(tasklet_body_t body, const char *name, void *argp) {
+	ASSERT(name);
+
+	tasklet_t *tasklet = (tasklet_t *)kmalloc(sizeof(tasklet_t));
+	if (!tasklet)
+		return -ENOMEM;
+
+	memset(tasklet, 0, sizeof(tasklet_t));
+
+	spin_lock(&process_lock);
+
+	tasklet->task.pid = nextpid();
+	if (tasklet->task.pid == 0) {
+		kfree(tasklet);
+		spin_unlock(&process_lock);
+		return -EAGAIN;
+	}
+
+	tasklet->task.page_dir = kernel_dir;
+
+	tasklet->task.cmd = kmalloc(strlen(name) + 1);
+	if (!tasklet->task.cmd)
+		goto error1;
+	strcpy(tasklet->task.cmd, name);
+
+	tasklet->stack = kmalloc(KERNEL_STACK_SIZE);
+	if (!tasklet->stack)
+		goto error2;
+
+	tasklet->task.esp = (uintptr_t)tasklet->stack + KERNEL_STACK_SIZE;
+	tasklet->task.ebp = tasklet->task.esp;
+
+	PUSH(tasklet->task.esp, uintptr_t, argp);
+	PUSH(tasklet->task.esp, uintptr_t, &_tasklet_exit);
+
+	tasklet->task.eip = (uintptr_t)body;
+
+	tree_node_t *treenode = tree_insert_node(proc_tree, proc_tree->root,
+		&tasklet->task);
+	if (!treenode)
+		goto error3;
+	tasklet->task.treenode = treenode;
+
+	node_t *proc;
+	node_t *proc_node = NULL;
+	foreach(proc, processes) {
+		if (((task_t *)proc->data)->pid > tasklet->task.pid)
+			break;
+	}
+	if (proc)
+		proc_node = list_insert_before(processes, proc, &tasklet->task);
+	else
+		proc_node = list_insert(processes, &tasklet->task);
+	if (!proc_node)
+		goto error4;
+
+	node_t *queuenode = list_insert(run_queue, &tasklet->task);
+	if (!queuenode)
+		goto error5;
+
+	spin_unlock(&process_lock);
+	return tasklet->task.pid;
+
+error5:
+	list_dequeue(processes, proc_node);
+	kfree(proc_node);
+error4:
+	tree_detach_branch(proc_tree, treenode);
+	tree_delete_node(treenode);
+error3:
+	kfree(tasklet->stack);
+error2:
+	kfree(tasklet->task.cmd);
+error1:
+	kfree(tasklet);
+	spin_unlock(&process_lock);
+	return -ENOMEM;
 }
 
 int switch_task(void) {
@@ -396,6 +509,7 @@ int switch_task(void) {
 			queue_node = list_insert(run_queue, (task_t *)current_task);
 			ASSERT(queue_node);
 		}
+
 		current_task = get_ready_task();
 		spin_unlock(&process_lock);
 
