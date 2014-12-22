@@ -78,8 +78,11 @@ void init_timer(void) {
 	// RTC
 	ASSERT(register_interrupt_handler(IRQ8, &rtc_callback) == 0);
 
-	uint8_t prev = READ_CMOS(CMOS_RTC_STAT_B);
-	WRITE_CMOS(CMOS_RTC_STAT_B, prev | CMOS_RTC_INT | CMOS_RTC_RATE);
+	uint8_t prev = READ_CMOS(CMOS_RTC_STAT_A);
+	WRITE_CMOS(CMOS_RTC_STAT_A, (prev & 0xF0) | CMOS_RTC_RATE);
+
+	prev = READ_CMOS(CMOS_RTC_STAT_B);
+	WRITE_CMOS(CMOS_RTC_STAT_B, prev | CMOS_RTC_INT);
 
 	// Enable interrupts
 	asm volatile("sti");
