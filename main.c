@@ -49,7 +49,7 @@ uintptr_t placement_address = (uint32_t)&kend;
 extern uint32_t tick;
 
 static void tasklet_test(void *arg) {
-	printf("Live, from inside this tasklet!\n%s\n", arg);
+	printf("Live, from inside this tasklet!\n");
 }
 
 void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
@@ -100,9 +100,9 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	init_devfs();
 	ASSERT(mount(NULL, "/dev", "devfs", 0) == 0);
 
-//	init_ide();
+	init_ide();
 
-	create_tasklet(tasklet_test, "[ktasklet]", "Dicks.");
+	create_tasklet(tasklet_test, "[ktasklet]", NULL);
 
 	halt();
 }

@@ -332,8 +332,8 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 				dev->size * IDE_SECTOR_SIZE / 1024 / 1024,
 				dev->model);
 
-			blkdevs[i + j] = ide_blkdev_create(dev);
-			if (blkdevs[i + j] == NULL) {
+			blkdevs[2 * i + j] = ide_blkdev_create(dev);
+			if (blkdevs[2 * i + j] == NULL) {
 				refs--;
 				kfree(dev);
 				break;

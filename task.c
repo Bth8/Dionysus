@@ -109,6 +109,16 @@ static task_t *get_ready_task() {
 	return task;
 }
 
+static void context_switch(void) {
+	asm volatile("mov %0, %%ecx; \
+		mov %1, %%esp; \
+		mov %2, %%ebp; \
+		mov %3, %%cr3; \
+		mov $0x12345, %%eax; \
+		jmp *%%ecx" : : "r"(current_task->eip), "r"(current_task->esp),
+		"r"(current_task->ebp), "r"(current_dir->physical_address) : "ecx");
+}
+
 static void move_stack(void *new_stack_start, void *old_stack_start, size_t size) {
 	uintptr_t i;
 	// Allocate space
@@ -145,8 +155,40 @@ static void move_stack(void *new_stack_start, void *old_stack_start, size_t size
 	asm volatile("mov %0, %%ebp" :: "r" (new_ebp));
 }
 
-void _kidle(void) {
+static void _kidle(void) {
 	halt();
+}
+
+static void _tasklet_exit(void) {
+	spin_lock(&process_lock);
+
+	tasklet_t *tasklet = container_of((task_t *)current_task, tasklet_t, task);
+	current_task = get_ready_task();
+	tree_inherit_children(proc_tree, proc_tree->root, tasklet->task.treenode);
+
+	tree_detach_branch(proc_tree, tasklet->task.treenode);
+	tree_delete_node(tasklet->task.treenode);
+
+	node_t *proc;
+	foreach(proc, processes) {
+		if (&tasklet->task == proc->data)
+			break;
+	}
+	ASSERT(proc);
+
+	list_dequeue(processes, proc);
+	kfree(proc);
+
+	spin_unlock(&process_lock);
+
+	current_dir = current_task->page_dir;
+	set_kernel_stack(current_task->esp);
+
+	kfree(tasklet->task.cmd);
+	kfree(tasklet->stack);
+	kfree(tasklet);
+
+	context_switch();
 }
 
 void init_tasking(uintptr_t ebp) {
@@ -189,31 +231,27 @@ void init_tasking(uintptr_t ebp) {
 		init->files[i].file = NULL;
 
 	// Create kidle
-	kidle = (task_t *)kmalloc(sizeof(task_t));
-	ASSERT(kidle);
+	tasklet_t *kidle_tasklet = (tasklet_t *)kmalloc(sizeof(tasklet_t));
+	ASSERT(kidle_tasklet);
 
-	memset(kidle, 0, sizeof(task_t));
+	kidle = &kidle_tasklet->task;
 
-	kidle->pid = -1;
-	kidle->gid = 0;
-	kidle->sid = 0;
-	kidle->page_dir = clone_directory(current_dir);
-	ASSERT(kidle->page_dir);
-	kidle->eip = (uintptr_t)&_kidle;
-	asm volatile("mov %%esp, %0" : "=g" (kidle->esp));
-	asm volatile("mov %%ebp, %0" : "=g" (kidle->ebp));
-	kidle->nice = 0;
-	kidle->euid = kidle->suid = kidle->ruid = 0;
-	kidle->egid = kidle->rgid = kidle->sgid = 0;
-	kidle->cwd = kmalloc(2);
-	ASSERT(kidle->cwd);
-	kidle->cwd[0] = PATH_DELIMITER;
-	kidle->cwd[1] = '\0';
-	kidle->cmd = kmalloc(8);
-	strcpy(kidle->cmd, "[kidle]");
+	memset(kidle_tasklet, 0, sizeof(task_t));
 
-	for (i = 0; i < MAX_OF; i++)
-		kidle->files[i].file = NULL;
+	kidle_tasklet->task.pid = -1;
+	kidle_tasklet->task.page_dir = kernel_dir;
+	kidle_tasklet->task.cmd = kmalloc(8);
+	ASSERT(kidle_tasklet->task.cmd);
+	strcpy(kidle_tasklet->task.cmd, "[kidle]");
+	kidle_tasklet->stack = kmalloc(KERNEL_STACK_SIZE);
+	ASSERT(kidle_tasklet->stack);
+	kidle_tasklet->task.esp = (uintptr_t)kidle_tasklet->stack + KERNEL_STACK_SIZE;
+	kidle_tasklet->task.ebp = kidle_tasklet->task.esp;
+
+	PUSH(kidle_tasklet->task.esp, uintptr_t, NULL);
+	PUSH(kidle_tasklet->task.esp, uintptr_t, &_tasklet_exit);
+
+	kidle_tasklet->task.eip = (uintptr_t)&_kidle;
 
 	// Create a user stack
 	for (i = USER_STACK_BOTTOM; i < USER_STACK_TOP; i += PAGE_SIZE);
@@ -358,48 +396,6 @@ error1:
 	kfree(new_task);
 	spin_unlock(&process_lock);
 	return -ENOMEM;
-}
-
-static void context_switch(void) {
-	asm volatile("mov %0, %%ecx; \
-		mov %1, %%esp; \
-		mov %2, %%ebp; \
-		mov %3, %%cr3; \
-		mov $0x12345, %%eax; \
-		jmp *%%ecx" : : "r"(current_task->eip), "r"(current_task->esp),
-		"r"(current_task->ebp), "r"(current_dir->physical_address) : "ecx");
-}
-
-static void _tasklet_exit(void) {
-	spin_lock(&process_lock);
-
-	tasklet_t *tasklet = container_of((task_t *)current_task, tasklet_t, task);
-	current_task = get_ready_task();
-	tree_inherit_children(proc_tree, proc_tree->root, tasklet->task.treenode);
-
-	tree_detach_branch(proc_tree, tasklet->task.treenode);
-	tree_delete_node(tasklet->task.treenode);
-
-	node_t *proc;
-	foreach(proc, processes) {
-		if (&tasklet->task == proc->data)
-			break;
-	}
-	ASSERT(proc);
-
-	list_dequeue(processes, proc);
-	kfree(proc);
-
-	spin_unlock(&process_lock);
-
-	current_dir = current_task->page_dir;
-	set_kernel_stack(current_task->esp);
-
-	kfree(tasklet->task.cmd);
-	kfree(tasklet->stack);
-	kfree(tasklet);
-
-	context_switch();
 }
 
 int32_t create_tasklet(tasklet_body_t body, const char *name, void *argp) {
@@ -592,8 +588,10 @@ int sleep_thread(waitqueue_t *wq, uint32_t flags) {
 	asm volatile("mov %%ebp, %0" : "=r" (ebp));
 
 	eip = read_eip();
-	if (eip == 0x12345)
+	if (eip == 0x12345) {
+		READ_CMOS(CMOS_RTC_STAT_C);
 		return current_task->sleep_flags & SLEEP_INTERRUPTED;
+	}
 
 	current_task->esp = esp;
 	current_task->ebp = ebp;

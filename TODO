@@ -2,6 +2,8 @@ Practically everything. Very little's actually been implemented.
 
 Immediate concerns:
 
+Sleep queues stop RTC ticks
+
 Improve blockdev request handling
 
 Finish IDE.
