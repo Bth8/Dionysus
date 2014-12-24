@@ -56,6 +56,7 @@ static void wake_ide() {
 }
 
 static void ide_irq(registers_t *regs) {
+	irq_ack(regs->int_no);
 	wake_ide();
 }
 
@@ -226,7 +227,7 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 			break;
 
 		channel->channel = i;
-		channel->nEIN = 0;
+		channel->nEIN = 2;
 		channel->bmide = BAR4 + 8 * i;
 
 		if (i == 0) {
@@ -249,13 +250,17 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 		for (j = 0; j < 2; j++) {
 			uint8_t type = IDE_ATA;
 
+			while (ide_read(channel, ATA_REG_STATUS) & ATA_SR_BSY)
+				continue;
+
 			// Select drive
 			ide_write(channel, ATA_REG_HDDEVSEL, j << 4);
-			sleep_until(tick + 2 * HZ / 1000);
+
+			while (ide_read(channel, ATA_REG_STATUS) & ATA_SR_BSY)
+				continue;
 
 			// Send ATA identify command
 			ide_write(channel, ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
-			sleep_until(tick + 2 * HZ / 1000);
 
 			// Polling
 			if (ide_read(channel, ATA_REG_STATUS) == 0)
@@ -528,6 +533,7 @@ static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 
 	// Enable interrupts
 	dev->channel->nEIN = 0;
+	ide_write(dev->channel, ATA_REG_CONTROL, 0);
 
 	// Select CHS, LBA28 or 48
 	if (lba >= 0x10000000) {

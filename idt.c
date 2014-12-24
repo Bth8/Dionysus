@@ -134,13 +134,16 @@ void isr_handler(registers_t *regs) {
 	}
 }
 
+void irq_ack(uint32_t int_no) {
+	if (int_no >= IRQ8)
+		outb(PIC_SLAVE_A, PIC_COMMAND_EOI);
+	outb(PIC_MASTER_A, PIC_COMMAND_EOI);
+}
+
 void irq_handler(registers_t *regs) {
 	isr_t handler;
 	if ((handler = isr_handlers[regs->int_no]) != NULL)
 		handler(regs);
-
-	if (regs->int_no >= IRQ8) // Signal came from slave
-		outb(PIC_SLAVE_A, PIC_COMMAND_EOI); // Reset slave
-
-	outb(PIC_MASTER_A, PIC_COMMAND_EOI); // Reset master
+	else
+		irq_ack(regs->int_no);
 }

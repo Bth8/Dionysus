@@ -38,6 +38,9 @@ waitqueue_t *timer_wq = NULL;
 
 static void pit_callback(registers_t *regs) {
 	++tick;
+
+	irq_ack(regs->int_no);
+
 	node_t *node;
 	foreach(node, timers) {
 		struct timer *timer = (struct timer *)node->data;
@@ -51,10 +54,13 @@ static void rtc_callback(registers_t *regs) {
 		current_time++;
 		rtc_tick = 4096;
 	}
-	if (--task_tick <= 0)
-		task_tick = 10 * (20 - switch_task(1));
+
 	// Re-enables RTC interrupts
 	READ_CMOS(CMOS_RTC_STAT_C);
+	irq_ack(regs->int_no);
+
+	if (--task_tick <= 0)
+		task_tick = 10 * (20 - switch_task(1));
 }
 
 void init_timer(void) {

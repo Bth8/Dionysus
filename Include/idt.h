@@ -96,6 +96,7 @@ typedef void (*isr_t)(registers_t*);
 
 void init_idt(void);
 int32_t register_interrupt_handler(uint8_t n, isr_t handler);
+void irq_ack(uint32_t int_no);
 
 // Interrupts. Define in interrupt.s
 extern void isr0(void);

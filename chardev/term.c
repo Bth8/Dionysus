@@ -144,6 +144,8 @@ static void kbd_isr(registers_t *regs) {
 
 	if (leds != oldleds)
 		update_leds(leds);
+
+	irq_ack(regs->int_no);
 }
 
 static ssize_t read(struct fs_node *node, void *dest, size_t count,
