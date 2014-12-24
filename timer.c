@@ -52,7 +52,7 @@ static void rtc_callback(registers_t *regs) {
 		rtc_tick = 4096;
 	}
 	if (--task_tick <= 0)
-		task_tick = 10 * (20 - switch_task());
+		task_tick = 10 * (20 - switch_task(1));
 	// Re-enables RTC interrupts
 	READ_CMOS(CMOS_RTC_STAT_C);
 }

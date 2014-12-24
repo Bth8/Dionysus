@@ -86,7 +86,7 @@ typedef struct {
 void init_tasking(uintptr_t ebp);
 int32_t fork(void);
 int32_t create_tasklet(tasklet_body_t body, const char *name, void *argp);
-int switch_task(void);
+int switch_task(int reschedule);
 void exit_task(int32_t status);
 waitqueue_t *create_waitqueue(void);
 void destroy_waitqueue(waitqueue_t *queue);

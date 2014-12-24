@@ -57,8 +57,6 @@ list_t *processes = NULL;
 list_t *run_queue = NULL;
 tree_t *proc_tree = NULL;
 
-spinlock_t process_lock = 0;
-
 // We get the first free pid, rather than go in order
 static pid_t nextpid(void) {
 	pid_t pid = 1;
@@ -160,7 +158,7 @@ static void _kidle(void) {
 }
 
 static void _tasklet_exit(void) {
-	spin_lock(&process_lock);
+	asm volatile("cli");
 
 	tasklet_t *tasklet = container_of((task_t *)current_task, tasklet_t, task);
 	current_task = get_ready_task();
@@ -179,8 +177,6 @@ static void _tasklet_exit(void) {
 	list_dequeue(processes, proc);
 	kfree(proc);
 
-	spin_unlock(&process_lock);
-
 	current_dir = current_task->page_dir;
 	set_kernel_stack(current_task->esp);
 
@@ -193,7 +189,6 @@ static void _tasklet_exit(void) {
 
 void init_tasking(uintptr_t ebp) {
 	asm volatile("cli");
-	spin_lock(&process_lock);
 	int i;
 	// Relocate stack
 	move_stack((void *)KERNEL_STACK_TOP, (void *)ebp, KERNEL_STACK_SIZE);
@@ -263,7 +258,6 @@ void init_tasking(uintptr_t ebp) {
 	ASSERT(list_insert(processes, init));
 	current_task = init;
 
-	spin_unlock(&process_lock);
 	asm volatile("sti");
 }
 
@@ -281,13 +275,11 @@ int32_t fork(void) {
 
 	memset(new_task, 0, sizeof(task_t));
 
-	spin_lock(&process_lock);
-
 	new_task->pid = nextpid();
 	if (new_task->pid == 0) {
 		free_dir(directory);
 		kfree(new_task);
-		spin_unlock(&process_lock);
+		asm volatile("sti");
 		return -EAGAIN;
 	}
 	new_task->gid = current_task->gid;
@@ -351,8 +343,6 @@ int32_t fork(void) {
 	if (!queue_node)
 		goto error5;
 
-	spin_unlock(&process_lock);
-
 	// Entry point for new process
 	uint32_t esp;
 	uint32_t ebp;
@@ -360,21 +350,15 @@ int32_t fork(void) {
 	asm volatile("mov %%ebp, %0" : "=r" (ebp));
 	uint32_t eip = read_eip();
 
-#ifdef DEBUG
-	asm volatile("sti");
-#endif
-
 	// Are we parent or child? See switch_task for explanation
 	if (eip != 0x12345) {
 		new_task->esp = esp;
 		new_task->ebp = ebp;
 		new_task->eip = eip;
+		asm volatile("sti");
 		return new_task->pid;
-	} else {
-		// Send EOI to PIC. Otherwise, PIT won't fire again.
-		outb(PIC_MASTER_A, PIC_COMMAND_EOI);
+	} else
 		return 0;
-	}
 
 error5:
 	list_dequeue(processes, proc_node);
@@ -394,7 +378,7 @@ error2:
 error1:
 	free_dir(directory);
 	kfree(new_task);
-	spin_unlock(&process_lock);
+	asm volatile("sti");
 	return -ENOMEM;
 }
 
@@ -407,12 +391,12 @@ int32_t create_tasklet(tasklet_body_t body, const char *name, void *argp) {
 
 	memset(tasklet, 0, sizeof(tasklet_t));
 
-	spin_lock(&process_lock);
+	asm volatile("cli");
 
 	tasklet->task.pid = nextpid();
 	if (tasklet->task.pid == 0) {
 		kfree(tasklet);
-		spin_unlock(&process_lock);
+		asm volatile("sti");
 		return -EAGAIN;
 	}
 
@@ -458,7 +442,7 @@ int32_t create_tasklet(tasklet_body_t body, const char *name, void *argp) {
 	if (!queuenode)
 		goto error5;
 
-	spin_unlock(&process_lock);
+	asm volatile("sti");
 	return tasklet->task.pid;
 
 error5:
@@ -473,11 +457,11 @@ error2:
 	kfree(tasklet->task.cmd);
 error1:
 	kfree(tasklet);
-	spin_unlock(&process_lock);
+	asm volatile("sti");
 	return -ENOMEM;
 }
 
-int switch_task(void) {
+int switch_task(int reschedule) {
 	if (current_task) {
 		uint32_t esp, ebp, eip;
 		asm volatile("mov %%esp, %0" : "=r" (esp));
@@ -500,14 +484,12 @@ int switch_task(void) {
 
 		// It would be really bad to run out of memory right here...
 		node_t *queue_node;
-		spin_lock(&process_lock);
-		if (current_task->pid != -1) {
+		if (reschedule && current_task->pid != -1) {
 			queue_node = list_insert(run_queue, (task_t *)current_task);
 			ASSERT(queue_node);
 		}
 
 		current_task = get_ready_task();
-		spin_unlock(&process_lock);
 
 		esp = current_task->esp;
 		ebp = current_task->ebp;
@@ -525,7 +507,6 @@ int switch_task(void) {
 void exit_task(int32_t status) {
 	asm volatile("cli");
 	ASSERT(current_task->pid != 1); // Init doesn't exit
-	spin_lock(&process_lock);
 
 	task_t *current_cache = (task_t *)current_task;
 
@@ -539,8 +520,6 @@ void exit_task(int32_t status) {
 
 	// Init inherits orphans
 	tree_inherit_children(proc_tree, proc_tree->root, current_cache->treenode);
-
-	spin_unlock(&process_lock);
 
 	// Use new current_task's paging dir, because we're about to trash ours
 	current_dir = current_task->page_dir;
@@ -581,48 +560,22 @@ void destroy_waitqueue(waitqueue_t *queue) {
 
 int sleep_thread(waitqueue_t *wq, uint32_t flags) {
 	ASSERT(wq);
-	asm volatile("sti");
-
-	uint32_t esp, ebp, eip;
-	asm volatile("mov %%esp, %0" : "=r" (esp));
-	asm volatile("mov %%ebp, %0" : "=r" (ebp));
-
-	eip = read_eip();
-	if (eip == 0x12345) {
-		READ_CMOS(CMOS_RTC_STAT_C);
-		return current_task->sleep_flags & SLEEP_INTERRUPTED;
-	}
-
-	current_task->esp = esp;
-	current_task->ebp = ebp;
-	current_task->eip = eip;
-
-	spin_lock(&process_lock);
+	asm volatile("cli");
 
 	current_task->sleep_flags = SLEEP_ASLEEP | flags;
 	current_task->wq = wq;
 	node_t *queue_node = list_insert(wq->queue, (task_t *)current_task);
 	ASSERT(queue_node);
-	current_task = get_ready_task();
 
-	spin_unlock(&process_lock);
+	switch_task(0);
 
-	esp = current_task->esp;
-	ebp = current_task->ebp;
-	eip = current_task->eip;
-
-	current_dir = current_task->page_dir;
-	set_kernel_stack(esp);
-
-	context_switch();
-
-	return 0;
+	return current_task->sleep_flags & SLEEP_INTERRUPTED;
 }
 
 void wake_queue(waitqueue_t *wq) {
 	ASSERT(wq);
 
-	spin_lock(&process_lock);
+	asm volatile("cli");
 	node_t *node = wq->queue->head;
 	while (node) {
 		node_t *cache = node;
@@ -636,7 +589,7 @@ void wake_queue(waitqueue_t *wq) {
 		cache = list_insert(run_queue, task);
 		ASSERT(cache);
 	}
-	spin_unlock(&process_lock);
+	asm volatile("sti");
 }
 
 void switch_user_mode(uint32_t entry, int32_t argc, char **argv, char **envp,
@@ -677,13 +630,12 @@ pid_t setpgid(pid_t pid, pid_t pgid) {
 	if (pid < 0 || pgid < 0)
 		return -EINVAL;
 
-	spin_lock(&process_lock);
+	asm volatile("cli");
 
 	task_t *task = (task_t *)current_task;
 	if (pid != 0) {
 		task = get_task(pid);
 		if (!task) {
-			spin_unlock(&process_lock);
 			return -ESRCH;
 		}
 
@@ -693,7 +645,6 @@ pid_t setpgid(pid_t pid, pid_t pgid) {
 				break;
 
 		if (!treenode) {
-			spin_unlock(&process_lock);
 			return -ESRCH;
 		}
 	}
@@ -707,7 +658,6 @@ pid_t setpgid(pid_t pid, pid_t pgid) {
 	if (pgid == 0 || pgid == task->pid) {
 		pgid = task->pid;
 		task->gid = task->pid;
-		spin_unlock(&process_lock);
 		return pgid;
 	}
 
@@ -733,8 +683,6 @@ pid_t setpgid(pid_t pid, pid_t pgid) {
 
 	task->gid = pgid;
 
-	spin_unlock(&process_lock);
-
 	return pgid;
 }
 
@@ -754,12 +702,10 @@ pid_t getpgid(pid_t pid) {
 pid_t setsid(void) {
 	if (current_task->gid == current_task->pid)
 		return -EPERM;
-	spin_lock(&process_lock);
+	asm volatile("cli");
 
 	tree_detach_branch(proc_tree, current_task->treenode);
 	tree_insert_direct(proc_tree, proc_tree->root, current_task->treenode);
-
-	spin_unlock(&process_lock);
 
 	current_task->sid = current_task->gid = current_task->pid;
 
