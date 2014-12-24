@@ -68,7 +68,7 @@ static void ide_write(struct IDEChannelRegisters *channel, uint8_t reg, uint8_t 
 	else if (reg < 0x0C)
 		outb(channel->base + reg - 0x06, data);
 	else if (reg < 0x0E)
-		outb(channel->ctrl + reg - 0x0A, data);
+		outb(channel->ctrl + reg - 0x0C, data);
 	else if (reg < 0x16)
 		outb(channel->bmide + reg - 0x0E, data);
 	if (reg > 0x07 && reg < 0x0C)
@@ -81,10 +81,10 @@ static uint8_t ide_read(struct IDEChannelRegisters *channel, uint8_t reg) {
 		ide_write(channel, ATA_REG_CONTROL, 0x80 | channel->nEIN);
 	if (reg < 0x08)
 		ret = inb(channel->base + reg);
-	else if (reg < ATA_REG_ALTSTATUS)
+	else if (reg < 0x0C)
 		ret = inb(channel->base + reg - 0x06);
 	else if (reg < 0x0E)
-		ret = inb(channel->ctrl + reg - 0x0A);
+		ret = inb(channel->ctrl + reg - 0x0C);
 	else if (reg < 0x16)
 		ret = inb(channel->bmide + reg - 0x0E);
 	if (reg > 0x07 && reg < 0x0C)
