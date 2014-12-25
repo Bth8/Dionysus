@@ -127,7 +127,7 @@
 #define IDE_SECTOR_SIZE			512
 #define IDE_MAX_TRANSFER_28		255
 #define IDE_MAX_TRANSFER_48		65535
-#define IDE_TIMEOUT				30
+#define IDE_TIMEOUT				5
 
 struct IDEChannelRegisters {
 	uint8_t channel;

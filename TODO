@@ -2,8 +2,6 @@ Practically everything. Very little's actually been implemented.
 
 Immediate concerns:
 
-IDE interrupt stuff
-
 Improve blockdev request handling
 
 Finish IDE.

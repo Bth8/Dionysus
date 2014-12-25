@@ -161,6 +161,12 @@ static blkdev_t *ide_blkdev_create(struct IDEDevice *ide) {
 	return dev;
 }
 
+static void waste400(struct IDEChannelRegisters *channel) {
+	int i;
+	for (i = 0; i < 4; i++)
+		ide_read(channel, ATA_REG_ALTSTATUS);
+}
+
 static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 	if (claim_pci_dev(pci) < 0)
 		return 0;
@@ -169,13 +175,13 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 
 	uint16_t command = pciConfigReadWord(pci->bus->secondary, pci->slot,
 		pci->func, PCI_COMMAND);
-	command |= 0x04;
+	command |= PCI_COMMAND_MASTER;
 	pciConfigWriteWord(pci->bus->secondary, pci->slot, pci->func, PCI_COMMAND,
 		command);
 	command = pciConfigReadWord(pci->bus->secondary, pci->slot, pci->func,
 		PCI_COMMAND);
 
-	if (!(command & 0x04)) {
+	if (!(command & PCI_COMMAND_MASTER)) {
 		release_pci_dev(pci);
 		return 0;
 	}
@@ -244,31 +250,33 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 			goto fail;
 		}
 
-		// Disable interrupts
-		ide_write(channel, ATA_REG_CONTROL, 2);
-
 		for (j = 0; j < 2; j++) {
 			uint8_t type = IDE_ATA;
 
-			while (ide_read(channel, ATA_REG_STATUS) & ATA_SR_BSY)
+			while (ide_read(channel, ATA_REG_ALTSTATUS) & ATA_SR_BSY)
 				continue;
 
 			// Select drive
-			ide_write(channel, ATA_REG_HDDEVSEL, j << 4);
+			ide_write(channel, ATA_REG_HDDEVSEL, 0xA0 | (j << 4));
 
-			while (ide_read(channel, ATA_REG_STATUS) & ATA_SR_BSY)
+			waste400(channel);
+
+			while (ide_read(channel, ATA_REG_ALTSTATUS) & ATA_SR_BSY)
 				continue;
+
+			// Disable interrupts
+			ide_write(channel, ATA_REG_CONTROL, 2);
 
 			// Send ATA identify command
 			ide_write(channel, ATA_REG_COMMAND, ATA_CMD_IDENTIFY);
 
 			// Polling
-			if (ide_read(channel, ATA_REG_STATUS) == 0)
+			if (ide_read(channel, ATA_REG_ALTSTATUS) == 0)
 				continue;	// Status 0 means no device
 
 			uint8_t err = 0;
 			while (1) {
-				uint8_t status = ide_read(channel, ATA_REG_STATUS);
+				uint8_t status = ide_read(channel, ATA_REG_ALTSTATUS);
 				if (status & ATA_SR_ERR) {err = 1; break;} // Device isn't ATA
 				if (!(status & ATA_SR_BSY) && (status & ATA_SR_DRQ)) break;
 			}
@@ -288,7 +296,6 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 
 				ide_write(channel, ATA_REG_COMMAND,
 					ATA_CMD_IDENTIFY_PACKET);
-				sleep_until(tick + 1 * HZ / 1000);
 			}
 
 			unsigned char *buff = kmalloc(sizeof(uint16_t) * 256);
@@ -459,12 +466,6 @@ static int statusgood(uint8_t status) {
 	return 1;
 }
 
-static void waste400(struct IDEChannelRegisters *channel) {
-	int i;
-	for (i = 0; i < 4; i++)
-		ide_read(channel, ATA_REG_ALTSTATUS);
-}
-
 static int32_t wait_irq(struct IDEDevice *dev, uint32_t timeout) {
 	struct timer *timer = (struct timer *)kmalloc(sizeof(struct timer));
 	if (!timer)
@@ -481,12 +482,14 @@ static int32_t wait_irq(struct IDEDevice *dev, uint32_t timeout) {
 
 	uint32_t status = 0;
 	do {
+		timer->expires = tick + timeout * HZ;
 		int interrupted = sleep_thread(ide_wq, SLEEP_INTERRUPTABLE);
 		if (interrupted) {
 			ret = -EINTR;
 			break;
 		}
 
+		// Must read status or interrupt won't fire again
 		status = ide_read(dev->channel, ATA_REG_STATUS);
 	} while (status & ATA_SR_BSY);
 
@@ -531,10 +534,6 @@ static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 	uint32_t direction = (req->flags & BLOCK_DIR_WRITE) ? ATA_WRITE : ATA_READ;
 	uint32_t head;
 
-	// Enable interrupts
-	dev->channel->nEIN = 0;
-	ide_write(dev->channel, ATA_REG_CONTROL, 0);
-
 	// Select CHS, LBA28 or 48
 	if (lba >= 0x10000000) {
 		// LBA48
@@ -569,7 +568,7 @@ static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 	}
 
 	// Wait if drive is busy
-	while (ide_read(dev->channel, ATA_REG_STATUS) & ATA_SR_BSY)
+	while (ide_read(dev->channel, ATA_REG_ALTSTATUS) & ATA_SR_BSY)
 		continue;
 
 	// Select drive and method
@@ -580,6 +579,14 @@ static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 
 	// Wait 400ns
 	waste400(dev->channel);
+
+	// Wait if drive is busy
+	while (ide_read(dev->channel, ATA_REG_ALTSTATUS) & ATA_SR_BSY)
+		continue;
+
+	// Enable interrupts
+	dev->channel->nEIN = 0;
+	ide_write(dev->channel, ATA_REG_CONTROL, 0);
 
 	// Write parameters
 	if (lba_ext) {
@@ -665,7 +672,6 @@ static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 		if (direction == ATA_READ) { // PIO read
 			uint32_t i;
 			for (i = 0; i < nsects; i++) {
-				waste400(dev->channel);
 				int32_t error = wait_irq(dev, IDE_TIMEOUT);
 				if (error < 0) {
 					kernel_unmap((uintptr_t)edi);
@@ -678,7 +684,6 @@ static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 		} else { // PIO write
 			uint32_t i;
 			for (i = 0; i < nsects; i++) {
-				waste400(dev->channel);
 				int32_t error = wait_irq(dev, IDE_TIMEOUT);
 				if (error < 0) {
 					kernel_unmap((uintptr_t)edi);
