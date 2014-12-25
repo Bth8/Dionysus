@@ -27,6 +27,7 @@
 #include <structures/list.h>
 #include <kmalloc.h>
 #include <errno.h>
+#include <structures/mutex.h>
 
 struct blkdev_driver blk_drivers[256];
 
@@ -99,6 +100,14 @@ blkdev_t *get_blkdev(dev_t dev) {
 
 }
 
+size_t get_block_size(dev_t dev) {
+	blkdev_t *blockdev = get_blkdev(dev);
+	if (!blockdev)
+		return 0;
+
+	return blockdev->sector_size;
+}
+
 blkdev_t *alloc_blkdev(void) {
 	blkdev_t *blockdev = (blkdev_t *)kmalloc(sizeof(blkdev_t));
 	if (!blockdev)
@@ -114,6 +123,14 @@ blkdev_t *alloc_blkdev(void) {
 
 	blockdev->partitions = list_create();
 	if (!blockdev->partitions) {
+		list_destroy(blockdev->queue);
+		kfree(blockdev);
+		return NULL;
+	}
+
+	blockdev->mutex = create_mutex(0);
+	if (!blockdev->mutex) {
+		list_destroy(blockdev->partitions);
 		list_destroy(blockdev->queue);
 		kfree(blockdev);
 		return NULL;
@@ -145,14 +162,40 @@ int32_t autopopulate_blkdev(blkdev_t *dev) {
 	mbr_size *= dev->sector_size;
 
 	int32_t ret = 0;
-	struct mbr *mbr = (struct mbr *)kmemalign(dev->sector_size, mbr_size);
+	struct mbr *mbr = (struct mbr *)kmalloc(mbr_size);
 	if (!mbr) {
 		ret = -ENOMEM;
 		goto fail;
 	}
 
-	list_t *bios = list_create();
-	if (!bios) {
+	/* As the device shouldn't be in the driver's list yet,
+	 * we'll have to construct our request manually
+	 */
+
+	request_t *req = (request_t *)kmalloc(sizeof(request_t));
+	if (!req) {
+		kfree(mbr);
+		ret = -ENOMEM;
+		goto fail;
+	}
+
+	req->flags = 0;
+	req->first_sector = 0;
+	req->nsectors = 0;
+	req->status = BLOCK_REQ_UNSCHED;
+	req->rc = 0;
+	req->dev = dev;
+	req->bios = list_create();
+	if (!req->bios) {
+		kfree(req);
+		kfree(mbr);
+		ret = -ENOMEM;
+		goto fail;
+	}
+	req->wq = create_waitqueue();
+	if (!req->wq) {
+		list_destroy(req->bios);
+		kfree(req);
 		kfree(mbr);
 		ret = -ENOMEM;
 		goto fail;
@@ -161,7 +204,7 @@ int32_t autopopulate_blkdev(blkdev_t *dev) {
 	bio_t *bio = (bio_t *)kmalloc(sizeof(bio_t));
 	if (!bio) {
 		kfree(mbr);
-		list_destroy(bios);
+		free_request(req);
 		ret = -ENOMEM;
 		goto fail;
 	}
@@ -170,16 +213,16 @@ int32_t autopopulate_blkdev(blkdev_t *dev) {
 	bio->offset = resolve_physical((uintptr_t)mbr) % PAGE_SIZE;
 	bio->nsectors = mbr_size / dev->sector_size;
 
-	node = list_insert(bios, bio);
-	if (!node) {
+	if ((ret = add_bio_to_request_blkdev(req, bio)) < 0) {
 		kfree(mbr);
-		list_destroy(bios);
+		free_request(req);
 		kfree(bio);
-		ret = -ENOMEM;
 		goto fail;
 	}
 
-	ret = make_request_blkdev(dev, MKDEV(dev->major, dev->minor), 0, bios, 0);
+	ret = post_and_wait_blkdev(req);
+	free_request(req);
+
 	if (ret < 0) {
 		kfree(mbr);
 		goto fail;
@@ -228,6 +271,8 @@ void free_blkdev(blkdev_t *dev) {
 
 	list_destroy(dev->partitions);
 	list_destroy(dev->queue);
+	destroy_mutex(dev->mutex);
+
 	kfree(dev);
 }
 
@@ -263,118 +308,133 @@ int32_t add_blkdev(blkdev_t *dev) {
 	return 0;
 }
 
-static void collate_requests(list_t *queue) {
-	/* node_t *node;
-	node_t *prev = NULL;
-	foreach(node, queue) {
-		if (!prev) {
-			prev = node;
-			continue;
-		}
-		request_t *prev_req = (request_t *)prev->data;
+node_t *next_ready_request_blkdev(blkdev_t *dev) {
+	acquire_mutex(dev->mutex);
+
+	node_t *node = NULL;
+	while (1) {
+		node = dev->queue->head;
+		if (!node)
+			break;
+
 		request_t *req = (request_t *)node->data;
-		if (prev_req->first_sector + prev_req->nsectors != req->first_sector) {
-			prev = node;
+
+		if (req->status == BLOCK_REQ_INTR) {
+			list_dequeue(dev->queue, node);
+			kfree(node);
+			wake_queue(req->wq);
 			continue;
 		}
-		if (prev_req->flags != req->flags) {
-			prev = node;
-			continue;
+
+		if (req->status == BLOCK_REQ_PENDING) {
+			req->status = BLOCK_REQ_RUNNING;
+			break;
 		}
-		prev_req->nsectors += req->nsectors;
-		list_merge(prev_req->bios, req->bios);
-		list_destroy(req->bios);
-		list_remove(queue, node);
-		node = prev;
-	} */
+	}
+
+	release_mutex(dev->mutex);
+
+	return node;
 }
 
-int32_t make_request_blkdev(blkdev_t *blockdev, dev_t dev, uint32_t first_sector,
-		list_t *bios, int write) {
-	if (!bios)
-		return -EFAULT;
+request_t *create_request_blkdev(dev_t dev, uint32_t first_sector,
+		uint32_t flags) {
+	blkdev_t *device = get_blkdev(dev);
+	if (!device)
+		return NULL;
 
-	if (!bios->head) {
-		list_destroy(bios);
-		return 0;
-	}
-
-	if (!blockdev) {
-		list_destroy(bios);
-		return -EINVAL;
-	}
-
-	ASSERT(MAJOR(dev) == blockdev->major);
-
-	if (!blockdev->handler) {
-		list_destroy(bios);
-		return -EINVAL;
-	}
-
-	spin_lock(&blockdev->lock);
-
-	struct part *partition;
-	node_t *node = NULL;
-	foreach(node, blockdev->partitions) {
+	struct part *partition = NULL;
+	node_t *node;
+	foreach(node, device->partitions) {
 		partition = (struct part *)node->data;
 		if (partition->minor == MINOR(dev))
 			break;
 	}
 
-	if (!node) {
-		spin_unlock(&blockdev->lock);
-		list_destroy(bios);
-		return -EINVAL;
+	if (first_sector > partition->size)
+		return NULL;
+
+	request_t *req = (request_t *)kmalloc(sizeof(request_t));
+	if (!req)
+		return NULL;
+
+	req->flags = flags;
+	req->first_sector = first_sector + partition->offset;
+	req->nsectors = 0;
+	req->status = BLOCK_REQ_UNSCHED;
+	req->rc = 0;
+	req->dev = device;
+	req->bios = list_create();
+	if (!req->bios) {
+		kfree(req);
+		return NULL;
 	}
 
-	if (first_sector > partition->size) {
-		spin_unlock(&blockdev->lock);
-		list_destroy(bios);
-		return -EINVAL;
+	req->wq = create_waitqueue();
+	if (!req->wq) {
+		kfree(req->bios);
+		kfree(req);
+		return NULL;
 	}
 
-	request_t *request = (request_t *)kmalloc(sizeof(request_t));
-	if (!request) {
-		spin_unlock(&blockdev->lock);
-		list_destroy(bios);
-		return -ENOMEM;
-	}
-
-	request->flags = write ? BLOCK_DIR_WRITE : 0;
-	request->first_sector = first_sector + partition->offset;
-	request->nsectors = 0;
-	request->dev = blockdev;
-	request->bios = bios;
-
-	foreach(node, bios) {
-		bio_t *bio = (bio_t *)node->data;
-		request->nsectors += bio->nsectors;
-	}
-
-	if (request->first_sector + request->nsectors >= partition->size) {
-		spin_unlock(&blockdev->lock);
-		kfree(request);
-		list_destroy(bios);
-		return -EINVAL;
-	}
-
-	node = list_push(blockdev->queue, request);
-	if (!node) {
-		spin_unlock(&blockdev->lock);
-		kfree(request);
-		list_destroy(bios);
-		return -ENOMEM;
-	}
-
-	collate_requests(blockdev->queue);
-
-	spin_unlock(&blockdev->lock);
-
-	return blockdev->handler(blockdev);
+	return req;
 }
 
-int32_t end_request(request_t *req, uint32_t success, uint32_t nsectors) {
-	if (!success)
+int32_t add_bio_to_request_blkdev(request_t *req, bio_t *bio) {
+	ASSERT(req->status == BLOCK_REQ_UNSCHED);
+
+	node_t *node = list_insert(req->bios, bio);
+	if (!node)
+		return -ENOMEM;
+
+	req->nsectors += bio->nsectors;
+	return 0;
+}
+
+int32_t post_request_blkdev(request_t *req) {
+	ASSERT(req->status == BLOCK_REQ_UNSCHED);
+
+	acquire_mutex(req->dev->mutex);
+
+	req->status = BLOCK_REQ_PENDING;
+	node_t *node = list_insert(req->dev->queue, req);
+
+	release_mutex(req->dev->mutex);
+
+	if (!node)
+		return -ENOMEM;
+
+	return req->dev->handler(req->dev);
+}
+
+int32_t wait_request_blkdev(request_t *req) {
+	uint32_t interrupted = 0;
+
+	do {
+		if (req->status == BLOCK_REQ_FINISHED)
+			break;
+
+		interrupted = sleep_thread(req->wq, SLEEP_INTERRUPTABLE);
+	} while (interrupted == 0);
+
+	if (interrupted) {
+		req->status = BLOCK_REQ_INTR;
+		return -EINTR;
+	}
+
+	return req->rc;
+}
+
+int32_t post_and_wait_blkdev(request_t *req) {
+	int32_t ret = post_request_blkdev(req);
+	if (ret < 0)
+		return ret;
+
+	return wait_request_blkdev(req);
+}
+
+int end_request(request_t *req, int32_t error, uint32_t nsectors) {
+	if (error < 0)
 		nsectors = req->nsectors;
 
 	req->nsectors -= nsectors;
@@ -382,27 +442,46 @@ int32_t end_request(request_t *req, uint32_t success, uint32_t nsectors) {
 
 	while (1) {
 		node_t *node = req->bios->head;
-		if (!node)
+		if (!node) {
+			ASSERT(nsectors == 0);
 			break;
-		bio_t *bio = (bio_t *)node->data;
+		}
 
-		if (bio->nsectors < nsectors) {
+		bio_t *bio = (bio_t *)node->data;
+		if (bio->nsectors <= nsectors) {
 			nsectors -= bio->nsectors;
 			list_remove(req->bios, node);
 			continue;
 		}
+
 		bio->offset += nsectors * req->dev->sector_size;
 		bio->nsectors -= nsectors;
 		break;
 	}
 
-	if (req->nsectors > 0)
-		return 1;
+	if (req->status == BLOCK_REQ_INTR) {
+		wake_queue(req->wq);
+		return 0;
+	}
 
-	return 0;
+	if (req->nsectors == 0) {
+		req->status = BLOCK_REQ_FINISHED;
+		wake_queue(req->wq);
+		return 0;
+	}
+
+	return 1;
 }
 
 void free_request(request_t *req) {
+	if (!req)
+		return;
+
+	ASSERT(req->status == BLOCK_REQ_UNSCHED ||
+		req->status == BLOCK_REQ_INTR ||
+		req->status == BLOCK_REQ_FINISHED);
+
+	destroy_waitqueue(req->wq);
 	list_destroy(req->bios);
 	kfree(req);
 }

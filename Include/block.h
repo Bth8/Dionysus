@@ -24,8 +24,18 @@
 #include <common.h>
 #include <vfs.h>
 #include <structures/list.h>
+#include <structures/mutex.h>
+
+#define BLOCK_REQ_UNSCHED	0
+#define BLOCK_REQ_PENDING	1
+#define BLOCK_REQ_RUNNING	2
+#define BLOCK_REQ_FINISHED	3
+#define BLOCK_REQ_INTR		4
 
 #define BLOCK_DIR_WRITE		0x01
+#define BLOCK_SYNC			0x02
+
+#define BLOCK_REQ_RESULT(r) r->rc
 
 typedef struct blockdev blkdev_t;
 typedef int32_t (*request_handler_t)(blkdev_t*);
@@ -40,8 +50,11 @@ typedef struct {
 	uint32_t flags;
 	uint32_t first_sector;
 	uint32_t nsectors;
+	int32_t status;
+	uint32_t rc;
 	blkdev_t *dev;
 	list_t *bios;
+	waitqueue_t *wq;
 } request_t;
 
 struct part {
@@ -57,7 +70,7 @@ typedef struct blockdev {
 	list_t *partitions;
 	size_t sector_size;
 	uint32_t size;		// Size in sectors
-	spinlock_t lock;
+	mutex_t *mutex;
 	request_handler_t handler;
 	list_t *queue;
 	void *private_data;
@@ -97,9 +110,15 @@ int32_t autopopulate_blkdev(blkdev_t *dev);
 void free_blkdev(blkdev_t *dev);
 int32_t add_blkdev(blkdev_t *dev);
 blkdev_t *get_blkdev(dev_t dev);
-int32_t make_request_blkdev(blkdev_t *blockdev, dev_t dev, uint32_t first_sector,
-	list_t *bios, int write);
-int32_t end_request(request_t *req, uint32_t success, uint32_t nsectors);
+size_t get_block_size(dev_t dev);
+node_t *next_ready_request_blkdev(blkdev_t *dev);
+request_t *create_request_blkdev(dev_t dev, uint32_t first_sector,
+	uint32_t flags);
+int32_t add_bio_to_request_blkdev(request_t *req, bio_t *bio);
+int32_t post_request_blkdev(request_t *req);
+int32_t wait_request_blkdev(request_t *req);
+int32_t post_and_wait_blkdev(request_t *req);
+int end_request(request_t *req, int32_t error, uint32_t nsectors);
 void free_request(request_t *req);
 
 #endif /* BLOCK_H */

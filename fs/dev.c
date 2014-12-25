@@ -199,69 +199,117 @@ static void file_remove(struct superblock *sb, uint32_t inode) {
 }
 
 static ssize_t read_blkdev(dev_t dev, void *buf, size_t count, off_t off) {
-	blkdev_t *blockdev = get_blkdev(dev);
-	if (!blockdev)
-		return -EINVAL;
+	size_t sector_size = get_block_size(dev);
 
-	// Align to a sector boundary
-	off_t delta = off % blockdev->sector_size;
+	void *first_block = NULL;
+	void *last_block = NULL;
+
+	off_t delta = off % sector_size;
 	off -= delta;
 
-	uint32_t nsects = (count + delta) / blockdev->sector_size;
-	if ((count + delta) % blockdev->sector_size)
-		nsects++;
-
-	char *bounce = kmemalign(blockdev->sector_size,
-		nsects * blockdev->sector_size);
-	if (!bounce)
+	request_t *req = create_request_blkdev(dev, off / sector_size, 0);
+	if (!req)
 		return -ENOMEM;
 
-	list_t *bios = list_create();
-	if (!bios) {
-		kfree(bounce);
-		return -ENOMEM;
+	if (delta) {
+		first_block = kmalloc(sector_size);
+		if (!first_block)
+			goto fail;
 	}
 
-	uintptr_t buff_offset = 0;
+	uint32_t nsects = (count + delta) / sector_size;
+	if ((count + delta) % sector_size) {
+		last_block = kmalloc(sector_size);
+		if (!last_block)
+			goto fail;
+		nsects++;
+	}
+
+	if (first_block) {
+		bio_t *bio = (bio_t *)kmalloc(sizeof(bio_t));
+		if (!bio)
+			goto fail;
+
+		bio->page = resolve_physical((uintptr_t)first_block);
+		bio->offset = bio->page % PAGE_SIZE;
+		bio->page = (bio->page / PAGE_SIZE) * PAGE_SIZE;
+		bio->nsectors = 1;
+
+		if (add_bio_to_request_blkdev(req, bio) < 0) {
+			kfree(bio);
+			goto fail;
+		}
+		nsects--;
+	}
+
+	if (last_block)
+		nsects--; // We'll add the bio later
+
+	uintptr_t buf_offset = delta ? (sector_size - delta) : 0;
 	while (nsects) {
 		bio_t *bio = (bio_t *)kmalloc(sizeof(bio_t));
-		if (!bio) {
-			list_destroy(bios);
-			kfree(bounce);
-			return -ENOMEM;
-		}
+		if (!bio)
+			goto fail;
 
-		bio->page = resolve_physical((uintptr_t)bounce + buff_offset);
+		bio->page = resolve_physical((uintptr_t)buf + buf_offset);
 		bio->offset = bio->page % PAGE_SIZE;
 		bio->page = (bio->page / PAGE_SIZE) * PAGE_SIZE;
 
-		if (PAGE_SIZE - bio->offset < nsects * blockdev->sector_size)
-			bio->nsectors = (PAGE_SIZE - bio->offset) / blockdev->sector_size;
+		if (PAGE_SIZE - bio->offset < nsects * sector_size)
+			bio->nsectors = (PAGE_SIZE - bio->offset) / sector_size;
 		else
 			bio->nsectors = nsects;
 
-		buff_offset += bio->nsectors * blockdev->sector_size;
+		buf_offset += bio->nsectors * sector_size;
 		nsects -= bio->nsectors;
 
-		node_t *node = list_insert(bios, bio);
-		if (!node) {
+		if (add_bio_to_request_blkdev(req, bio) < 0) {
 			kfree(bio);
-			list_destroy(bios);
-			kfree(bounce);
-			return -ENOMEM;
+			goto fail;
 		}
 	}
 
-	int32_t ret = make_request_blkdev(blockdev, dev, off / blockdev->sector_size,
-		bios, 0);
-	if (ret < 0) {
-		kfree(bounce);
-		return ret;
+	if (last_block) {
+		bio_t *bio = (bio_t *)kmalloc(sizeof(bio_t));
+		if (!bio)
+			goto fail;
+
+		bio->page = resolve_physical((uintptr_t)last_block);
+		bio->offset = bio->page % PAGE_SIZE;
+		bio->page = (bio->page / PAGE_SIZE) * PAGE_SIZE;
+		bio->nsectors = 1;
+
+		if (add_bio_to_request_blkdev(req, bio) < 0) {
+			kfree(bio);
+			goto fail;
+		}
 	}
 
-	memcpy(buf, bounce + delta, count);
-	kfree(bounce);
+	if (post_and_wait_blkdev(req) < 0)
+		goto fail;
+
+	free_request(req);
+
+	if (first_block) {
+		memcpy(buf, first_block + delta, sector_size - delta);
+		kfree(first_block);
+	}
+
+	if (last_block) {
+		delta = (count + delta) % sector_size;
+		memcpy(buf + count - delta, last_block, delta);
+		kfree(last_block);
+	}
+
 	return count;
+
+fail:
+	if (last_block)
+		kfree(last_block);
+	if (first_block)
+		kfree(first_block);
+	free_request(req);
+	return -ENOMEM;
 }
 
 static ssize_t read(fs_node_t *node, void *buf, size_t count, off_t off) {
