@@ -186,7 +186,7 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 		return 0;
 	}
 
-	uint16_t prog = pciConfigReadWord(pci->bus->secondary, pci->slot,
+	uint8_t prog = pciConfigReadByte(pci->bus->secondary, pci->slot,
 		pci->func, PCI_CLASS_PROG);
 
 	if (prog & 0x02)
@@ -194,9 +194,9 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 	if (prog & 0x08)
 		prog |= 0x04;
 
-	pciConfigWriteWord(pci->bus->secondary, pci->slot, pci->func,
+	pciConfigWriteByte(pci->bus->secondary, pci->slot, pci->func,
 		PCI_CLASS_PROG, prog);
-	prog = pciConfigReadWord(pci->bus->secondary, pci->slot, pci->func,
+	prog = pciConfigReadByte(pci->bus->secondary, pci->slot, pci->func,
 		PCI_CLASS_PROG);
 
 	uint32_t BAR0 = 0x01F0;

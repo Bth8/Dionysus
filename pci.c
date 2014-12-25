@@ -233,7 +233,7 @@ void dump_pci(void) {
 	struct pci_dev *iter = &host;
 
 	while (iter != NULL) {
-		uint16_t prog = pciConfigReadWord(iter->bus->secondary, iter->slot,
+		uint8_t prog = pciConfigReadByte(iter->bus->secondary, iter->slot,
 			iter->func, PCI_CLASS_PROG);
 		printf("Bus %u Slot %u Func %u:\n\tVendor: 0x%04X\n\tDevice:"
 				"0x%04X\n\tClass: 0x%04X%02X\n",
