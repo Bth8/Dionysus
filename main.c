@@ -40,6 +40,8 @@
 #include <pci/ide.h>
 #include <cpuid.h>
 
+#include <fileops.h>
+
 // LOOK HERE
 // Defined in linker script
 extern uintptr_t kend;
@@ -47,10 +49,6 @@ extern uintptr_t kend;
 uintptr_t placement_address = (uint32_t)&kend;
 
 extern uint32_t tick;
-
-static void tasklet_test(void *arg) {
-	printf("Live, from inside this tasklet!\n");
-}
 
 void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	monitor_clear();
@@ -102,14 +100,28 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 
 	init_ide();
 
-	tasklet_t *tasklet = create_tasklet(tasklet_test, "[ktasklet]", NULL);
-	int32_t ret = schedule_tasklet(tasklet);
-	if (ret < 0)
-		printf("%i\n", ret);
+	char buff[1024];
+	int32_t ret;
 
-	sleep_until(tick + 1 * HZ);
+	if ((ret = mknod("/dev/hda", VFS_BLOCKDEV | 0666, MKDEV(IDE_MAJOR, 0))) < 0) {
+		printf("mknod %i\n", ret);
+		goto end;
+	}
 
-	printf("On the other side: %i\n", tasklet->scheduled);
+	fs_node_t *file = kopen("/dev/hda", O_RDWR, &ret);
+	if (!file) {
+		printf("kopen %i\n", ret);
+		goto end;
+	}
 
+	ssize_t bytes = read_vfs(file, buff, 1024, 0x010B3C1D);
+	if (bytes < 0) {
+		printf("read_vfs %i\n", (uint32_t)bytes);
+		goto end;
+	}
+
+	printf("%s\n", buff);
+
+end:
 	halt();
 }

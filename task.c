@@ -598,6 +598,12 @@ void destroy_waitqueue(waitqueue_t *queue) {
 }
 
 int sleep_thread(waitqueue_t *wq, uint32_t flags) {
+	/* Normally, switch_task is called from an interrupt context,
+	 * so all registers are saved automatically. Here, that's not the
+	 * case, so we have to convince gcc to save everything for us
+	 */
+	asm volatile("" : : : "ebx", "esi", "edi");
+
 	ASSERT(wq);
 	asm volatile("cli");
 
