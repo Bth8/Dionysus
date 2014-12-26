@@ -154,7 +154,6 @@ static blkdev_t *ide_blkdev_create(struct IDEDevice *ide) {
 	dev->max_part = 16;
 	dev->sector_size = IDE_SECTOR_SIZE;
 	dev->size = ide->size;
-	dev->lock = 0;
 	dev->handler = request_ide;
 	dev->private_data = ide;
 
@@ -166,6 +165,8 @@ static void waste400(struct IDEChannelRegisters *channel) {
 	for (i = 0; i < 4; i++)
 		ide_read(channel, ATA_REG_ALTSTATUS);
 }
+
+static void ide_tasklet(void *argp);
 
 static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 	if (claim_pci_dev(pci) < 0)
@@ -312,6 +313,8 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 				break;
 			}
 
+			memset(dev, 0, sizeof(struct IDEDevice));
+
 			// Read device parameters
 			dev->channel = channel;
 			refs++;
@@ -350,6 +353,13 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 				kfree(dev);
 				break;
 			}
+
+			dev->servicer = create_tasklet(ide_tasklet, "[ide]",
+				blkdevs[2 * i + j]);
+			if (!dev->servicer) {
+				refs--;
+				break;
+			}
 		}
 		if (refs == 0) {
 			destroy_mutex(channel->mutex);
@@ -363,19 +373,41 @@ static int ide_probe(struct pci_dev *pci, const struct pci_dev_id *id) {
 	for (i = 0; i < 4; i++) {
 		if (blkdevs[i]) {
 			struct IDEDevice *ide = (struct IDEDevice *)blkdevs[i]->private_data;
+			if (autopopulate_blkdev(blkdevs[i]) < 0) {
+				printf("Error populating %s%i-%i\n",
+					(char *[]){"ATA", "ATAPI"}[ide->type],
+					ide->channel->channel, ide->drive);
+				struct part *part = (struct part *)kmalloc(sizeof(struct part));
+				if (!part) {
+					destroy_tasklet(ide->servicer);
+					kfree(ide);
+					free_blkdev(blkdevs[i]);
+					continue;
+				}
+
+				part->minor = blkdevs[i]->minor;
+				part->offset = 0;
+				part->size = ide->size;
+				node_t *node = list_insert(blkdevs[i]->partitions, part);
+				if (!node) {
+					kfree(part);
+					destroy_tasklet(ide->servicer);
+					kfree(ide);
+					free_blkdev(blkdevs[i]);
+					continue;
+				}
+			}
+
 			if (add_blkdev(blkdevs[i]) < 0) {
 				if (i % 2 == 0 && !blkdevs[i + 1]) {
 					destroy_mutex(ide->channel->mutex);
 					kfree(ide->channel);
 				}
+				destroy_tasklet(ide->servicer);
 				kfree(ide);
-				kfree(blkdevs[i]);
+				free_blkdev(blkdevs[i]);
 				continue;
 			}
-			if (autopopulate_blkdev(blkdevs[i]) < 0)
-				printf("Error populating %s%i-%i\n",
-					(char *[]){"ATA", "ATAPI"}[ide->type],
-					ide->channel->channel, ide->drive);
 		}
 	}
 
@@ -389,8 +421,9 @@ fail:
 				destroy_mutex(ide->channel->mutex);
 				kfree(ide->channel);
 			}
+			destroy_tasklet(ide->servicer);
 			kfree(ide);
-			kfree(blkdevs[i]);
+			free_blkdev(blkdevs[i]);
 		}
 	}
 
@@ -421,40 +454,42 @@ void init_ide(void) {
 		printf("IDE: error registering pci\n");
 }
 
+static int32_t request_ide(blkdev_t *dev) {
+	struct IDEDevice *ide = (struct IDEDevice *)dev->private_data;
+
+	reset_and_reschedule(ide->servicer);
+
+	return 0;
+}
+
 static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req);
 
-static int32_t request_ide(blkdev_t *dev) {
-	int32_t ret = 0;
-	spin_lock(&dev->lock);
+static void ide_tasklet(void *argp) {
+	blkdev_t *dev = (blkdev_t *)argp;
 	struct IDEDevice *ide = (struct IDEDevice *)dev->private_data;
 	acquire_mutex(ide->channel->mutex);
 
-	node_t *node = dev->queue->head;
-	while (node) {
+	while (1) {
+		node_t *node = next_ready_request_blkdev(dev);
+		if (!node)
+			break;
+
 		request_t *req = (request_t *)node->data;
 		int32_t sectors_xferred = ide_ata_access(ide, req);
 		int32_t cont;
 
-		if (sectors_xferred < 0) {
-			ret = sectors_xferred;
+		if (sectors_xferred < 0)
 			cont = end_request(req, 0, 0);
-		} else
+		else
 			cont = end_request(req, 1, (uint32_t)sectors_xferred);
 
 		if (cont == 0) {
 			list_dequeue(dev->queue, node);
-			free_request(req);
 			kfree(node);
-			if (ret < 0)
-				break;
 		}
-		node = dev->queue->head;
 	}
 
 	release_mutex(ide->channel->mutex);
-	spin_unlock(&dev->lock);
-
-	return ret;
 }
 
 static int statusgood(uint8_t status) {

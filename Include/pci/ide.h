@@ -22,6 +22,7 @@
 #define IDE_H
 #include <common.h>
 #include <structures/mutex.h>
+#include <task.h>
 
 // Status masks
 #define ATA_SR_BSY				0x80
@@ -147,6 +148,7 @@ struct IDEDevice {
 	uint32_t commandsets;
 	uint32_t size;			// Drive size in sectors
 	char model[41];			// Model string
+	tasklet_t *servicer;
 };
 
 struct PRD {

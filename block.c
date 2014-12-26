@@ -209,8 +209,9 @@ int32_t autopopulate_blkdev(blkdev_t *dev) {
 		goto fail;
 	}
 
-	bio->page = (resolve_physical((uintptr_t)mbr) / PAGE_SIZE) * PAGE_SIZE;
-	bio->offset = resolve_physical((uintptr_t)mbr) % PAGE_SIZE;
+	bio->page = resolve_physical((uintptr_t)mbr);
+	bio->offset = bio->page % PAGE_SIZE;
+	bio->page = (bio->page / PAGE_SIZE) * PAGE_SIZE;
 	bio->nsectors = mbr_size / dev->sector_size;
 
 	if ((ret = add_bio_to_request_blkdev(req, bio)) < 0) {
