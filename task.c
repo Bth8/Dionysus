@@ -157,36 +157,6 @@ static void _kidle(void) {
 	halt();
 }
 
-static void _tasklet_exit(void) {
-	asm volatile("cli");
-
-	tasklet_t *tasklet = container_of((task_t *)current_task, tasklet_t, task);
-	current_task = get_ready_task();
-	tree_inherit_children(proc_tree, proc_tree->root, tasklet->task.treenode);
-
-	tree_detach_branch(proc_tree, tasklet->task.treenode);
-	tree_delete_node(tasklet->task.treenode);
-
-	node_t *proc;
-	foreach(proc, processes) {
-		if (&tasklet->task == proc->data)
-			break;
-	}
-	ASSERT(proc);
-
-	list_dequeue(processes, proc);
-	kfree(proc);
-
-	current_dir = current_task->page_dir;
-	set_kernel_stack(current_task->esp);
-
-	kfree(tasklet->task.cmd);
-	kfree(tasklet->stack);
-	kfree(tasklet);
-
-	context_switch();
-}
-
 void init_tasking(uintptr_t ebp) {
 	asm volatile("cli");
 	int i;
@@ -242,10 +212,6 @@ void init_tasking(uintptr_t ebp) {
 	ASSERT(kidle_tasklet->stack);
 	kidle_tasklet->task.esp = (uintptr_t)kidle_tasklet->stack + KERNEL_STACK_SIZE;
 	kidle_tasklet->task.ebp = kidle_tasklet->task.esp;
-
-	PUSH(kidle_tasklet->task.esp, uintptr_t, NULL);
-	PUSH(kidle_tasklet->task.esp, uintptr_t, &_tasklet_exit);
-
 	kidle_tasklet->task.eip = (uintptr_t)&_kidle;
 
 	// Create a user stack
@@ -382,12 +348,22 @@ error1:
 	return -ENOMEM;
 }
 
-int32_t create_tasklet(tasklet_body_t body, const char *name, void *argp) {
+void _tasklet_finish(void) {
+	asm volatile("cli");
+
+	tasklet_t *tasklet = container_of((task_t *)current_task, tasklet_t, task);
+
+	tasklet->scheduled = 0;
+
+	switch_task(0);
+}
+
+tasklet_t *create_tasklet(tasklet_body_t body, const char *name, void *argp) {
 	ASSERT(name);
 
 	tasklet_t *tasklet = (tasklet_t *)kmalloc(sizeof(tasklet_t));
 	if (!tasklet)
-		return -ENOMEM;
+		return NULL;
 
 	memset(tasklet, 0, sizeof(tasklet_t));
 
@@ -397,7 +373,7 @@ int32_t create_tasklet(tasklet_body_t body, const char *name, void *argp) {
 	if (tasklet->task.pid == 0) {
 		kfree(tasklet);
 		asm volatile("sti");
-		return -EAGAIN;
+		return NULL;
 	}
 
 	tasklet->task.page_dir = kernel_dir;
@@ -411,13 +387,16 @@ int32_t create_tasklet(tasklet_body_t body, const char *name, void *argp) {
 	if (!tasklet->stack)
 		goto error2;
 
+	tasklet->entry = (uintptr_t)body;
+	tasklet->argp = argp;
+	tasklet->scheduled = 0;
+
 	tasklet->task.esp = (uintptr_t)tasklet->stack + KERNEL_STACK_SIZE;
 	tasklet->task.ebp = tasklet->task.esp;
+	tasklet->task.eip = tasklet->entry;
 
-	PUSH(tasklet->task.esp, uintptr_t, argp);
-	PUSH(tasklet->task.esp, uintptr_t, &_tasklet_exit);
-
-	tasklet->task.eip = (uintptr_t)body;
+	PUSH(tasklet->task.esp, uintptr_t, tasklet->argp);
+	PUSH(tasklet->task.esp, uintptr_t, &_tasklet_finish);
 
 	tree_node_t *treenode = tree_insert_node(proc_tree, proc_tree->root,
 		&tasklet->task);
@@ -438,16 +417,9 @@ int32_t create_tasklet(tasklet_body_t body, const char *name, void *argp) {
 	if (!proc_node)
 		goto error4;
 
-	node_t *queuenode = list_insert(run_queue, &tasklet->task);
-	if (!queuenode)
-		goto error5;
-
 	asm volatile("sti");
-	return tasklet->task.pid;
+	return tasklet;
 
-error5:
-	list_dequeue(processes, proc_node);
-	kfree(proc_node);
 error4:
 	tree_detach_branch(proc_tree, treenode);
 	tree_delete_node(treenode);
@@ -458,7 +430,74 @@ error2:
 error1:
 	kfree(tasklet);
 	asm volatile("sti");
-	return -ENOMEM;
+	return NULL;
+}
+
+int32_t schedule_tasklet(tasklet_t *tasklet) {
+	asm volatile("cli");
+
+	ASSERT(tasklet);
+
+	if (tasklet->scheduled) {
+		asm volatile("sti");
+		return 0;
+	}
+
+	node_t *queue_node = list_insert(run_queue, &tasklet->task);
+
+	if (!queue_node) {
+		asm volatile("sti");
+		return -ENOMEM;
+	}
+
+	tasklet->scheduled = 1;
+
+	asm volatile("sti");
+
+	return 0;
+}
+
+void reset_tasklet(tasklet_t *tasklet) {
+	ASSERT(!tasklet->scheduled);
+
+	tasklet->task.esp = (uintptr_t)tasklet->stack + KERNEL_STACK_SIZE;
+	tasklet->task.ebp = tasklet->task.esp;
+	tasklet->task.eip = tasklet->entry;
+
+	PUSH(tasklet->task.esp, uintptr_t, tasklet->argp);
+	PUSH(tasklet->task.esp, uintptr_t, &_tasklet_finish);
+}
+
+int32_t reset_and_reschedule(tasklet_t *tasklet) {
+	if (tasklet->scheduled)
+		return 0;
+
+	reset_tasklet(tasklet);
+
+	return schedule_tasklet(tasklet);
+}
+
+void destroy_tasklet(tasklet_t *tasklet) {
+	if (!tasklet)
+		return;
+
+	asm volatile("cli");
+
+	ASSERT(!tasklet->scheduled);
+
+	tree_detach_branch(proc_tree, tasklet->task.treenode);
+	tree_delete_node(tasklet->task.treenode);
+
+	node_t *proc_node = list_find(processes, &tasklet->task);
+
+	list_dequeue(processes, proc_node);
+	kfree(proc_node);
+
+	kfree(tasklet->task.cmd);
+	kfree(tasklet->stack);
+	kfree(tasklet);
+
+	asm volatile("sti");
 }
 
 int switch_task(int reschedule) {

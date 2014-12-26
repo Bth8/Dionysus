@@ -81,11 +81,18 @@ typedef struct {
 typedef struct {
 	task_t task;
 	void *stack;
+	void *argp;
+	uintptr_t entry;
+	uint32_t scheduled;
 } tasklet_t;
 
 void init_tasking(uintptr_t ebp);
 int32_t fork(void);
-int32_t create_tasklet(tasklet_body_t body, const char *name, void *argp);
+tasklet_t *create_tasklet(tasklet_body_t body, const char *name, void *argp);
+int32_t schedule_tasklet(tasklet_t *tasklet);
+void reset_tasklet(tasklet_t *tasklet);
+int32_t reset_and_reschedule(tasklet_t *tasklet);
+void destroy_tasklet(tasklet_t *tasklet);
 int switch_task(int reschedule);
 void exit_task(int32_t status);
 waitqueue_t *create_waitqueue(void);

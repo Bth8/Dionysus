@@ -102,7 +102,14 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 
 	init_ide();
 
-	create_tasklet(tasklet_test, "[ktasklet]", NULL);
+	tasklet_t *tasklet = create_tasklet(tasklet_test, "[ktasklet]", NULL);
+	int32_t ret = schedule_tasklet(tasklet);
+	if (ret < 0)
+		printf("%i\n", ret);
+
+	sleep_until(tick + 1 * HZ);
+
+	printf("On the other side: %i\n", tasklet->scheduled);
 
 	halt();
 }
