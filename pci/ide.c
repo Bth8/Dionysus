@@ -515,20 +515,20 @@ static int32_t wait_irq(struct IDEDevice *dev, uint32_t timeout) {
 
 	int32_t ret = 0;
 
-	uint32_t status = 0;
+	uint32_t status;
+	uint32_t interrupted = 0;
 	do {
-		timer->expires = tick + timeout * HZ;
-		int interrupted = sleep_thread(ide_wq, SLEEP_INTERRUPTABLE);
-		if (interrupted) {
-			ret = -EINTR;
-			break;
-		}
-
-		// Must read status or interrupt won't fire again
 		status = ide_read(dev->channel, ATA_REG_STATUS);
-	} while (status & ATA_SR_BSY);
+		if (!(status & ATA_SR_BSY))
+			break;
 
-	if (ret == 0 && !statusgood(status)) {
+		timer->expires = tick + timeout * HZ;
+		interrupted = sleep_thread(ide_wq, SLEEP_INTERRUPTABLE);
+	} while (interrupted == 0);
+
+	if (interrupted)
+		ret = -EINTR;
+	else if (ret == 0 && !statusgood(status)) {
 		ide_print_err(dev, status);
 		ret = -EIO;
 	}
