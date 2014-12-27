@@ -43,7 +43,6 @@
 #define SLEEP_INTERRUPTABLE	0x02
 #define SLEEP_INTERRUPTED	0x04
 
-typedef int32_t pid_t;
 typedef void (*tasklet_body_t)(void*);
 
 struct filep {
@@ -68,8 +67,8 @@ typedef struct {
 	uintptr_t start;			// Image start
 	int32_t exit;
 	int8_t nice;
-	int ruid, euid, suid;
-	int rgid, egid, sgid;
+	uid_t ruid, euid, suid;
+	gid_t rgid, egid, sgid;
 	char *cwd;
 	char *cmd;
 	struct filep files[MAX_OF];
@@ -87,7 +86,7 @@ typedef struct {
 } tasklet_t;
 
 void init_tasking(uintptr_t ebp);
-int32_t fork(void);
+pid_t fork(void);
 tasklet_t *create_tasklet(tasklet_body_t body, const char *name, void *argp);
 int32_t schedule_tasklet(tasklet_t *tasklet);
 void reset_tasklet(tasklet_t *tasklet);
@@ -107,10 +106,10 @@ pid_t getpgid(pid_t pid);
 pid_t setsid(void);
 pid_t getsid(void);
 int32_t nice(int32_t inc);
-int32_t setresuid(int32_t new_ruid, int32_t new_euid, int32_t new_suid);
-int32_t getresuid(int32_t *ruid, int32_t *euid, int32_t *suid);
-int32_t setresgid(int32_t new_rgid, int32_t new_egid, int32_t new_sgid);
-int32_t getresgid(int32_t *ruid, int32_t *euid, int32_t *suid);
+int32_t setresuid(uid_t new_ruid, uid_t new_euid, uid_t new_suid);
+int32_t getresuid(uid_t *ruid, uid_t *euid, uid_t *suid);
+int32_t setresgid(gid_t new_rgid, gid_t new_egid, gid_t new_sgid);
+int32_t getresgid(gid_t *ruid, gid_t *euid, gid_t *suid);
 uintptr_t sbrk(uintptr_t inc);
 uint32_t chdir(const char *path);
 

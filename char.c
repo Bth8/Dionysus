@@ -34,7 +34,7 @@ void init_chardev(void) {
 	}
 }
 
-struct chrdev_driver *get_chrdev_driver(uint32_t major) {
+struct chrdev_driver *get_chrdev_driver(dev_t major) {
 	if (major <= 0 || major > 256)
 		return NULL;
 
@@ -46,7 +46,7 @@ struct chrdev_driver *get_chrdev_driver(uint32_t major) {
 
 spinlock_t char_lock = 0;
 
-int32_t register_chrdev(uint32_t major, const char *name, struct file_ops fops) {
+int32_t register_chrdev(dev_t major, const char *name, struct file_ops fops) {
 	spin_lock(&char_lock);
 	// Find an open major number if given zero
 	if (major == 0) {

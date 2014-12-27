@@ -38,11 +38,11 @@ static int32_t open(fs_node_t *node, uint32_t flags);
 static int32_t close(fs_node_t *node);
 static int32_t readdir(fs_node_t *node, struct dirent *dirp, uint32_t index);
 static fs_node_t *finddir(fs_node_t *node, const char *fname);
-static int32_t chmod(fs_node_t *node, uint32_t mode);
-static int32_t chown(fs_node_t *node, int32_t uid, int32_t gid);
+static int32_t chmod(fs_node_t *node, mode_t mode);
+static int32_t chown(fs_node_t *node, uid_t uid, uid_t gid);
 static int32_t ioctl(fs_node_t *node, uint32_t req, void *data);
-static int32_t create(fs_node_t *parent, const char *fname, uint32_t uid,
-		uint32_t gid, uint32_t mode, dev_t dev);
+static int32_t create(fs_node_t *parent, const char *fname, uid_t uid,
+		uid_t gid, mode_t mode, dev_t dev);
 static int32_t link(fs_node_t *parent, fs_node_t *child, const char *fname);
 static int32_t unlink(fs_node_t *parent, const char *fname);
 
@@ -151,7 +151,7 @@ static struct superblock *return_sb(dev_t dev, uint32_t flags) {
 	return sb;
 }
 
-static fs_node_t *get_inode(struct superblock *sb, uint32_t inode) {
+static fs_node_t *get_inode(struct superblock *sb, ino_t inode) {
 	struct dev_file *file = container_of(sb->root, struct dev_file, node);
 	while (file) {
 		if (file->node.inode == inode)
@@ -179,7 +179,7 @@ static void file_insert(struct superblock *sb, struct dev_file *file) {
 	prev->next = file;
 }
 
-static void file_remove(struct superblock *sb, uint32_t inode) {
+static void file_remove(struct superblock *sb, ino_t inode) {
 	struct dev_file *iter = container_of(sb->root, struct dev_file, node);
 	struct dev_file *prev = NULL;
 	while (iter) {
@@ -508,7 +508,7 @@ static fs_node_t *finddir(fs_node_t *node, const char *fname) {
 	return ret;
 }
 
-static int32_t chmod(fs_node_t *node, uint32_t mode) {
+static int32_t chmod(fs_node_t *node, mode_t mode) {
 	fs_node_t *master = get_inode(node->fs_sb, node->inode);
 	if (!master)
 		return -ENOENT;
@@ -518,7 +518,7 @@ static int32_t chmod(fs_node_t *node, uint32_t mode) {
 	return 0;
 }
 
-static int32_t chown(fs_node_t *node, int32_t uid, int32_t gid) {
+static int32_t chown(fs_node_t *node, uid_t uid, gid_t gid) {
 	fs_node_t *master = get_inode(node->fs_sb, node->inode);
 	if (!master)
 		return -ENOENT;
@@ -544,7 +544,7 @@ static int32_t ioctl(fs_node_t *node, uint32_t req, void *data) {
 
 static uint32_t get_empty_inode(struct superblock *sb) {
 	struct dev_file *file = container_of(sb->root, struct dev_file, node);
-	uint32_t inode = 0;
+	ino_t inode = 0;
 	while (file) {
 		if (inode < file->node.inode)
 			break;
@@ -555,8 +555,8 @@ static uint32_t get_empty_inode(struct superblock *sb) {
 	return inode;
 }
 
-static int32_t create(fs_node_t *parent, const char *fname, uint32_t uid,
-		uint32_t gid, uint32_t mode, dev_t dev) {
+static int32_t create(fs_node_t *parent, const char *fname, uid_t uid,
+		gid_t gid, mode_t mode, dev_t dev) {
 	if ((mode & VFS_TYPE_MASK) != VFS_DIR &&
 			(mode & VFS_TYPE_MASK) != VFS_BLOCKDEV &&
 			(mode & VFS_TYPE_MASK) != VFS_CHARDEV)

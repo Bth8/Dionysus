@@ -168,7 +168,7 @@ static ssize_t read(struct fs_node *node, void *dest, size_t count,
 
 static ssize_t write(struct fs_node *node, const void *src, size_t count,
 		off_t off) {
-	uint32_t i;
+	size_t i;
 	for (i = 0; i < count; i++)
 		monitor_put(*(char *)src++);
 

@@ -58,15 +58,15 @@ typedef struct {
 } request_t;
 
 struct part {
-	uint32_t minor;
+	dev_t minor;
 	uint32_t offset;	// in sectors
 	uint32_t size;
 };
 
 typedef struct blockdev {
-	uint32_t major;
-	uint32_t minor;		// First minor
-	uint32_t max_part;	// Maximum possible partitions
+	dev_t major;
+	dev_t minor;		// First minor
+	dev_t max_part;	// Maximum possible partitions
 	list_t *partitions;
 	size_t sector_size;
 	uint32_t size;		// Size in sectors

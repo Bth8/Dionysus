@@ -36,9 +36,16 @@
 #include <stdint.h>
 
 typedef uint64_t size_t;
-typedef int64_t off_t;
 typedef int64_t ssize_t;
 typedef uint32_t dev_t;
+typedef uint32_t uid_t;
+typedef uint32_t gid_t;
+typedef uint32_t ino_t;
+typedef uint32_t mode_t;
+typedef uint32_t nlink_t;
+typedef int64_t off_t;
+typedef int32_t pid_t;
+
 typedef uint8_t spinlock_t;
 
 // Bochs magic breakpoint. Doesn't actually do anything on a real system

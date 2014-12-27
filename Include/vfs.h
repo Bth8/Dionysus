@@ -77,7 +77,7 @@
 struct fs_node;
 struct stat;
 struct dirent {
-	uint32_t d_ino;
+	ino_t d_ino;
 	char d_name[NAME_MAX];
 };
 
@@ -88,20 +88,20 @@ struct file_ops {
 	int32_t (*close)(struct fs_node*);
 	int32_t (*readdir)(struct fs_node*, struct dirent*, uint32_t);
 	struct fs_node*(*finddir)(struct fs_node*, const char*);
-	int32_t (*chmod)(struct fs_node*, uint32_t);
-	int32_t (*chown)(struct fs_node*, int32_t, int32_t);
+	int32_t (*chmod)(struct fs_node*, mode_t);
+	int32_t (*chown)(struct fs_node*, uid_t, gid_t);
 	int32_t (*ioctl)(struct fs_node*, uint32_t, void*);
-	int32_t (*create)(struct fs_node*, const char*, uint32_t, uint32_t,
-		uint32_t, dev_t);
+	int32_t (*create)(struct fs_node*, const char*, uid_t, gid_t,
+		mode_t, dev_t);
 	int32_t (*link)(struct fs_node *, struct fs_node *, const char*);
 	int32_t (*unlink)(struct fs_node*, const char*);
 };
 
 typedef struct fs_node {
-	uint32_t inode;
-	int32_t uid;
-	int32_t gid;
-	uint32_t mode;				// Permissions mask and node type
+	ino_t inode;
+	uid_t uid;
+	gid_t gid;
+	mode_t mode;				// Permissions mask and node type
 	uint32_t flags;				// Flags used to open file. Tells us
 								// what restrictions we've put on ourselves
 	size_t len;
@@ -115,13 +115,11 @@ typedef struct fs_node {
 	struct superblock *fs_sb;	// Parent fs
 	void *private_data;
 	int32_t refcount;
-	uint32_t nlink;
+	nlink_t nlink;
 } fs_node_t;
 
-typedef struct blockdev blkdev_t;
 struct superblock {
 	dev_t dev;
-	uint32_t minor;
 	void *private_data;
 	fs_node_t *root;
 	size_t blocksize;
@@ -139,25 +137,20 @@ typedef struct file_system_type {
 	struct superblock *(*get_super)(dev_t, uint32_t);
 } file_system_t;
 
-// Spares are such that it matches newlib's definition
 struct stat {
 	dev_t st_dev;
-	uint32_t st_ino;
-	uint32_t st_mode;
-	uint16_t st_nlink;
-	uint32_t st_uid;
-	uint32_t st_gid;
-	uint32_t st_rdev;
+	ino_t st_ino;
+	mode_t st_mode;
+	nlink_t st_nlink;
+	uid_t st_uid;
+	gid_t st_gid;
+	dev_t st_rdev;
 	size_t st_size;
 	time_t st_atime;
-	long st_spare1;
 	time_t st_mtime;
-	long st_spare2;
 	time_t st_ctime;
-	long st_spare3;
-	uint32_t st_blksize;
+	size_t st_blksize;
 	uint32_t st_blocks;
-	long st_spare4[2];
 };
 
 extern fs_node_t *vfs_root;
@@ -170,11 +163,11 @@ int32_t open_vfs(fs_node_t *node, uint32_t flags);
 int32_t close_vfs(fs_node_t *node);
 int32_t readdir_vfs(fs_node_t *node, struct dirent *dirp, uint32_t index);
 int32_t stat_vfs(struct fs_node *node, struct stat *buff);
-int32_t chmod_vfs(fs_node_t *node, uint32_t mode);
-int32_t chown_vfs(fs_node_t *node, int32_t uid, int32_t gid);
+int32_t chmod_vfs(fs_node_t *node, mode_t mode);
+int32_t chown_vfs(fs_node_t *node, uid_t uid, gid_t gid);
 int32_t ioctl_vfs(fs_node_t *node, uint32_t req, void *data);
-int32_t create_vfs(fs_node_t *parent, const char *fname, uint32_t uid, 
-		uint32_t gid, uint32_t mode, dev_t dev);
+int32_t create_vfs(fs_node_t *parent, const char *fname, uid_t uid, 
+		gid_t gid, mode_t mode, dev_t dev);
 int32_t link_vfs(fs_node_t *parent, fs_node_t *child, const char *fname);
 int32_t unlink_vfs(fs_node_t *parent, const char *fname);
 fs_node_t *kopen(const char *relpath, int32_t flags, int32_t *openret);

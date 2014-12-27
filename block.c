@@ -40,7 +40,7 @@ void init_blockdev(void) {
 	}
 }
 
-struct blkdev_driver *get_blkdev_driver(uint32_t major) {
+struct blkdev_driver *get_blkdev_driver(dev_t major) {
 	if (major <= 0 || major > 256)
 		return NULL;
 
@@ -52,7 +52,7 @@ struct blkdev_driver *get_blkdev_driver(uint32_t major) {
 
 spinlock_t block_lock = 0;
 
-int32_t register_blkdev(uint32_t major, const char *name, struct file_ops fops) {
+int32_t register_blkdev(dev_t major, const char *name, struct file_ops fops) {
 	spin_lock(&block_lock);
 	if (major == 0) {
 		for (major = 1; strcmp(blk_drivers[major - 1].name, "Default") != 0;

@@ -227,7 +227,7 @@ void init_tasking(uintptr_t ebp) {
 	asm volatile("sti");
 }
 
-int32_t fork(void) {
+pid_t fork(void) {
 	asm volatile("cli");
 	int i;
 	page_directory_t *directory = clone_directory(current_dir);
@@ -773,43 +773,36 @@ int32_t nice(int32_t inc) {
 	return current_task->nice;
 }
 
-int32_t setresuid(int32_t new_ruid, int32_t new_euid, int32_t new_suid) {
-	int32_t set_ruid = current_task->ruid;
-	int32_t set_euid = current_task->euid;
-	int32_t set_suid = current_task->suid;
+int32_t setresuid(uid_t new_ruid, uid_t new_euid, uid_t new_suid) {
+	uid_t set_ruid = current_task->ruid;
+	uid_t set_euid = current_task->euid;
+	uid_t set_suid = current_task->suid;
 
 	if (set_euid != 0) {
-		if (new_ruid > -1) {
-			if (new_ruid == set_ruid ||
-					new_ruid == set_euid ||
-					new_ruid == set_suid)
-				set_ruid = new_ruid;
-			else
-				return -EPERM;
-		}
-		if (new_euid > -1) {
-			if (new_euid == set_ruid ||
-					new_euid == set_euid ||
-					new_euid == set_suid)
-				set_euid = new_euid;
-			else
-				return -EPERM;
-		}
-		if (new_suid > -1) {
-			if (new_suid == set_ruid ||
-					new_suid == set_euid ||
-					new_suid == set_suid)
-				set_suid = new_suid;
-			else
-				return -EPERM;
-		}
-	} else {
-		if (new_ruid > -1)
+		if (new_ruid == set_ruid ||
+				new_ruid == set_euid ||
+				new_ruid == set_suid)
 			set_ruid = new_ruid;
-		if (new_euid > -1)
+		else
+			return -EPERM;
+
+		if (new_euid == set_ruid ||
+				new_euid == set_euid ||
+				new_euid == set_suid)
 			set_euid = new_euid;
-		if (new_suid > -1)
+		else
+			return -EPERM;
+
+		if (new_suid == set_ruid ||
+				new_suid == set_euid ||
+				new_suid == set_suid)
 			set_suid = new_suid;
+		else
+			return -EPERM;
+	} else {
+		set_ruid = new_ruid;
+		set_euid = new_euid;
+		set_suid = new_suid;
 	}
 
 	current_task->ruid = set_ruid;
@@ -819,50 +812,43 @@ int32_t setresuid(int32_t new_ruid, int32_t new_euid, int32_t new_suid) {
 	return 0;
 }
 
-int32_t getresuid(int32_t *ruid, int32_t *euid, int32_t *suid) {
+int32_t getresuid(uid_t *ruid, uid_t *euid, uid_t *suid) {
 	*ruid = current_task->ruid;
 	*euid = current_task->euid;
 	*suid = current_task->suid;
 	return 0;
 }
 
-int32_t setresgid(int32_t new_rgid, int32_t new_egid, int32_t new_sgid) {
-	int32_t set_rgid = current_task->rgid;
-	int32_t set_egid = current_task->egid;
-	int32_t set_sgid = current_task->sgid;
+int32_t setresgid(gid_t new_rgid, gid_t new_egid, gid_t new_sgid) {
+	gid_t set_rgid = current_task->rgid;
+	gid_t set_egid = current_task->egid;
+	gid_t set_sgid = current_task->sgid;
 
 	if (set_egid != 0) {
-		if (new_rgid > -1) {
-			if (new_rgid == set_rgid ||
-					new_rgid == set_egid ||
-					new_rgid == set_sgid)
-				set_rgid = new_rgid;
-			else
-				return -EPERM;
-		}
-		if (new_egid > -1) {
-			if (new_egid == set_rgid ||
-					new_egid == set_egid ||
-					new_egid == set_sgid)
-				set_egid = new_egid;
-			else
-				return -EPERM;
-		}
-		if (new_sgid > -1) {
-			if (new_sgid == set_rgid ||
-					new_sgid == set_egid ||
-					new_sgid == set_sgid)
-				set_sgid = new_sgid;
-			else
-				return -EPERM;
-		}
-	} else {
-		if (new_rgid > -1)
+		if (new_rgid == set_rgid ||
+				new_rgid == set_egid ||
+				new_rgid == set_sgid)
 			set_rgid = new_rgid;
-		if (new_egid > -1)
+		else
+			return -EPERM;
+
+		if (new_egid == set_rgid ||
+				new_egid == set_egid ||
+				new_egid == set_sgid)
 			set_egid = new_egid;
-		if (new_sgid > -1)
+		else
+			return -EPERM;
+
+		if (new_sgid == set_rgid ||
+				new_sgid == set_egid ||
+				new_sgid == set_sgid)
 			set_sgid = new_sgid;
+		else
+			return -EPERM;
+	} else {
+		set_rgid = new_rgid;
+		set_egid = new_egid;
+		set_sgid = new_sgid;
 	}
 
 	current_task->rgid = set_rgid;
@@ -872,7 +858,7 @@ int32_t setresgid(int32_t new_rgid, int32_t new_egid, int32_t new_sgid) {
 	return 0;
 }
 
-int32_t getresgid(int32_t *rgid, int32_t *egid, int32_t *sgid) {
+int32_t getresgid(gid_t *rgid, gid_t *egid, gid_t *sgid) {
 	*rgid = current_task->rgid;
 	*egid = current_task->egid;
 	*sgid = current_task->sgid;

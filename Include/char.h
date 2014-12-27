@@ -30,7 +30,7 @@ struct chrdev_driver {
 };
 
 void init_chardev(void);
-struct chrdev_driver *get_chrdev_driver(uint32_t major);
+struct chrdev_driver *get_chrdev_driver(dev_t major);
 int32_t register_chrdev(uint32_t major, const char *name, struct file_ops fops);
 
 #endif /* CHAR_H */

@@ -193,7 +193,7 @@ static fs_node_t *getparent(const char *path, char *child, int32_t *retval) {
 	return parent;
 }
 
-int32_t user_open(const char *path, uint32_t flags, uint32_t mode) {
+int32_t user_open(const char *path, uint32_t flags, mode_t mode) {
 	if (!path)
 		return -EFAULT;
 
@@ -275,7 +275,7 @@ int32_t user_stat(const char *path, struct stat *buff) {
 	return ret;
 }
 
-int32_t user_chmod(int32_t fd, uint32_t mode) {
+int32_t user_chmod(int32_t fd, mode_t mode) {
 	if (!valid_fd(fd))
 		return -EBADF;
 
@@ -286,7 +286,7 @@ int32_t user_chmod(int32_t fd, uint32_t mode) {
 	return -EPERM;
 }
 
-int32_t user_chown(int32_t fd, int32_t uid, int32_t gid) {
+int32_t user_chown(int32_t fd, uid_t uid, gid_t gid) {
 	if (!valid_fd(fd))
 		return -EBADF;
 	
@@ -348,7 +348,7 @@ int32_t user_unlink(const char *path) {
 	return ret;
 }
 
-int32_t mknod(const char *path, uint32_t mode, dev_t dev) {
+int32_t mknod(const char *path, mode_t mode, dev_t dev) {
 	if (!path)
 		return -EFAULT;
 
