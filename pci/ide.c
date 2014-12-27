@@ -725,7 +725,7 @@ static int32_t ide_ata_access(struct IDEDevice *dev, request_t *req) {
 					return error;
 				}
 
-				outsw(bus, edi + offset, IDE_SECTOR_SIZE / 2);
+				outsw(bus, edi + bio->offset + offset, IDE_SECTOR_SIZE / 2);
 				offset += IDE_SECTOR_SIZE;
 			}
 		}

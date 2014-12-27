@@ -2,19 +2,13 @@ Practically everything. Very little's actually been implemented.
 
 Immediate concerns:
 
-Improve blockdev request handling
-
-Finish IDE.
-
-Finish integrating new blockdev rewrite.
-
-Test shit
+Finish IDE
 
 FAT32 needs to be finished. It would be nice if we could get EXT2, too.
 
 User input sanitization.
 
-IPC would be nice. Interrupts especially.
+IPC would be nice. Signals especially.
 
 Need an init program.
 

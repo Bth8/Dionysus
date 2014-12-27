@@ -330,7 +330,8 @@ static ssize_t write_blkdev(dev_t dev, const void *buf, size_t count, off_t off)
 		bio->page = resolve_physical((uintptr_t)bounce +
 			(nsects - 1) * sector_size);
 		bio->offset = bio->page % PAGE_SIZE;
-		bio->page = bio->page / PAGE_SIZE * PAGE_SIZE;
+		bio->page = (bio->page / PAGE_SIZE) * PAGE_SIZE;
+		bio->nsectors = 1;
 
 		if ((ret = add_bio_to_request_blkdev(req, bio)) < 0) {
 			kfree(bio);
@@ -362,6 +363,14 @@ static ssize_t write_blkdev(dev_t dev, const void *buf, size_t count, off_t off)
 		bio->page = resolve_physical((uintptr_t)bounce + bounce_offset);
 		bio->offset = bio->page % PAGE_SIZE;
 		bio->page = (bio->page / PAGE_SIZE) * PAGE_SIZE;
+
+		if (PAGE_SIZE - bio->offset < nsects * sector_size)
+			bio->nsectors = (PAGE_SIZE - bio->offset) / sector_size;
+		else
+			bio->nsectors = nsects;
+
+		bounce_offset += bio->nsectors * sector_size;
+		nsects -= bio->nsectors;
 
 		if ((ret = add_bio_to_request_blkdev(req, bio)) < 0) {
 			kfree(bio);
@@ -660,158 +669,3 @@ static int32_t unlink(fs_node_t *parent, const char *fname) {
 
 	return 0;
 }
-
-/*
-
-static ssize_t read(fs_node_t *node, void *buf, size_t count, off_t off) {
-	if (node->flags & VFS_CHARDEV) {
-		if (char_drivers[MAJOR(node->impl) - 1].ops.read)
-			return char_drivers[MAJOR(node->impl) - 1].ops.read(node,
-					buf, count, off);
-	} else if (node->flags & VFS_BLOCKDEV)
-		return read_blkdev(MAJOR(node->impl), MINOR(node->impl), count,
-				off, buf);
-
-	return 0;
-}
-
-static ssize_t write(fs_node_t *node, const void *buf, size_t count,
-		off_t off) {
-	if (node->flags & VFS_CHARDEV) {
-		if (char_drivers[MAJOR(node->impl) - 1].ops.write)
-			return char_drivers[MAJOR(node->impl) - 1].ops.write(node, buf,
-					count, off);
-	} else if (node->flags & VFS_BLOCKDEV)
-		return write_blkdev(MAJOR(node->impl), MINOR(node->impl), count,
-				off, buf);
-
-	return 0;
-}
-
-uint32_t read_blkdev(uint32_t major, uint32_t minor, size_t count, off_t off,
-		char *buf) {
-	struct blockdev *dev = NULL;
-	uint32_t i;
-	for (i = 0; i < blk_drivers[major - 1].devs.size; i++) {
-		dev = lookup_ordered_array(i, &blk_drivers[major - 1].devs);
-		if (dev->minor == minor)
-			break;
-	}
-	if (dev == NULL || dev->minor != minor)
-		return 0;
-
-	uint32_t block = off / dev->block_size + dev->offset;
-	off %= dev->block_size;
-	size_t read = 0;
-
-	if (off + count >= dev->block_size) {
-		char *tmp = (char *)kmalloc(dev->block_size);
-		if (!tmp)
-			return 0;
-		if (dev->driver->read(dev->minor / 16, block, 1, tmp)) {
-			kfree(tmp);
-			return 0;
-		}
-		memcpy(buf, tmp + off, dev->block_size - off);
-		count -= dev->block_size - off;
-		read += dev->block_size - off;
-		off = 0;
-		block++;
-		kfree(tmp);
-	}
-
-	uint32_t nblocks = count / dev->block_size;
-	count %= dev->block_size;
-
-	if (nblocks &&
-			dev->driver->read(dev->minor / 16, block, nblocks, buf + read))
-		return read;
-
-	read += nblocks * dev->block_size;
-	block += nblocks;
-
-	if (count) {
-		char *tmp = (char *)kmalloc(dev->block_size);
-		if (!tmp)
-			return read;
-		if (dev->driver->read(dev->minor / 16, block, 1, tmp)) {
-			kfree(tmp);
-			return read;
-		}
-		memcpy(buf + read, tmp + off, count);
-		read += count;
-		kfree(tmp);
-	}
-
-	return read;
-}
-
-uint32_t write_blkdev(uint32_t major, uint32_t minor, size_t count, off_t off,
-		const char *buf) {
-	struct blockdev *dev = NULL;
-	uint32_t i;
-	for (i = 0; i < blk_drivers[major - 1].devs.size; i++) {
-		dev = lookup_ordered_array(i, &blk_drivers[major - 1].devs);
-		if (dev->minor == minor)
-			break;
-	}
-	if (dev == NULL || dev->minor != minor)
-		return 0;
-
-	if (!dev->driver->write) // Sanity check
-		return 0;
-
-	uint32_t block = off / dev->block_size + dev->offset;
-	off %= dev->block_size;
-	size_t written = 0;
-
-	if (off + count >= dev->block_size) {
-		char *tmp = (char *)kmalloc(dev->block_size);
-		if (!tmp)
-			return 0;
-		if (dev->driver->read(dev->minor / 16, block, 1, tmp)) {
-			kfree(tmp);
-			return 0;
-		}
-		memcpy(tmp + off, buf, dev->block_size - off);
-		if (dev->driver->write(dev->minor / 16, block, 1, tmp)) {
-			kfree(tmp);
-			return 0;
-		}
-		count -= dev->block_size - off;
-		written += dev->block_size - off;
-		off = 0;
-		block++;
-		kfree(tmp);
-	}
-
-	uint32_t nblocks = count / dev->block_size;
-	count %= dev->block_size;
-
-	if (nblocks && dev->driver->write(dev->minor / 16, block, nblocks,
-				buf + written))
-		return written;
-
-	written += nblocks * dev->block_size;
-	block += nblocks;
-
-	if (count) {
-		char *tmp = (char*)kmalloc(dev->block_size);
-		if (!tmp)
-			return written;
-		if (dev->driver->read(dev->minor / 16, block, 1, tmp)) {
-			kfree(tmp);
-			return written;
-		}
-		memcpy(tmp + off, buf + written, count);
-		if (dev->driver->write(dev->minor / 16, block, 1, tmp)) {
-			kfree(tmp);
-			return written;
-		}
-		kfree(tmp);
-		written += count;
-	}
-
-	return written;
-}
-*/

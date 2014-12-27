@@ -100,7 +100,7 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 
 	init_ide();
 
-	char buff[1024];
+	char buff[1024] = "Let's trash this disk in a random and unpredictable way.";
 	int32_t ret;
 
 	if ((ret = mknod("/dev/hda", VFS_BLOCKDEV | 0666, MKDEV(IDE_MAJOR, 0))) < 0) {
@@ -114,13 +114,13 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 		goto end;
 	}
 
-	ssize_t bytes = read_vfs(file, buff, 1024, 0x010B3C1D);
+	ssize_t bytes = write_vfs(file, buff, 1024, 0x010B3C1D);
 	if (bytes < 0) {
 		printf("read_vfs %i\n", (uint32_t)bytes);
 		goto end;
 	}
 
-	printf("%s\n", buff);
+	printf("Wrote %i bytes\n", (uint32_t)bytes);
 
 end:
 	halt();
