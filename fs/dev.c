@@ -199,6 +199,7 @@ static void file_remove(struct superblock *sb, uint32_t inode) {
 }
 
 static ssize_t read_blkdev(dev_t dev, void *buf, size_t count, off_t off) {
+	ssize_t ret = 0;
 	size_t sector_size = get_block_size(dev);
 	off_t delta = off % sector_size;
 	off -= delta;
@@ -220,8 +221,10 @@ static ssize_t read_blkdev(dev_t dev, void *buf, size_t count, off_t off) {
 	uintptr_t bounce_offset = 0;
 	while (nsects) {
 		bio_t *bio = (bio_t *)kmalloc(sizeof(bio_t));
-		if (!bio)
+		if (!bio) {
+			ret = -ENOMEM;
 			goto fail;
+		}
 
 		bio->page = resolve_physical((uintptr_t)bounce + bounce_offset);
 		bio->offset = bio->page % PAGE_SIZE;
@@ -235,13 +238,13 @@ static ssize_t read_blkdev(dev_t dev, void *buf, size_t count, off_t off) {
 		bounce_offset += bio->nsectors * sector_size;
 		nsects -= bio->nsectors;
 
-		if (add_bio_to_request_blkdev(req, bio) < 0) {
+		if ((ret = add_bio_to_request_blkdev(req, bio)) < 0) {
 			kfree(bio);
 			goto fail;
 		}
 	}
 
-	if (post_and_wait_blkdev(req) < 0)
+	if ((ret = post_and_wait_blkdev(req)) < 0)
 		goto fail;
 
 	free_request(req);
@@ -252,7 +255,7 @@ static ssize_t read_blkdev(dev_t dev, void *buf, size_t count, off_t off) {
 fail:
 	kfree(bounce);
 	free_request(req);
-	return -ENOMEM;
+	return ret;
 }
 
 static ssize_t read(fs_node_t *node, void *buf, size_t count, off_t off) {
@@ -266,12 +269,126 @@ static ssize_t read(fs_node_t *node, void *buf, size_t count, off_t off) {
 	return -EINVAL;
 }
 
+static ssize_t write_blkdev(dev_t dev, const void *buf, size_t count, off_t off) {
+	ssize_t ret = 0;
+	size_t sector_size = get_block_size(dev);
+	off_t delta = off % sector_size;
+	off -= delta;
+
+	request_t *req = NULL;
+
+	uint32_t nsects = (count + delta) / sector_size;
+	if ((count + delta) % sector_size)
+		nsects++;
+
+	void *bounce = kmemalign(sector_size, nsects * sector_size);
+	if (!bounce)
+		return -ENOMEM;
+
+	if (delta) {
+		req = create_request_blkdev(dev, off / sector_size, 0);
+		if (!req) {
+			kfree(bounce);
+			return -ENOMEM;
+		}
+
+		bio_t *bio = kmalloc(sizeof(bio_t));
+		if (!bio) {
+			ret = -ENOMEM;
+			goto fail;
+		}
+
+		bio->page = resolve_physical((uintptr_t)bounce);
+		bio->offset = bio->page % PAGE_SIZE;
+		bio->page = (bio->page / PAGE_SIZE) * PAGE_SIZE;
+		bio->nsectors = 1;
+
+		if ((ret = add_bio_to_request_blkdev(req, bio)) < 0) {
+			kfree(bio);
+			goto fail;
+		}
+
+		if ((ret = post_and_wait_blkdev(req)) < 0)
+			goto fail;
+
+		free_request(req);
+	}
+
+	if ((count + delta) % sector_size) {
+		req = create_request_blkdev(dev, off / sector_size + nsects - 1, 0);
+		if (!req) {
+			kfree(bounce);
+			return -ENOMEM;
+		}
+
+		bio_t *bio = kmalloc(sizeof(bio_t));
+		if (!bio) {
+			ret = -ENOMEM;
+			goto fail;
+		}
+
+		bio->page = resolve_physical((uintptr_t)bounce +
+			(nsects - 1) * sector_size);
+		bio->offset = bio->page % PAGE_SIZE;
+		bio->page = bio->page / PAGE_SIZE * PAGE_SIZE;
+
+		if ((ret = add_bio_to_request_blkdev(req, bio)) < 0) {
+			kfree(bio);
+			goto fail;
+		}
+
+		if ((ret = post_and_wait_blkdev(req)) < 0)
+			goto fail;
+
+		free_request(req);
+	}
+
+	memcpy(bounce + delta, buf, count);
+
+	req = create_request_blkdev(dev, off / sector_size, BLOCK_DIR_WRITE);
+	if (!req) {
+		kfree(bounce);
+		return -ENOMEM;
+	}
+
+	uintptr_t bounce_offset = 0;
+	while (nsects) {
+		bio_t *bio = (bio_t *)kmalloc(sizeof(bio_t));
+		if (!bio) {
+			ret = -ENOMEM;
+			goto fail;
+		}
+
+		bio->page = resolve_physical((uintptr_t)bounce + bounce_offset);
+		bio->offset = bio->page % PAGE_SIZE;
+		bio->page = (bio->page / PAGE_SIZE) * PAGE_SIZE;
+
+		if ((ret = add_bio_to_request_blkdev(req, bio)) < 0) {
+			kfree(bio);
+			goto fail;
+		}
+	}
+
+	if ((ret = post_and_wait_blkdev(req)) < 0)
+		goto fail;
+
+	free_request(req);
+
+	return count;
+
+fail:
+	kfree(bounce);
+	free_request(req);
+	return -ENOMEM;
+}
+
 static ssize_t write(fs_node_t *node, const void *buf, size_t count, off_t off) {
 	if (node->mode & VFS_CHARDEV) {
 		struct chrdev_driver *driver = get_chrdev_driver(MAJOR(node->dev));
 		if (driver && driver->ops.write)
 			return driver->ops.write(node, buf, count, off);
-	}
+	} else if (node->mode & VFS_BLOCKDEV)
+		return write_blkdev(node->dev, buf, count, off);
 
 	return -EINVAL;
 }
