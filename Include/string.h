@@ -1,6 +1,6 @@
 /* string.h - emulates glibc string.h */
 
-/* Copyright (C) 2011-2013 Bth8 <bth8fwd@gmail.com>
+/* Copyright (C) 2015 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *

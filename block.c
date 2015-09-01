@@ -1,6 +1,6 @@
 /* block.c - registering, managing, and accessing blockdevs */
 
-/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
+/* Copyright (C) 2015 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *

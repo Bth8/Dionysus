@@ -3,7 +3,7 @@
  * user functions
  */
 
-/* Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
+/* Copyright (C) 2015 Bth8 <bth8fwd@gmail.com>
  *
  *  This file is part of Dionysus.
  *

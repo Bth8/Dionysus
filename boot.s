@@ -1,7 +1,7 @@
 ; boot.s - initial start code. Sets up multiboot options, jumps to higher
 ; half and loads kmain
 
-; Copyright (C) 2014 Bth8 <bth8fwd@gmail.com>
+; Copyright (C) 2015 Bth8 <bth8fwd@gmail.com>
 ;
 ;  This file is part of Dionysus.
 ;
