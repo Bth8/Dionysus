@@ -25,7 +25,7 @@
 #define NULL ((void *)0)
 
 #define PANIC(b) panic(__LINE__, __FILE__, b)
-#define ASSERT(b) (b) ? NULL : PANIC("ASSERT failed")
+#define ASSERT(b) (b) ? NULL : PANIC("ASSERT failed\n\t" #b)
 #define BCD2HEX(bcd) ((bcd) = (((bcd) & 0xF0) >> 1) + \
 	(((bcd) & 0xF0) >> 3) + ((bcd) & 0xf))
 #define offsetof(type, member) ((uintptr_t)(&((type *)NULL)->member))
