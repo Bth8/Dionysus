@@ -42,19 +42,20 @@
 
 #include <fileops.h>
 
-// LOOK HERE
 // Defined in linker script
 extern uintptr_t kend;
 
-uintptr_t placement_address = (uint32_t)&kend;
+uintptr_t placement_address = (uintptr_t)&kend;
 
+// Defined in timer.c
 extern uint32_t tick;
 
 void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 	monitor_clear();
+
 	printf("Booting Dionysus!\n");
-	ASSERT(magic == MULTIBOOT_BOOTLOADER_MAGIC &&
-			"Not booted with multiboot.");
+
+	ASSERT(magic == MULTIBOOT_BOOTLOADER_MAGIC && "Not booted with multiboot.");
 	ASSERT(mboot->flags & MULTIBOOT_INFO_MEMORY && "No memory info.");
 	ASSERT(mboot->flags & MULTIBOOT_INFO_MEM_MAP && "No memory map.");
 
@@ -100,28 +101,5 @@ void kmain(uint32_t magic, multiboot_info_t *mboot, uintptr_t ebp) {
 
 	init_ide();
 
-	char buff[1024] = "Let's trash this disk in a random and unpredictable way.";
-	int32_t ret;
-
-	if ((ret = mknod("/dev/hda", VFS_BLOCKDEV | 0666, MKDEV(IDE_MAJOR, 0))) < 0) {
-		printf("mknod %i\n", ret);
-		goto end;
-	}
-
-	fs_node_t *file = kopen("/dev/hda", O_RDWR, &ret);
-	if (!file) {
-		printf("kopen %i\n", ret);
-		goto end;
-	}
-
-	ssize_t bytes = write_vfs(file, buff, 1024, 0x010B3C1D);
-	if (bytes < 0) {
-		printf("read_vfs %i\n", (uint32_t)bytes);
-		goto end;
-	}
-
-	printf("Wrote %i bytes\n", (uint32_t)bytes);
-
-end:
 	halt();
 }
