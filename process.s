@@ -19,7 +19,7 @@
 
 [bits 32]
 ; Defined in boot.s
-extern BootPageDir
+extern boot_dir
 ; Ensure this is the same as the one in boot.s
 KERNEL_VIRTUAL_BASE equ 0xC0000000
 
@@ -37,7 +37,7 @@ copy_page_physical:
 
 	mov ebx, cr3		; Preserve page dir
 
-	mov eax, (BootPageDir - KERNEL_VIRTUAL_BASE)
+	mov eax, (boot_dir - KERNEL_VIRTUAL_BASE)
 	mov cr3, eax		; Change page dir to the one used at boot time
 
 	lea eax, [.continue]	; Get address

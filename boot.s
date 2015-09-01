@@ -37,13 +37,13 @@ KERNEL_PAGE_NUMBER	equ (KERNEL_VIRTUAL_BASE >> 22)
 [BITS 32]
 
 section .data
-align 4096
+
 ; Used to set us up in the higher half. Temporary.
 ; Real paging implemented later
-
-global BootPageDir
-BootPageDir:
-	; Identity map first 4MB. Required for now, okay to unmap later
+align 4096
+global boot_dir
+boot_dir:
+	; Identity map first 4MiB. Required for now; okay to unmap later
 	dd 0x00000083
 	times (KERNEL_PAGE_NUMBER - 1) dd 0
 	; Page directory containing kernel mapped
@@ -61,8 +61,8 @@ extern kmain
 start:
 	; Disable interrupts until we get the IDT going
 	cli
-	; Addresses must be physical until paging enabled
-	mov ecx, (BootPageDir - KERNEL_VIRTUAL_BASE)
+	; Page dir addresses must be physical
+	mov ecx, (boot_dir - KERNEL_VIRTUAL_BASE)
 	mov cr3, ecx
 
 	; Allow 4MiB pages
@@ -82,10 +82,10 @@ start:
 	mov cr4, ecx
 
 	; Jump to kernel space
-	lea ecx, [higherHalfBegin]
+	lea ecx, [higher_half]
 	jmp ecx
 
-higherHalfBegin:
+higher_half:
 	mov esp, stack_top
 	mov ebp, stack_top
 	push ebp
