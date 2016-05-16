@@ -73,17 +73,17 @@ struct pci_driver {
 	int (*probe)(struct pci_dev*, const struct pci_dev_id*);
 };
 
-inline uint32_t pciConfigReadDword(uint8_t bus, uint8_t slot, uint8_t func,
+uint32_t pciConfigReadDword(uint8_t bus, uint8_t slot, uint8_t func,
 	uint8_t off);
-inline uint16_t pciConfigReadWord(uint8_t bus, uint8_t slot, uint8_t func,
+uint16_t pciConfigReadWord(uint8_t bus, uint8_t slot, uint8_t func,
 	uint8_t off);
-inline uint8_t pciConfigReadByte(uint8_t bus, uint8_t slot, uint8_t func,
+uint8_t pciConfigReadByte(uint8_t bus, uint8_t slot, uint8_t func,
 	uint8_t off);
-inline void pciConfigWriteDword(uint8_t bus, uint8_t slot, uint8_t func,
+void pciConfigWriteDword(uint8_t bus, uint8_t slot, uint8_t func,
 	uint8_t off, uint32_t val);
-inline void pciConfigWriteWord(uint8_t bus, uint8_t slot, uint8_t func,
+void pciConfigWriteWord(uint8_t bus, uint8_t slot, uint8_t func,
 	uint8_t off, uint16_t val);
-inline void pciConfigWriteByte(uint8_t bus, uint8_t slot, uint8_t func,
+void pciConfigWriteByte(uint8_t bus, uint8_t slot, uint8_t func,
 	uint8_t off, uint8_t val);
 
 void init_pci(void);

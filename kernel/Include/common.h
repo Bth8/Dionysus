@@ -49,16 +49,10 @@ typedef int32_t pid_t;
 typedef uint8_t spinlock_t;
 
 // Bochs magic breakpoint. Doesn't actually do anything on a real system
-extern inline void magic_break(void) { asm volatile("xchg %%bx, %%bx"::); }
-extern inline void outb(uint16_t port, uint8_t value) {
-	asm volatile("outb %1, %0":: "dN"(port), "a"(value));
-}
-extern inline void outw(uint16_t port, uint16_t value) {
-	asm volatile("outw %1, %0":: "dN"(port), "a"(value));
-}
-extern inline void outl(uint16_t port, uint32_t value) {
-	asm volatile("outl %1, %0":: "dN"(port), "a"(value));
-}
+void magic_break(void);
+void outb(uint16_t port, uint8_t value);
+void outw(uint16_t port, uint16_t value);
+void outl(uint16_t port, uint32_t value);
 
 // inb, inw, ind, insw and outsw are defined in port.s
 uint8_t inb(uint16_t port);
@@ -67,7 +61,7 @@ uint32_t inl(uint16_t port);
 void insw(uint16_t port, void *buf, int count);
 void outsw(uint16_t port, void *src, int count);
 
-extern inline void halt(void) {while(1){ asm volatile("sti; hlt;"); };}
+void halt(void);
 void panic(uint32_t line, char *file, char *msg);
 void spin_lock(volatile spinlock_t *lock);
 void spin_unlock(volatile spinlock_t *lock);

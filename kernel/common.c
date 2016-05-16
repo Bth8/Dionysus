@@ -22,6 +22,28 @@
 #include <printf.h>
 #include <timer.h>
 
+void magic_break(void) {
+	asm volatile("xchg %%bx, %%bx"::);
+}
+
+void outb(uint16_t port, uint8_t value) {
+	asm volatile("outb %1, %0":: "dN"(port), "a"(value));
+}
+
+void outw(uint16_t port, uint16_t value) {
+	asm volatile("outw %1, %0":: "dN"(port), "a"(value));
+}
+
+void outl(uint16_t port, uint32_t value) {
+	asm volatile("outl %1, %0":: "dN"(port), "a"(value));
+}
+
+void halt(void) {
+	while (1) {
+		asm volatile("sti; hlt;");
+	}
+}
+
 void panic(uint32_t line, char *file, char *msg) {
 	asm volatile("cli");
 
