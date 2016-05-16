@@ -1,3 +1,6 @@
 *.o
 *.bak
-kernel/kernel
+kernel/dionysus
+update_image.sh
+dionysus.img
+hdd/boot/dionysus

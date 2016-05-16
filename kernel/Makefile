@@ -15,7 +15,7 @@ SOURCES_ALL=$(SOURCES_MAIN) $(addprefix fs/, $(SOURCES_FS)) \
 			$(addprefix pci/, $(SOURCES_PCI)) \
 			$(addprefix structures/, $(SOURCES_STRUCTURES))
 
-CC=i686-pc-dionysus-gcc
+CC=i686-dionysus-gcc
 CFLAGS=-Wall -Wextra -Werror -Wno-unused-parameter \
 	   -Wno-missing-field-initializers -nostdlib \
 	   -fomit-frame-pointer -I./Include -fno-leading-underscore -O \
@@ -25,15 +25,15 @@ LIBS=-lgcc
 AS=nasm
 ASFLAGS=-felf32
 
-all: kernel
+all: dionysus
 
 debug: CFLAGS += -g -DDEBUG
 debug: all
 
 clean:
-	rm -f $(SOURCES_ALL) kernel
+	rm -f $(SOURCES_ALL) dionysus
 
-kernel: $(SOURCES_ALL)
+dionysus: $(SOURCES_ALL)
 	$(CC) $(LDFLAGS) $(CFLAGS) -o $@ $(SOURCES_ALL) $(LIBS)
 
 %.o: %.s

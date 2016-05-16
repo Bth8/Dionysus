@@ -1,0 +1,3 @@
+title=Dionysus
+root (hd0,0)
+kernel /boot/kernel
