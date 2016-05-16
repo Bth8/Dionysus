@@ -215,7 +215,7 @@ void init_tasking(uintptr_t ebp) {
 	kidle_tasklet->task.eip = (uintptr_t)&_kidle;
 
 	// Create a user stack
-	for (i = USER_STACK_BOTTOM; i < USER_STACK_TOP; i += PAGE_SIZE);
+	for (i = USER_STACK_BOTTOM; i < USER_STACK_TOP; i += PAGE_SIZE)
 		alloc_frame(get_page(i, 1, current_dir), 0, 1);
 
 	tree_node_t *treenode = tree_set_root(proc_tree, init);

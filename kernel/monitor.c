@@ -56,7 +56,7 @@ static void scroll(void) {
 		for (i = 0; i < 25 * 80; i++)
 			vmem[i] = vmem[i+80];
 		// Blank last line
-		for (i = 24 * 80; i < 26 * 80; i++);
+		for (i = 24 * 80; i < 26 * 80; i++)
 			vmem[i] = blank;
 		// Set cursor to last line
 		cursor_y = 24;

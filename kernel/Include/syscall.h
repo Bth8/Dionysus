@@ -177,7 +177,7 @@ DECL_SYSCALL3(readdir, int32_t, void*, uint32_t);
 DECL_SYSCALL2(stat, const char*, void*);
 DECL_SYSCALL2(chmod, int32_t, mode_t);
 DECL_SYSCALL3(chown, int32_t, uid_t, gid_t);
-DECL_SYSCALL3(ioctl, int, unsigned int, void*);
+DECL_SYSCALL3(ioctl, int, uint32_t, void*);
 DECL_SYSCALL2(link, const char*, const char*);
 DECL_SYSCALL1(unlink, const char*);
 DECL_SYSCALL3(mknod, const char*, mode_t, dev_t);
