@@ -1,0 +1,119 @@
+diff -rupN binutils-2.26/bfd/config.bfd binutils-2.26-dionysus/bfd/config.bfd
+--- binutils-2.26/bfd/config.bfd	2015-11-13 03:27:40.000000000 -0500
++++ binutils-2.26-dionysus/bfd/config.bfd	2016-05-13 03:41:10.019157812 -0400
+@@ -591,6 +591,10 @@ case "${targ}" in
+     targ64_selvecs=x86_64_mach_o_vec
+     targ_archs="$targ_archs bfd_powerpc_arch bfd_rs6000_arch"
+     ;;
++  i[3-7]86-*-dionysus*)
++    targ_defvec=i386_elf32_vec
++    targ64_selvecs="x86_64_elf32_vec x86_64_elf64_vec"
++    ;;
+   i[3-7]86-sequent-bsd*)
+     targ_defvec=i386_aout_dynix_vec
+     targ_underscore=yes
+@@ -670,6 +674,11 @@ case "${targ}" in
+     targ_archs="$targ_archs bfd_powerpc_arch bfd_rs6000_arch"
+     want64=true
+     ;;
++  x86_64-*-dionysus*)
++    targ_defvec=x86_64_elf64_vec
++    targ_selvecs="x86_64_elf32_vec i386_elf32_vec"
++    want64=true
++    ;;
+   x86_64-*-dicos*)
+     targ_defvec=x86_64_elf64_vec
+     targ_selvecs="i386_elf32_vec iamcu_elf32_vec l1om_elf64_vec k1om_elf64_vec"
+diff -rupN binutils-2.26/config.sub binutils-2.26-dionysus/config.sub
+--- binutils-2.26/config.sub	2015-11-13 03:27:41.000000000 -0500
++++ binutils-2.26-dionysus/config.sub	2016-05-13 03:02:02.316819849 -0400
+@@ -1379,7 +1379,7 @@ case $os in
+ 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+ 	      | -sym* | -kopensolaris* | -plan9* \
+ 	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
+-	      | -aos* | -aros* | -cloudabi* \
++	      | -aos* | -aros* | -cloudabi* | -dionysus* \
+ 	      | -nindy* | -vxsim* | -vxworks* | -ebmon* | -hms* | -mvs* \
+ 	      | -clix* | -riscos* | -uniplus* | -iris* | -rtu* | -xenix* \
+ 	      | -hiux* | -386bsd* | -knetbsd* | -mirbsd* | -netbsd* \
+diff -rupN binutils-2.26/gas/configure.tgt binutils-2.26-dionysus/gas/configure.tgt
+--- binutils-2.26/gas/configure.tgt	2015-11-13 03:27:41.000000000 -0500
++++ binutils-2.26-dionysus/gas/configure.tgt	2016-05-13 03:46:15.599872801 -0400
+@@ -283,6 +283,7 @@ case ${generic_target} in
+   i386-*-chaos)				fmt=elf ;;
+   i386-*-rdos*)				fmt=elf ;;
+   i386-*-darwin*)			fmt=macho ;;
++  i386-*-dionysus*)   fmt=elf ;;
+ 
+   i860-*-*)				fmt=elf endian=little ;;
+ 
+diff -rupN binutils-2.26/ld/configure.tgt binutils-2.26-dionysus/ld/configure.tgt
+--- binutils-2.26/ld/configure.tgt	2015-11-13 03:27:42.000000000 -0500
++++ binutils-2.26-dionysus/ld/configure.tgt	2016-05-13 03:57:54.993129452 -0400
+@@ -326,6 +326,13 @@ i[3-7]86-*-dragonfly*)	targ_emul=elf_i38
+ 			targ_extra_emuls="elf_iamcu i386bsd" ;;
+ x86_64-*-dragonfly*)	targ_emul=elf_x86_64
+ 			targ_extra_emuls="elf_i386 elf_iamcu elf_l1om elf_k1om" ;;
++i[3-7]86-*-dionysus*) 	targ_emul=elf_i386_dionysus
++			targ_extra_emuls=elf_i386
++			targ64_extra_emuls="elf_x86_64_dionysus elf_x86_64"
++			;;
++x86_64-*-dionysus*)		targ_emul=elf_x86_64_dionysus
++			targ_extra_emuls="elf_i386 elf_i386_dionysus elf_x86_64"
++			;;
+ i[3-7]86-*-freebsd* | i[3-7]86-*-kfreebsd*-gnu)
+ 		        targ_emul=elf_i386_fbsd
+ 			targ_extra_emuls="elf_i386 elf_iamcu i386bsd" ;;
+diff -rupN binutils-2.26/ld/emulparams/elf_i386_dionysus.sh binutils-2.26-dionysus/ld/emulparams/elf_i386_dionysus.sh
+--- binutils-2.26/ld/emulparams/elf_i386_dionysus.sh	1969-12-31 19:00:00.000000000 -0500
++++ binutils-2.26-dionysus/ld/emulparams/elf_i386_dionysus.sh	2016-05-13 04:03:00.799406132 -0400
+@@ -0,0 +1,3 @@
++. ${srcdir}/emulparams/elf_i386.sh
++GENERATE_SHLIB_SCRIPT=yes
++GENERATE_PIE_SCRIPT=yes
+\ No newline at end of file
+diff -rupN binutils-2.26/ld/emulparams/elf_x86_64_dionysus.sh binutils-2.26-dionysus/ld/emulparams/elf_x86_64_dionysus.sh
+--- binutils-2.26/ld/emulparams/elf_x86_64_dionysus.sh	1969-12-31 19:00:00.000000000 -0500
++++ binutils-2.26-dionysus/ld/emulparams/elf_x86_64_dionysus.sh	2016-05-13 04:04:19.746662913 -0400
+@@ -0,0 +1 @@
++. ${srcdir}/emulparams/elf_x86_64.sh
+\ No newline at end of file
+diff -rupN binutils-2.26/ld/Makefile.am binutils-2.26-dionysus/ld/Makefile.am
+--- binutils-2.26/ld/Makefile.am	2015-11-13 03:27:42.000000000 -0500
++++ binutils-2.26-dionysus/ld/Makefile.am	2016-05-13 04:24:08.950415640 -0400
+@@ -282,6 +282,7 @@ ALL_EMULATION_SOURCES = \
+ 	eelf_i386.c \
+ 	eelf_i386_be.c \
+ 	eelf_i386_chaos.c \
++	eelf_i386_dionysus.c \
+ 	eelf_i386_fbsd.c \
+ 	eelf_i386_ldso.c \
+ 	eelf_i386_nacl.c \
+@@ -497,6 +498,7 @@ ALL_64_EMULATION_SOURCES = \
+ 	eelf_k1om_fbsd.c \
+ 	eelf_x86_64.c \
+ 	eelf_x86_64_cloudabi.c \
++	eelf_x86_64_dionysus.c \
+ 	eelf_x86_64_fbsd.c \
+ 	eelf_x86_64_nacl.c \
+ 	eelf_x86_64_sol2.c \
+@@ -1301,6 +1303,9 @@ eelf_i386_be.c: $(srcdir)/emulparams/elf
+ eelf_i386_chaos.c: $(srcdir)/emulparams/elf_i386_chaos.sh \
+   $(ELF_DEPS) $(srcdir)/scripttempl/elf_chaos.sc ${GEN_DEPENDS}
+ 
++eelf_i386_dionysus.c: $(srcdir)/emulparams/elf_i386_dionysus.sh \
++  $(ELF DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
++
+ eelf_i386_fbsd.c: $(srcdir)/emulparams/elf_i386_fbsd.sh \
+   $(srcdir)/emulparams/elf_i386.sh \
+   $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
+@@ -1991,6 +1996,9 @@ eelf_x86_64_cloudabi.c: $(srcdir)/emulpa
+   $(srcdir)/emulparams/elf_x86_64.sh \
+   $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
+ 
++eelf_x86_64_dionysus.c: $(srcdir)/emulparams/elf_x86_64_dionysus.sh \
++  $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}
++
+ eelf_x86_64_fbsd.c: $(srcdir)/emulparams/elf_x86_64_fbsd.sh \
+   $(srcdir)/emulparams/elf_x86_64.sh \
+   $(ELF_DEPS) $(srcdir)/scripttempl/elf.sc ${GEN_DEPENDS}

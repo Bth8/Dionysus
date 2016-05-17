@@ -4,3 +4,8 @@ kernel/dionysus
 update_image.sh
 dionysus.img
 hdd/boot/dionysus
+toolchain/build
+hdd/usr
+bochs*
+*.sublime-project
+*.sublime-workspace

@@ -1,0 +1,87 @@
+diff -rupN gcc-6.1.0/config.sub gcc-6.1.0-dionysus/config.sub
+--- gcc-6.1.0/config.sub	2015-12-31 16:13:28.000000000 -0500
++++ gcc-6.1.0-dionysus/config.sub	2016-05-13 16:50:45.155811215 -0400
+@@ -1378,7 +1378,7 @@ case $os in
+ 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+ 	      | -sym* | -kopensolaris* | -plan9* \
+ 	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
+-	      | -aos* | -aros* | -cloudabi* | -sortix* \
++	      | -aos* | -aros* | -cloudabi* | -dionysus* | -sortix* \
+ 	      | -nindy* | -vxsim* | -vxworks* | -ebmon* | -hms* | -mvs* \
+ 	      | -clix* | -riscos* | -uniplus* | -iris* | -rtu* | -xenix* \
+ 	      | -hiux* | -386bsd* | -knetbsd* | -mirbsd* | -netbsd* \
+diff -rupN gcc-6.1.0/gcc/config/i386/dionysus.h gcc-6.1.0-dionysus/gcc/config/i386/dionysus.h
+--- gcc-6.1.0/gcc/config/i386/dionysus.h	1969-12-31 19:00:00.000000000 -0500
++++ gcc-6.1.0-dionysus/gcc/config/i386/dionysus.h	2016-05-13 16:53:53.781256394 -0400
+@@ -0,0 +1,8 @@
++#undef TARGET_OS_CPP_BUILTINS
++#define TARGET_OS_CPP_BUILTINS() \
++	do { \
++		builtin_define ("__dionysus__"); \
++		builtin_define ("__unix__"); \
++		builtin_assert ("system=dionysus"); \
++		builtin_assert ("system=unix"); \
++	} while(0);
+diff -rupN gcc-6.1.0/gcc/config.gcc gcc-6.1.0-dionysus/gcc/config.gcc
+--- gcc-6.1.0/gcc/config.gcc	2016-04-11 06:14:59.000000000 -0400
++++ gcc-6.1.0-dionysus/gcc/config.gcc	2016-05-13 16:50:45.156811223 -0400
+@@ -642,6 +642,11 @@ case ${target} in
+     "" | yes | posix) thread_file='posix' ;;
+   esac
+   ;;
++*-*-dionysus*)
++  gas=yes
++  gnu_ld=yes
++  default_use_cxa_atexit=yes
++  ;;
+ *-*-dragonfly*)
+   gas=yes
+   gnu_ld=yes
+@@ -1432,6 +1437,12 @@ x86_64-*-rdos*)
+     tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h newlib-stdint.h i386/i386elf.h i386/x86-64.h i386/rdos.h i386/rdos64.h"
+     tmake_file="i386/t-i386elf t-svr4"
+     ;;
++i[34567]86-*-dionysus*)
++	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h newlib-stdint.h i386/i386elf.h i386/dionysus.h"
++	;;
++x86_64-*-dionysus*)
++	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h newlib-stdint.h i386/i386elf.h i386/x86-64.h i386/dionysus.h"
++	;;
+ i[34567]86-*-dragonfly*)
+ 	tm_file="${tm_file} i386/unix.h i386/att.h dbxelf.h elfos.h dragonfly.h dragonfly-stdint.h i386/dragonfly.h"
+ 	tmake_file="${tmake_file} i386/t-crtstuff"
+diff -rupN gcc-6.1.0/libgcc/config.host gcc-6.1.0-dionysus/libgcc/config.host
+--- gcc-6.1.0/libgcc/config.host	2016-02-26 15:02:28.000000000 -0500
++++ gcc-6.1.0-dionysus/libgcc/config.host	2016-05-13 16:55:22.806932763 -0400
+@@ -571,6 +571,14 @@ x86_64-*-darwin*)
+ 	tm_file="$tm_file i386/darwin-lib.h"
+ 	extra_parts="$extra_parts crtprec32.o crtprec64.o crtprec80.o crtfastmath.o"
+ 	;;
++i[34567]86-*-dionysus*)
++	extra_parts="$extra_parts crtbegin.o crtend.o"
++	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
++	;;
++x86_64-*-dionysus*)
++	extra_parts="$extra_parts crtbegin.o crtend.o"
++	tmake_file="$tmake_file i386/t-crtstuff t-crtstuff-pic t-libgcc-pic"
++	;;	
+ i[34567]86-*-elfiamcu)
+ 	tmake_file="$tmake_file i386/t-crtstuff t-softfp-sfdftf i386/32/t-softfp i386/32/t-iamcu i386/t-softfp t-softfp t-dfprules"
+ 	;;
+diff -rupN gcc-6.1.0/libstdc++-v3/crossconfig.m4 gcc-6.1.0-dionysus/libstdc++-v3/crossconfig.m4
+--- gcc-6.1.0/libstdc++-v3/crossconfig.m4	2015-10-11 18:34:28.000000000 -0400
++++ gcc-6.1.0-dionysus/libstdc++-v3/crossconfig.m4	2016-05-13 16:50:45.157811231 -0400
+@@ -56,6 +56,13 @@ case "${host}" in
+     GLIBCXX_CHECK_STDLIB_SUPPORT
+     ;;
+ 
++  *-dionysus*)
++    GLIBCXX_CHECK_COMPILER_FEATURES
++    GLIBCXX_CHECK_LINKER_FEATURES
++    GLIBCXX_CHECK_MATH_SUPPORT
++    GLIBCXX_CHECK_STDLIB_SUPPORT
++    ;;
++
+   *djgpp)
+     # GLIBCXX_CHECK_MATH_SUPPORT
+     AC_DEFINE(HAVE_ISINF)

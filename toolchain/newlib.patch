@@ -1,0 +1,35 @@
+diff -rupN newlib-2.4.0/config.sub newlib-2.4.0-dionysus/config.sub
+--- newlib-2.4.0/config.sub	2016-03-29 17:33:42.000000000 -0400
++++ newlib-2.4.0-dionysus/config.sub	2016-05-13 14:42:43.250792742 -0400
+@@ -1378,7 +1378,7 @@ case $os in
+ 	      | -hpux* | -unos* | -osf* | -luna* | -dgux* | -auroraux* | -solaris* \
+ 	      | -sym* | -kopensolaris* | -plan9* \
+ 	      | -amigaos* | -amigados* | -msdos* | -newsos* | -unicos* | -aof* \
+-	      | -aos* | -aros* | -cloudabi* | -sortix* \
++	      | -aos* | -aros* | -cloudabi* | -dionysus* | -sortix* \
+ 	      | -nindy* | -vxsim* | -vxworks* | -ebmon* | -hms* | -mvs* \
+ 	      | -clix* | -riscos* | -uniplus* | -iris* | -rtu* | -xenix* \
+ 	      | -hiux* | -386bsd* | -knetbsd* | -mirbsd* | -netbsd* \
+diff -rupN newlib-2.4.0/newlib/configure.host newlib-2.4.0-dionysus/newlib/configure.host
+--- newlib-2.4.0/newlib/configure.host	2016-03-29 17:33:42.000000000 -0400
++++ newlib-2.4.0-dionysus/newlib/configure.host	2016-05-13 14:42:43.251792748 -0400
+@@ -448,6 +448,9 @@ case "${host}" in
+   h8500-*-elf*)
+ 	sys_dir=h8500hms
+ 	;;
++  i[34567]86-*-dionysus*)
++	sys_dir=dionysus
++	;;
+   i[34567]86-*-rdos*)
+ 	sys_dir=rdos
+ 	newlib_cflags="${newlib_cflags} -DMISSING_SYSCALL_NAMES"
+--- newlib-2.4.0/newlib/libc/sys/configure.in	2016-03-29 17:33:42.000000000 -0400
++++ newlib-2.4.0-dionysus/newlib/libc/sys/configure.in	2016-05-13 14:42:43.251792748 -0400
+@@ -26,6 +26,7 @@ if test -n "${sys_dir}"; then
+ 	arm) AC_CONFIG_SUBDIRS(arm) ;;
+ 	d10v) AC_CONFIG_SUBDIRS(d10v) ;;
+ 	decstation) AC_CONFIG_SUBDIRS(decstation) ;;
++	dionysus) AC_CONFIG_SUBDIRS(dionysus) ;;
+ 	epiphany) AC_CONFIG_SUBDIRS(epiphany) ;;
+ 	h8300hms) AC_CONFIG_SUBDIRS(h8300hms) ;;
+ 	h8500hms) AC_CONFIG_SUBDIRS(h8500hms) ;;

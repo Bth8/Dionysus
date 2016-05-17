@@ -1,13 +1,17 @@
 KERNEL_DIR=kernel
 IMAGE_DIR=hdd
+TOOLCHAIN_DIR=toolchain
 
-.PHONY: all clean kernel clean-kernel clean-image
+.PHONY: all clean kernel clean-kernel clean-image toolchain
 
 all: kernel dionysus.img
 
 clean: clean-kernel clean-image
 
 kernel: $(KERNEL_DIR)/dionysus
+
+toolchain:
+	cd $(TOOLCHAIN_DIR); ./build.sh
 
 clean-kernel:
 	$(MAKE) -C $(KERNEL_DIR) clean
